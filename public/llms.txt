@@ -1,0 +1,33 @@
+# QuisqueyaTech
+
+QuisqueyaTech es una consultoría operativa para PYMES dominicanas.
+
+Ayuda a negocios en República Dominicana a ordenar WhatsApp, agenda, seguimiento de clientes, tareas repetitivas y reportes. El enfoque es entender primero cómo trabaja el negocio y luego implementar un sistema sencillo que el equipo pueda usar.
+
+## Servicios principales
+
+- Evaluación inicial gratuita de 15 minutos.
+- Diagnóstico operativo pagado con mapa de problemas, recomendaciones y plan por fases.
+- Implementaciones cortas para resolver problemas puntuales de agenda, mensajes, seguimiento o tareas repetitivas.
+- Sistemas completos para ordenar atención, clientes, citas, reportes y automatizaciones.
+- Soluciones para clínicas, odontólogos, academias, comercios y servicios profesionales.
+
+## Audiencia
+
+Dueños, administradores y equipos operativos de pequeñas y medianas empresas dominicanas que reciben clientes por WhatsApp, Instagram, llamadas o formularios.
+
+## Ubicación y cobertura
+
+Base: Puerto Plata, República Dominicana.
+Cobertura: toda República Dominicana.
+
+## URLs principales
+
+- Sitio principal: https://quisqueyatech.com
+- Clínicas y odontólogos: https://quisqueyatech.com/clinicas
+- Privacidad: https://quisqueyatech.com/privacidad
+
+## Contacto
+
+Correo: admin@quisqueyatech.com
+Canal principal: WhatsApp desde el formulario o botones del sitio.

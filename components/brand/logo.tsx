@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 type MarkSize = "sm" | "md" | "lg";
@@ -61,7 +62,7 @@ export function BrandLockup({
             light ? "text-white/60" : "text-mute",
           )}
         >
-          Consultora operativa
+          {brand.descriptor}
         </small>
       </span>
     </span>

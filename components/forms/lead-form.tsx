@@ -48,7 +48,7 @@ export function LeadForm({ source = "home", className, compact }: Props) {
         body: JSON.stringify(data),
       });
     } catch {
-      // offline / later backend — still open WhatsApp
+      // If the backend is unavailable, still prepare the WhatsApp handoff.
     }
 
     const url = buildWhatsAppUrl({
@@ -82,8 +82,8 @@ export function LeadForm({ source = "home", className, compact }: Props) {
           Listo. Siguiente paso: WhatsApp
         </h3>
         <p className="mt-2 text-sm text-text-2">
-          Preparamos tu mensaje. Si no se abrió WhatsApp, usa el botón de abajo.
-          Te respondemos en 24–48h hábiles.
+          Preparamos tu mensaje. Si no se abrió WhatsApp, usa el enlace de abajo.
+          Te respondemos en 24-48 horas laborables.
         </p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
           {waUrl ? (
@@ -118,8 +118,8 @@ export function LeadForm({ source = "home", className, compact }: Props) {
             Evaluación inicial gratuita
           </h3>
           <p className="mt-1 text-sm text-text-2">
-            15 minutos para entender tu operación. Sin compromiso. Luego, si
-            aplica, el Diagnóstico Operativo Inteligente (pagado).
+            15 minutos para entender qué se está enredando. Sin compromiso.
+            Luego, si aporta, te proponemos un diagnóstico operativo pagado.
           </p>
         </div>
       ) : null}
@@ -168,7 +168,7 @@ export function LeadForm({ source = "home", className, compact }: Props) {
           />
         </Field>
         <Field
-          label="Dolor principal"
+          label="Problema principal"
           error={errors.pain?.message}
           className="sm:col-span-2"
         >
@@ -188,7 +188,7 @@ export function LeadForm({ source = "home", className, compact }: Props) {
         >
           <textarea
             className={cn(inputCls(errors.message), "min-h-[88px] resize-y")}
-            placeholder="¿Qué parte de la operación te está costando más tiempo o clientes?"
+            placeholder="¿Qué parte del negocio te está costando más tiempo o clientes?"
             {...register("message")}
           />
         </Field>
@@ -197,15 +197,15 @@ export function LeadForm({ source = "home", className, compact }: Props) {
       <Button type="submit" size="lg" className="mt-4 w-full" disabled={isSubmitting}>
         {isSubmitting ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" /> Enviando…
+            <Loader2 className="h-4 w-4 animate-spin" /> Enviando...
           </>
         ) : (
           "Quiero mi evaluación"
         )}
       </Button>
       <p className="mt-3 text-center text-[12.5px] text-mute">
-        Al enviar, se abrirá WhatsApp con tu caso. Respuesta inicial en 24–48h
-        hábiles.
+        Al enviar, se abrirá WhatsApp con tu caso. Respuesta inicial en 24-48
+        horas laborables.
       </p>
     </form>
   );

@@ -1,14 +1,14 @@
 export const brand = {
   name: "QuisqueyaTech",
-  descriptor: "Consultora operativa",
-  tagline: "Del caos operativo al control inteligente.",
+  descriptor: "Consultoría operativa",
+  tagline: "Ordenamos tu operación antes de venderte tecnología.",
   domain: "quisqueyatech.com",
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://quisqueyatech.com",
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "admin@quisqueyatech.com",
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://quisqueyatech.com",
+  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "admin@quisqueyatech.com",
   location: "Puerto Plata, República Dominicana",
   locationShort: "PYMES dominicanas · Toda RD",
   whatsapp:
-    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/\D/g, "") ?? "",
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/\D/g, "") || "",
 } as const;
 
 export const colors = {

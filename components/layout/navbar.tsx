@@ -15,7 +15,7 @@ const links = [
   { href: "/#empezar", label: "Empezar" },
   { href: "/#soluciones", label: "Soluciones" },
   { href: "/clinicas", label: "Clínicas" },
-  { href: "/#faq", label: "FAQ" },
+  { href: "/#faq", label: "Preguntas" },
 ];
 
 export function Navbar() {

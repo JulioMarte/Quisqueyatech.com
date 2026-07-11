@@ -10,7 +10,7 @@ import {
   CheckSquare,
 } from "lucide-react";
 
-export function SystemDashboard() {
+export function SystemPanel() {
   return (
     <div className="relative overflow-hidden rounded-[var(--radius-xl)] border border-line bg-white p-5 shadow-[0_30px_60px_-20px_rgba(8,47,73,0.15)] sm:p-7">
       <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber via-larimar to-tech" />
@@ -36,9 +36,9 @@ export function SystemDashboard() {
           </div>
           <div className="space-y-2">
             {[
-              { name: "María R.", msg: "¿Tienen cupo mañana?", tag: "Lead" },
+              { name: "María R.", msg: "¿Tienen cupo mañana?", tag: "Nuevo" },
               { name: "Clínica Norte", msg: "Confirmar cita 3:00 PM", tag: "Cita" },
-              { name: "Luis P.", msg: "Precio de limpieza", tag: "FAQ" },
+              { name: "Luis P.", msg: "Precio de limpieza", tag: "Pregunta" },
             ].map((item) => (
               <div
                 key={item.name}
@@ -66,7 +66,7 @@ export function SystemDashboard() {
         <div className="space-y-3">
           <div className="rounded-[var(--radius-md)] border border-line bg-bg-2 p-3.5">
             <span className="mb-2 block font-mono text-[10.5px] uppercase tracking-[0.12em] text-mute">
-              Pipeline
+              Seguimiento
             </span>
             <div className="space-y-2">
               {[
@@ -91,10 +91,10 @@ export function SystemDashboard() {
             </div>
             <p className="text-[13px] text-white/85">Ana G. · Odontología · 10:30 AM</p>
             <p className="mt-1 font-mono text-[11px] text-larimar">
-              Fuente: Instagram · Recordatorio 24h enviado
+              Llegó por Instagram · Recordatorio 24h enviado
             </p>
             <p className="mt-2 text-[12px] text-white/70">
-              Próxima acción: Llamar mañana 9:00 AM
+              Próxima acción: llamar mañana 9:00 AM
             </p>
           </div>
 
@@ -109,7 +109,7 @@ export function SystemDashboard() {
             <div className="rounded-[var(--radius-md)] border border-line bg-white p-3">
               <div className="mb-1 flex items-center gap-1.5 text-mute">
                 <Users className="h-3.5 w-3.5" />
-                <span className="font-mono text-[10px] uppercase">Leads hoy</span>
+                <span className="font-mono text-[10px] uppercase">Nuevos hoy</span>
               </div>
               <p className="font-display text-xl font-bold text-primary">18</p>
             </div>
@@ -129,7 +129,7 @@ export function SystemDashboard() {
             <Phone className="h-3 w-3" /> Llamadas
           </span>
           <span className="inline-flex items-center gap-1">
-            <FileText className="h-3 w-3" /> Forms
+            <FileText className="h-3 w-3" /> Formularios
           </span>
         </span>
         <span className="inline-flex items-center gap-2 text-success">

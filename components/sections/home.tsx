@@ -20,7 +20,7 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { SystemDashboard } from "@/components/demo/system-dashboard";
+import { SystemPanel } from "@/components/demo/system-panel";
 import { LeadForm } from "@/components/forms/lead-form";
 import { ButtonLink } from "@/components/ui/button";
 import {
@@ -37,17 +37,17 @@ export function HeroSection() {
       <Container>
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <Eyebrow>Consultora operativa para PYMES dominicanas</Eyebrow>
+            <Eyebrow>Consultoría para negocios que quieren ordenar la casa</Eyebrow>
             <h1 className="mt-4 font-display text-[clamp(38px,5vw,64px)] font-extrabold leading-[1.04] tracking-[-0.03em] text-primary">
               <span className="bg-gradient-to-r from-amber-deep to-larimar-deep bg-clip-text text-transparent">
-                Del caos operativo
+                Ordenamos el desorden
               </span>{" "}
-              al control inteligente.
+              antes de venderte tecnología.
             </h1>
             <p className="mt-5 max-w-[48ch] text-[clamp(16.5px,1.35vw,19px)] leading-[1.55] text-text-2">
-              Ayudamos a PYMES dominicanas a ordenar su atención, automatizar
-              tareas repetitivas y convertir WhatsApp, agenda, CRM e IA en un
-              sistema que realmente se usa.
+              Ayudamos a PYMES dominicanas a responder mejor, dar seguimiento,
+              agendar sin enredos y ver qué está pasando en el negocio. Primero
+              entendemos tu operación; después montamos el sistema que hace falta.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-2.5">
               <ButtonLink href="#evaluacion" size="lg">
@@ -60,9 +60,9 @@ export function HeroSection() {
             <div className="mt-5 flex flex-wrap gap-3.5 text-[13px] text-text-2">
               {[
                 "Evaluación inicial gratis",
-                "Diagnóstico humano",
+                "Diagnóstico con gente real",
                 "Plan por fases",
-                "Pensado para PYMES en RD",
+                "Pensado para negocios en RD",
               ].map((t) => (
                 <span key={t} className="inline-flex items-center gap-1.5 font-medium">
                   <span className="font-bold text-success">✓</span> {t}
@@ -70,7 +70,7 @@ export function HeroSection() {
               ))}
             </div>
           </div>
-          <SystemDashboard />
+          <SystemPanel />
         </div>
       </Container>
     </Section>
@@ -80,28 +80,28 @@ export function HeroSection() {
 export function ProblemSection() {
   const pains = [
     {
-      title: "Leads que se pierden en WhatsApp",
-      body: "Llegan mensajes a las 10pm, nadie los responde, el lunes ya compraron a la competencia.",
+      title: "Personas interesadas que se pierden en WhatsApp",
+      body: "Escriben de noche, nadie responde, y cuando vuelves ya compraron en otro lado.",
     },
     {
       title: "Clientes sin seguimiento",
-      body: "Se atiende, se olvida. No hay pipeline. No hay quién llame al día siguiente.",
+      body: "Se atiende una vez, se deja para después, y nadie sabe quién debía llamar.",
     },
     {
-      title: "Citas mal gestionadas",
-      body: "Huecos de 90 minutos, no-shows, doble booking, secretarias improvisando.",
+      title: "Citas mal llevadas",
+      body: "Huecos, cancelaciones, dobles reservas y una agenda que vive cambiando a mano.",
     },
     {
-      title: "Personal saturado respondiendo lo mismo",
-      body: "Las mismas 5 preguntas, 40 veces al día, a mano.",
+      title: "El equipo contestando lo mismo todo el día",
+      body: "Precios, horarios, ubicación, disponibilidad. La misma pregunta, una y otra vez.",
     },
     {
-      title: "Reportes que nadie ve en tiempo real",
-      body: "El cierre de mes son 3 días copiando números.",
+      title: "Números que llegan tarde",
+      body: "El dueño se entera al cierre de mes, cuando ya se perdió tiempo y dinero.",
     },
     {
-      title: "Datos regados entre celulares y Excel",
-      body: "El conocimiento se va cuando se va el empleado.",
+      title: "Información regada",
+      body: "Un poco en celulares, otro poco en Excel, otro poco en la memoria de alguien.",
     },
   ];
 
@@ -112,32 +112,32 @@ export function ProblemSection() {
           eyebrow="El problema real"
           title={
             <>
-              Tu negocio no necesita más apps.{" "}
-              <strong className="text-primary">Necesita un sistema.</strong>
+              Tu negocio no necesita otra app más.{" "}
+              <strong className="text-primary">Necesita trabajar con orden.</strong>
             </>
           }
         />
         <div className="grid items-start gap-10 lg:grid-cols-[1.2fr_1fr]">
           <div>
             <p className="text-lg leading-relaxed text-text-2">
-              Muchos negocios en RD ya tienen WhatsApp, Instagram, Excel,
-              llamadas, libretas y Google Calendar. El problema no es falta de
-              herramientas.{" "}
+              Muchos negocios ya tienen WhatsApp, Instagram, Excel, llamadas,
+              libretas y calendario. El problema no es que falten herramientas.{" "}
               <strong className="text-text">
-                El problema es que nada está conectado.
+                El problema es que cada cosa va por su lado.
               </strong>
             </p>
             <p className="mt-4 text-base text-text-2">
-              Por eso se pierden clientes, el equipo se satura y el dueño no sabe
-              qué pasa hasta que es tarde. En República Dominicana la mayoría de
-              PYMES no va a comprar “IA”. Va a comprar{" "}
-              <strong className="text-text">menos desorden y más control</strong>
-              . Eso es lo que construimos.
+              Ahí se pierden clientes, el equipo se cansa y el dueño empieza a
+              preguntar tarde: “¿y qué pasó con esa gente?”. En RD, la mayoría de
+              negocios no está comprando palabras bonitas sobre inteligencia
+              artificial. Está comprando{" "}
+              <strong className="text-text">menos desorden y más control</strong>.
+              Eso es lo que construimos.
             </p>
           </div>
           <div className="rounded-[var(--radius-lg)] border border-line bg-bg-2 p-7">
             <h4 className="mb-4 font-mono text-xs font-medium uppercase tracking-[0.14em] text-mute">
-              Lo que escuchamos en cada diagnóstico
+              Lo que aparece en casi cada diagnóstico
             </h4>
             <ul className="flex flex-col gap-2.5">
               {pains.map((p) => (
@@ -160,20 +160,20 @@ export function ProblemSection() {
 
 export function BeforeAfterSection() {
   const before = [
-    ["WhatsApp personal", "Dos personas respondiendo lo mismo, sin registro."],
-    ["Excel sagrado", "Una sola persona lo entiende. Si falta, se cae."],
-    ["Libretas y papel", "Citas anotadas a mano, se pierden, se doblan."],
-    ["Llamadas sin registro", "Suena, no contestan, nadie devuelve."],
-    ["Clientes sin seguimiento", "Se atiende, se olvida, no hay pipeline."],
-    ["Dueño preguntando", "“¿Qué pasó con ese cliente?” sin respuesta."],
+    ["WhatsApp personal", "Varias personas contestando sin saber qué dijo la otra."],
+    ["Excel intocable", "Solo una persona lo entiende. Si falta, se tranca todo."],
+    ["Libretas y papel", "Citas anotadas a mano, cambios sin aviso, datos perdidos."],
+    ["Llamadas sin registro", "Si no contestaron, nadie recuerda devolver la llamada."],
+    ["Clientes sin próximo paso", "Se habló con ellos, sí. Pero nadie sabe qué sigue."],
+    ["Dueño preguntando", "“¿Qué pasó con ese cliente?” y media oficina buscando respuesta."],
   ];
   const after = [
-    ["Inbox centralizado", "WhatsApp, Instagram, email y forms en un lugar."],
-    ["CRM operativo", "Cualquiera responde con contexto completo."],
-    ["Agenda inteligente", "Confirmaciones y recordatorios automáticos."],
-    ["IA asistiendo", "FAQ automático; lo complejo escala a humanos."],
-    ["Pipeline visible", "Estado, próximo paso y responsable por lead."],
-    ["Reportes en vivo", "El dueño ve el dashboard sin pedirlo."],
+    ["Mensajes en un solo lugar", "WhatsApp, Instagram y formularios con orden y responsable."],
+    ["Registro de clientes y seguimiento", "Cualquiera atiende con contexto, sin empezar desde cero."],
+    ["Agenda conectada", "Confirmaciones y recordatorios que salen sin perseguir a nadie."],
+    ["Respuestas repetidas bajo control", "Lo simple se responde rápido; lo delicado pasa a una persona."],
+    ["Próximos pasos visibles", "Cada cliente tiene estado, responsable y acción siguiente."],
+    ["Panel de control", "El dueño ve lo importante sin pedir veinte reportes."],
   ];
 
   return (
@@ -181,14 +181,14 @@ export function BeforeAfterSection() {
       <Container>
         <SectionHead
           center
-          eyebrow="Antes vs Después"
+          eyebrow="Antes vs. después"
           title={
             <>
-              De operación con parches a{" "}
-              <strong className="text-primary">operación con sistema.</strong>
+              De operar con parches a{" "}
+              <strong className="text-primary">trabajar con sistema.</strong>
             </>
           }
-          lede="Esto es lo que cambia cuando una PYME dominicana pasa por nuestro proceso."
+          lede="Esto es lo que cambia cuando el negocio deja de depender de memoria, suerte y corredera."
         />
         <div className="grid overflow-hidden rounded-[var(--radius-xl)] border border-line bg-white md:grid-cols-2">
           <div className="border-b border-line p-8 md:border-b-0 md:border-r">
@@ -196,7 +196,7 @@ export function BeforeAfterSection() {
               <X className="h-3 w-3" /> Antes
             </span>
             <h3 className="mb-5 font-display text-[28px] font-bold text-red-900">
-              Cómo se opera hoy
+              Cómo se trabaja hoy
             </h3>
             <ul className="flex flex-col gap-3">
               {before.map(([t, d]) => (
@@ -212,7 +212,7 @@ export function BeforeAfterSection() {
               <Check className="h-3 w-3" /> Después
             </span>
             <h3 className="mb-5 font-display text-[28px] font-bold text-emerald-700">
-              Cómo se opera con nosotros
+              Cómo se trabaja con nosotros
             </h3>
             <ul className="flex flex-col gap-3">
               {after.map(([t, d]) => (
@@ -232,32 +232,32 @@ export function BeforeAfterSection() {
 const methodSteps = [
   {
     n: "01",
-    title: "Levantamiento",
-    body: "Revisamos cómo entran clientes, cómo atiendes, vendes y agendas, y dónde se pierde tiempo o dinero.",
+    title: "Miramos cómo trabajas",
+    body: "Vemos por dónde entran los clientes, quién responde, cómo se agenda y dónde se queda dinero en la mesa.",
     icon: Search,
   },
   {
     n: "02",
-    title: "Diagnóstico",
-    body: "Identificamos cuellos de botella, tareas repetitivas, fugas y oportunidades reales de automatización.",
+    title: "Detectamos los tranques",
+    body: "Separamos lo urgente de lo decorativo: tareas repetidas, clientes sin seguimiento y pasos que nadie tiene claros.",
     icon: LayoutGrid,
   },
   {
     n: "03",
-    title: "Blueprint",
-    body: "Mapa del sistema recomendado: procesos, herramientas, integraciones, CRM, IA, dashboards y fases.",
+    title: "Armamos el mapa",
+    body: "Te entregamos una ruta sencilla: qué ordenar primero, qué herramientas usar y qué puede esperar.",
     icon: Map,
   },
   {
     n: "04",
-    title: "Implementación",
-    body: "Construimos WhatsApp, CRM, agenda, automatizaciones, IA y reportes. Probado antes de entregar.",
+    title: "Montamos el sistema",
+    body: "Conectamos mensajes, agenda, seguimiento, automatizaciones y reportes. Probado antes de ponerlo a correr.",
     icon: Wrench,
   },
   {
     n: "05",
-    title: "Optimización",
-    body: "Medimos, corregimos y mejoramos. La automatización se itera; no se instala y se olvida.",
+    title: "Ajustamos con uso real",
+    body: "Medimos, corregimos y mejoramos. Un sistema bueno no se deja abandonado el día de entrega.",
     icon: RefreshCw,
   },
 ];
@@ -274,11 +274,11 @@ export function MethodSection() {
           eyebrow="Nuestro método"
           title={
             <>
-              Primero entendemos tu operación.{" "}
-              <span className="italic text-amber">Después implementamos tecnología.</span>
+              Primero entendemos el negocio.{" "}
+              <span className="italic text-amber">Después entra la tecnología.</span>
             </>
           }
-          lede="No vendemos herramientas. Vendemos un proceso consultivo que termina en un sistema funcionando."
+          lede="No llegamos vendiendo una herramienta de moda. Llegamos a ordenar una operación que tiene que funcionar lunes, martes y viernes con el equipo real que tienes."
         />
         <div className="grid overflow-hidden rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] sm:grid-cols-2 lg:grid-cols-5">
           {methodSteps.map((s, i) => (
@@ -310,18 +310,18 @@ export function StartPathsSection() {
       tag: "Gratis",
       title: "Evaluación inicial",
       time: "15 minutos",
-      body: "Conversación corta para entender tu operación, filtrar si hay fit y definir si conviene un diagnóstico formal.",
+      body: "Una conversación corta para entender qué te está costando tiempo, clientes o tranquilidad.",
       items: ["WhatsApp o llamada", "Dolor principal", "Siguiente paso claro"],
       cta: { href: "#evaluacion", label: "Agendar evaluación", variant: "primary" as const },
     },
     {
       tag: "Producto de entrada",
-      title: "Diagnóstico Operativo",
+      title: "Diagnóstico operativo",
       time: "Pagado",
-      body: "Análisis serio de procesos, fugas y oportunidades. Entregas un blueprint y plan por fases — sin comprar a ciegas.",
+      body: "Revisamos procesos, fugas y oportunidades. Sales con un mapa de trabajo y una propuesta por fases, sin comprar a ciegas.",
       items: [
         "Reunión de levantamiento",
-        "Mapa as-is / to-be",
+        "Mapa de cómo se trabaja hoy y cómo debería fluir",
         "Plan por fases + cotización",
       ],
       cta: { href: "#evaluacion", label: "Quiero evaluar mi negocio", variant: "dark" as const },
@@ -329,17 +329,17 @@ export function StartPathsSection() {
     },
     {
       tag: "Rápido",
-      title: "Sprint de automatización",
-      time: "7–21 días",
-      body: "Resuelve un dolor específico: bot, agenda, bandeja o un flujo concreto. Alcance fijo.",
+      title: "Proyecto corto de automatización",
+      time: "7-21 días",
+      body: "Resolvemos un dolor específico: agenda, mensajes, seguimiento o una tarea repetitiva que ya cansó.",
       items: ["Un dolor, un resultado", "Precio cerrado", "Listo para usar"],
-      cta: { href: "#evaluacion", label: "Hablar de un sprint", variant: "ghost" as const },
+      cta: { href: "#evaluacion", label: "Hablar de un proyecto corto", variant: "ghost" as const },
     },
     {
-      tag: "Premium",
-      title: "Sistema Operativo PYME",
+      tag: "Completo",
+      title: "Sistema operativo para tu negocio",
       time: "Por fases",
-      body: "CRM, agenda, WhatsApp, IA, reportes e integraciones. El sistema completo de control operativo.",
+      body: "Mensajes, agenda, seguimiento de clientes, automatizaciones y paneles de control trabajando juntos.",
       items: ["Implementación por fases", "Capacitación", "Soporte y mejora"],
       cta: { href: "#evaluacion", label: "Diseñar mi sistema", variant: "ghost" as const },
     },
@@ -352,11 +352,11 @@ export function StartPathsSection() {
           eyebrow="Formas de empezar"
           title={
             <>
-              Elige el nivel de profundidad.{" "}
-              <strong className="text-primary">No compras a ciegas.</strong>
+              Empieza por el nivel correcto.{" "}
+              <strong className="text-primary">Sin comprar a ciegas.</strong>
             </>
           }
-          lede="Primero una evaluación corta. Luego, si hay fit, un diagnóstico pagado. Después implementación por fases."
+          lede="Primero una evaluación corta. Luego, si tiene sentido, un diagnóstico pagado. Después implementamos por fases."
         />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {paths.map((p) => (
@@ -394,14 +394,14 @@ export function StartPathsSection() {
 
 export function OfferSection() {
   const includes = [
-    "Cuestionario operativo inicial",
+    "Cuestionario inicial sobre cómo trabaja el negocio",
     "Reunión de levantamiento (60 min)",
-    "Mapa del proceso actual (as-is)",
-    "Identificación de cuellos de botella",
-    "Recomendaciones de automatización",
-    "Blueprint del sistema ideal (to-be)",
+    "Mapa del proceso actual",
+    "Detección de tranques y fugas",
+    "Recomendaciones para automatizar sin inventar de más",
+    "Mapa del sistema recomendado",
     "Plan de implementación por fases",
-    "Cotización cerrada de implementación",
+    "Cotización cerrada para implementar",
   ];
 
   return (
@@ -411,17 +411,17 @@ export function OfferSection() {
           <div>
             <Eyebrow>Producto de entrada</Eyebrow>
             <h2 className="mt-3.5 font-display text-[clamp(28px,3.2vw,42px)] font-bold text-primary">
-              <span className="text-amber-deep">Diagnóstico Operativo Inteligente.</span>
+              <span className="text-amber-deep">Diagnóstico operativo.</span>
             </h2>
             <p className="mt-3 text-base text-text-2">
-              Empieza con información real, no con una compra a ciegas. Analizamos
-              tu operación y te entregamos una ruta clara de qué conviene
-              implementar primero y por qué.
+              Antes de montar nada, miramos la operación con calma. Qué pasa
+              cuando entra un cliente, dónde se pierde seguimiento, qué se repite
+              demasiado y qué conviene resolver primero.
             </p>
             <p className="mt-3 text-base text-text-2">
-              La evaluación inicial de 15 minutos es gratuita. El diagnóstico
-              formal es un producto pagado: filtra curiosos y te da un entregable
-              serio que puedes usar aunque no implementes con nosotros.
+              La evaluación inicial de 15 minutos es gratis. El diagnóstico
+              formal es pagado porque deja un entregable serio: una ruta que
+              puedes usar incluso si decides no implementar con nosotros.
             </p>
             <div className="mt-5 flex flex-wrap gap-2.5">
               <ButtonLink href="#evaluacion" size="lg">
@@ -463,52 +463,52 @@ export function OfferSection() {
 const solutions = [
   {
     icon: MessageSquare,
-    title: "Atención y ventas omnicanal",
-    body: "Centraliza WhatsApp, redes y formularios en una sola bandeja. Ningún cliente se pierde por canal.",
+    title: "Mensajes y ventas en orden",
+    body: "Ponemos WhatsApp, Instagram y formularios en un solo lugar para que ningún cliente se quede flotando.",
     tags: ["WhatsApp", "Instagram", "Formularios"],
-    outcome: "Más seguimiento, menos oportunidades perdidas",
+    outcome: "Más respuestas a tiempo, menos oportunidades perdidas",
   },
   {
     icon: Users,
-    title: "CRM y seguimiento",
-    body: "Leads, clientes, estados y próximos pasos. Tu equipo sabe qué hacer con cada contacto.",
-    tags: ["Pipeline", "Estados", "Tareas"],
-    outcome: "Cada lead con próximo paso claro",
+    title: "Registro de clientes y seguimiento",
+    body: "Cada persona interesada queda con estado, responsable y próximo paso. Así el equipo sabe qué hacer.",
+    tags: ["Clientes", "Estados", "Tareas"],
+    outcome: "Cada contacto con una acción clara",
   },
   {
     icon: Calendar,
-    title: "Agenda inteligente",
-    body: "Citas, confirmaciones, recordatorios y reprogramaciones. Menos no-shows y menos improvisación.",
-    tags: ["Google Cal.", "Confirmaciones"],
-    outcome: "Menos no-shows, más cierres",
+    title: "Agenda conectada",
+    body: "Citas, confirmaciones, recordatorios y cambios sin vivir apagando fuegos.",
+    tags: ["Calendario", "Confirmaciones"],
+    outcome: "Menos ausencias, más citas aprovechadas",
   },
   {
     icon: Zap,
-    title: "Automatización operativa",
-    body: "Reduce copiar datos, enviar mensajes, clasificar solicitudes y derivar al equipo correcto.",
-    tags: ["n8n", "APIs", "Webhooks"],
+    title: "Tareas repetitivas automatizadas",
+    body: "Reducimos copiar datos, enviar mensajes, clasificar solicitudes y pasar casos al equipo correcto.",
+    tags: ["Flujos", "Mensajes", "Alertas"],
     outcome: "Horas semanales recuperadas",
   },
   {
     icon: Bot,
-    title: "Asistentes IA",
-    body: "FAQ, calificación de clientes y asistencia al equipo bajo reglas claras. Con guardrails.",
-    tags: ["GPT", "Claude", "WhatsApp"],
-    outcome: "Atención 24/7 sin perder calidad",
+    title: "Asistentes para preguntas repetidas",
+    body: "Responden lo básico bajo reglas claras. Cuando el caso se complica, pasa a una persona.",
+    tags: ["Preguntas", "WhatsApp", "Soporte"],
+    outcome: "Atención más rápida sin perder el toque humano",
   },
   {
     icon: BarChart3,
-    title: "Dashboards y reportes",
-    body: "Leads, citas, ventas, tiempos de respuesta y conversión. Lo que el dueño necesita ver.",
-    tags: ["Metabase", "GA4"],
-    outcome: "Decisiones con datos",
+    title: "Paneles de control y reportes",
+    body: "Clientes nuevos, citas, ventas, tiempo de respuesta y resultados en una vista que el dueño puede leer.",
+    tags: ["Control", "Números"],
+    outcome: "Decisiones con datos, no con corazonadas",
   },
   {
     icon: Link2,
-    title: "Integraciones a medida",
-    body: "Conectamos Chatwoot, Odoo, n8n, calendarios, WhatsApp y lo que ya usas.",
-    tags: ["APIs", "Legacy"],
-    outcome: "Sistemas que por fin se hablan",
+    title: "Conexiones a medida",
+    body: "Hacemos que las herramientas que ya usas se hablen entre ellas, en vez de obligarte a empezar de cero.",
+    tags: ["Herramientas", "Calendarios"],
+    outcome: "Menos doble trabajo",
   },
 ];
 
@@ -520,12 +520,11 @@ export function SolutionsSection() {
           eyebrow="Soluciones"
           title={
             <>
-              Soluciones que convierten{" "}
-              <strong className="text-primary">procesos manuales</strong> en
-              sistemas medibles.
+              Convertimos trabajo manual en{" "}
+              <strong className="text-primary">procesos que sí se pueden medir.</strong>
             </>
           }
-          lede="No vendemos herramientas sueltas. Las organizamos en frentes que, combinados, son el sistema operativo de tu empresa."
+          lede="No vendemos herramientas sueltas. Ordenamos las partes del negocio que más duelen y las conectamos para que el equipo pueda usarlas de verdad."
         />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {solutions.map((s) => (
@@ -564,13 +563,13 @@ export function SectorsSection() {
     {
       tag: "Nicho #1",
       title: "Clínicas y odontólogos",
-      body: "Recepción digital, citas, recordatorios, pacientes nuevos y reportes por doctor.",
+      body: "Citas, recordatorios, pacientes nuevos y reportes para el doctor o administrador.",
       href: "/clinicas",
       featured: true,
       items: [
         "Agenda con confirmación automática",
         "Recordatorio 24h y 2h antes",
-        "Bot de FAQ (precios, ubicación)",
+        "Respuestas para preguntas frecuentes",
         "Reactivación de pacientes",
       ],
     },
@@ -578,19 +577,19 @@ export function SectorsSection() {
       tag: "Nicho #2",
       title: "Academias y centros educativos",
       body: "Inscripciones, pagos, seguimiento a interesados y comunicación con padres.",
-      items: ["Pipeline por curso", "Recordatorio de pago", "Formularios digitales"],
+      items: ["Seguimiento por curso", "Recordatorio de pago", "Formularios digitales"],
     },
     {
       tag: "Nicho #3",
       title: "Ferreterías y comercios",
-      body: "Cotizaciones, seguimiento, pedidos por WhatsApp e historial comercial.",
-      items: ["Cotizador desde catálogo", "Seguimiento post-venta", "Alertas de stock"],
+      body: "Cotizaciones, pedidos por WhatsApp, seguimiento y mejor historial de clientes.",
+      items: ["Cotizaciones desde catálogo", "Seguimiento después de vender", "Alertas de inventario"],
     },
     {
       tag: "Nicho #4",
       title: "Servicios profesionales",
-      body: "Prospectos, reuniones, propuestas y automatización administrativa.",
-      items: ["Pipeline con próxima acción", "Agenda de reuniones", "Seguimiento de cobro"],
+      body: "Prospectos, reuniones, propuestas, cobros y tareas administrativas con más orden.",
+      items: ["Próxima acción visible", "Agenda de reuniones", "Seguimiento de cobro"],
     },
   ];
 
@@ -603,11 +602,11 @@ export function SectorsSection() {
             <>
               Diseñado para negocios donde{" "}
               <strong className="text-primary">
-                la atención rápida y el seguimiento importan.
+                responder rápido y dar seguimiento cambia el resultado.
               </strong>
             </>
           }
-          lede="Empezamos con sectores donde el dolor es evidente y el ROI se nota rápido."
+          lede="Empezamos por sectores donde el dolor se ve rápido: llamadas perdidas, citas vacías, mensajes sin responder y clientes que se enfrían."
         />
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           {sectors.map((s) => (
@@ -634,7 +633,7 @@ export function SectorsSection() {
               </ul>
               {s.href ? (
                 <ButtonLink href={s.href} variant="ghost" className="mt-auto">
-                  Ver landing de clínicas →
+                  Ver página de clínicas →
                 </ButtonLink>
               ) : null}
             </article>
@@ -647,17 +646,17 @@ export function SectorsSection() {
 
 export function FitSection() {
   const yes = [
-    "Tienes clientes por WhatsApp, Instagram o llamadas",
+    "Te llegan clientes por WhatsApp, Instagram o llamadas",
     "Tu equipo repite las mismas tareas todos los días",
-    "No hay seguimiento claro de leads, citas o pacientes",
+    "No hay seguimiento claro de citas, pacientes o clientes",
     "Quieres crecer sin depender de libretas y Excel",
-    "Necesitas ver números sin perseguir empleados",
+    "Necesitas ver números sin perseguir a media oficina",
   ];
   const no = [
-    "Buscas solo “un bot barato”",
+    "Buscas solo “un asistente automático barato”",
     "No estás dispuesto a cambiar procesos internos",
     "Quieres automatizar sin ordenar primero",
-    "Nadie dentro del negocio liderará la implementación",
+    "Nadie dentro del negocio va a liderar el cambio",
   ];
 
   return (
@@ -665,14 +664,14 @@ export function FitSection() {
       <Container>
         <SectionHead
           center
-          eyebrow="Filtro de fit"
-          title="Para quién sí — y para quién no"
-          lede="Preferimos clientes serios. Así el trabajo rinde y el sistema se usa."
+          eyebrow="Buen encaje"
+          title="Para quién sí, y para quién no"
+          lede="Trabajamos mejor con negocios que quieren ordenar de verdad, no ponerle maquillaje tecnológico al mismo desorden."
         />
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-[var(--radius-xl)] border border-emerald-200 bg-white p-8">
             <h3 className="mb-4 font-display text-xl font-bold text-emerald-700">
-              Esto es para ti si…
+              Esto es para ti si...
             </h3>
             <ul className="space-y-2.5">
               {yes.map((i) => (
@@ -685,7 +684,7 @@ export function FitSection() {
           </div>
           <div className="rounded-[var(--radius-xl)] border border-red-200 bg-white p-8">
             <h3 className="mb-4 font-display text-xl font-bold text-red-700">
-              Esto no es para ti si…
+              Esto no es para ti si...
             </h3>
             <ul className="space-y-2.5">
               {no.map((i) => (
@@ -705,12 +704,12 @@ export function FitSection() {
 export function DeliverablesSection() {
   const items = [
     { icon: ClipboardList, label: "Mapa de procesos" },
-    { icon: Users, label: "CRM configurado" },
-    { icon: Inbox, label: "Bandeja omnicanal" },
-    { icon: Settings2, label: "Flujos automatizados" },
-    { icon: Bot, label: "Asistente IA entrenado" },
+    { icon: Users, label: "Registro de clientes configurado" },
+    { icon: Inbox, label: "Bandeja de mensajes" },
+    { icon: Settings2, label: "Tareas automatizadas" },
+    { icon: Bot, label: "Asistente para preguntas repetidas" },
     { icon: Calendar, label: "Agenda conectada" },
-    { icon: BarChart3, label: "Reportes en tiempo real" },
+    { icon: BarChart3, label: "Paneles de control" },
     { icon: BookOpen, label: "Manual de uso" },
     { icon: GraduationCap, label: "Capacitación del equipo" },
     { icon: LifeBuoy, label: "Soporte y mejora continua" },
@@ -725,13 +724,13 @@ export function DeliverablesSection() {
               <Eyebrow>Qué entregamos realmente</Eyebrow>
               <h2 className="mt-3.5 font-display text-[clamp(28px,3.2vw,42px)] font-bold text-text">
                 No entregamos tecnología suelta.{" "}
-                <strong className="text-primary">Entregamos control operativo.</strong>
+                <strong className="text-primary">Entregamos control para operar.</strong>
               </h2>
             </div>
             <p className="text-[15.5px] text-text-2">
-              Entregamos activos concretos que tu equipo puede usar: procesos
-              documentados, CRM configurado, automatizaciones, reportes y
-              capacitación.
+              Entregamos cosas que tu equipo puede usar: procesos claros,
+              seguimiento configurado, mensajes ordenados, reportes, capacitación
+              y soporte para que no se quede bonito solo el día de entrega.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
@@ -756,11 +755,11 @@ export function DeliverablesSection() {
 export function StackSection() {
   const groups = [
     { name: "Atención", tools: "WhatsApp · Chatwoot" },
-    { name: "Operación", tools: "Odoo · CRM · Google Calendar" },
-    { name: "Automatización", tools: "n8n · APIs · Webhooks" },
-    { name: "Reportes", tools: "Metabase · GA4" },
+    { name: "Operación", tools: "Odoo · registro de clientes · Google Calendar" },
+    { name: "Automatización", tools: "n8n · conexiones entre sistemas · alertas" },
+    { name: "Reportes", tools: "Metabase · métricas web" },
     { name: "Infraestructura", tools: "Cloudflare · Docker · PostgreSQL" },
-    { name: "IA", tools: "GPT · Claude" },
+    { name: "Asistentes", tools: "Modelos de IA bajo reglas claras" },
   ];
 
   return (
@@ -771,14 +770,14 @@ export function StackSection() {
       <Container className="relative z-10">
         <SectionHead
           dark
-          eyebrow="Stack tecnológico"
+          eyebrow="Herramientas que usamos"
           title={
             <>
-              Herramientas{" "}
-              <strong className="text-white">abiertas, seguras y escalables.</strong>
+              Tecnología seria,{" "}
+              <strong className="text-white">explicada sin marearte.</strong>
             </>
           }
-          lede="No usamos “tecnología del futuro” como slogan. Usamos herramientas probadas y auditables, agrupadas por función."
+          lede="Usamos herramientas probadas. Lo importante no es el nombre de cada plataforma; lo importante es que el sistema sea estable, claro y usable para tu equipo."
         />
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => (
@@ -800,36 +799,36 @@ export function StackSection() {
 
 const faqs = [
   {
-    q: "¿Necesito cambiar mi sistema actual?",
-    a: "No. Trabajamos con lo que ya tienes y lo conectamos. Solo reemplazamos algo cuando es claramente la causa del desorden.",
+    q: "¿Necesito cambiar lo que uso ahora?",
+    a: "No necesariamente. Primero miramos lo que ya tienes. Solo recomendamos cambiar algo cuando claramente está causando el desorden.",
   },
   {
-    q: "¿La IA reemplaza a mi personal?",
-    a: "No. La IA se usa para tareas repetitivas. El equipo humano cierra ventas, atiende casos complejos y decide. Tu equipo deja de ahogarse en lo mecánico.",
+    q: "¿La inteligencia artificial reemplaza a mi personal?",
+    a: "No. Se usa para preguntas repetidas y tareas mecánicas. Las ventas, los casos delicados y las decisiones siguen siendo humanas.",
   },
   {
-    q: "¿La evaluación es gratis y el diagnóstico también?",
-    a: "La evaluación inicial de 15 minutos es gratuita. El Diagnóstico Operativo Inteligente es un producto pagado con entregables formales (mapa, blueprint, plan y cotización).",
+    q: "¿La evaluación y el diagnóstico son gratis?",
+    a: "La evaluación inicial de 15 minutos es gratis. El diagnóstico operativo es pagado porque incluye mapa, recomendaciones, plan por fases y cotización.",
   },
   {
-    q: "¿Cuánto tarda el proyecto?",
-    a: "Un sprint (un dolor específico) se entrega en 7–21 días. Un sistema completo toma 4–12 semanas según alcance. Preferimos sistemas estables antes que promesas rápidas.",
+    q: "¿Cuánto tarda un proyecto?",
+    a: "Una implementación corta para resolver un problema específico suele tomar 7-21 días. Un sistema más completo puede tomar 4-12 semanas, según el alcance.",
   },
   {
     q: "¿Puedo empezar pequeño?",
-    a: "Sí, y es lo que recomendamos. Evaluación → diagnóstico o sprint corto → escala cuando ves resultados.",
+    a: "Sí, y normalmente es lo más sensato. Evaluamos, diagnosticamos si hace falta, resolvemos un primer dolor y luego escalamos con evidencia.",
   },
   {
     q: "¿Funciona con WhatsApp?",
-    a: "Sí. Trabajamos con la WhatsApp Business API oficial (no versiones no oficiales que Meta puede banear).",
+    a: "Sí. Trabajamos con opciones oficiales y estables para evitar inventos raros que después se caen o bloquean la cuenta.",
   },
   {
     q: "¿Qué pasa si mi equipo no es técnico?",
-    a: "Entregamos manual, capacitamos y damos soporte. La métrica es que operen el sistema sin nosotros después de 30 días.",
+    a: "Mejor todavía: el sistema tiene que ser entendible. Entregamos manual, capacitación y soporte para que el equipo lo use sin depender de nosotros para todo.",
   },
   {
     q: "¿Cuánto cuesta?",
-    a: "La evaluación es gratis. El diagnóstico y la implementación se cotizan según alcance. Después del diagnóstico siempre hay números claros; si no te convence, no avanzamos.",
+    a: "La evaluación es gratis. El diagnóstico y la implementación se cotizan según alcance. Después del diagnóstico tendrás números claros antes de avanzar.",
   },
 ];
 
@@ -840,7 +839,7 @@ export function FaqSection() {
         <SectionHead
           center
           eyebrow="Preguntas frecuentes"
-          title="Las dudas reales que tiene un dueño antes de empezar."
+          title="Las dudas normales antes de meterle mano al negocio."
         />
         <div className="mx-auto grid max-w-[1100px] gap-3 md:grid-cols-2">
           {faqs.map((f) => (
@@ -854,7 +853,7 @@ export function FaqSection() {
                   +
                 </span>
                 <span className="hidden font-mono text-xl font-normal text-amber group-open:inline">
-                  −
+                  -
                 </span>
               </summary>
               <p className="mt-3 text-[14.5px] leading-relaxed text-text-2">{f.a}</p>
@@ -874,18 +873,18 @@ export function EvaluationSection() {
           <div>
             <Eyebrow>Próximo paso</Eyebrow>
             <h2 className="mt-3 font-display text-[clamp(28px,3.2vw,42px)] font-bold text-primary">
-              Cuéntanos tu caso. Te respondemos con una evaluación clara.
+              Cuéntanos qué se está enredando. Te diremos por dónde empezar.
             </h2>
             <p className="mt-4 text-base text-text-2">
-              Completa el formulario o escríbenos por WhatsApp. En 24–48h
-              hábiles te damos respuesta inicial y, si hay fit, agendamos la
-              evaluación de 15 minutos.
+              Completa el formulario o escríbenos por WhatsApp. En 24-48 horas
+              laborables te damos una respuesta inicial y, si tiene sentido,
+              agendamos la evaluación de 15 minutos.
             </p>
             <ul className="mt-6 space-y-2 text-sm text-text-2">
               {[
                 "Sin compromiso",
                 "Sin venta forzada",
-                "Diagnóstico formal solo si tiene sentido",
+                "Diagnóstico formal solo si de verdad aporta",
               ].map((i) => (
                 <li key={i} className="flex gap-2">
                   <Check className="h-4 w-4 text-success" /> {i}
@@ -916,12 +915,12 @@ export function FinalCtaSection() {
       <Container className="relative z-10 max-w-[780px] text-center">
         <Eyebrow tone="dark">Próximo paso</Eyebrow>
         <h2 className="mx-auto mt-4 max-w-[20ch] font-display text-[clamp(32px,4vw,50px)] font-bold text-white">
-          ¿Quieres saber qué parte de tu negocio{" "}
-          <span className="italic text-amber">se puede ordenar primero?</span>
+          ¿Qué parte de tu negocio{" "}
+          <span className="italic text-amber">hay que ordenar primero?</span>
         </h2>
         <p className="mx-auto mt-4 max-w-[50ch] text-lg text-white/78">
           Agenda una evaluación inicial y recibe una ruta clara para mejorar
-          atención, seguimiento y control operativo.
+          atención, seguimiento, citas y control.
         </p>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           <ButtonLink href="#evaluacion" size="lg">
@@ -938,7 +937,7 @@ export function FinalCtaSection() {
           </ButtonLink>
         </div>
         <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/16 bg-white/8 px-4 py-1.5 text-[13px] font-medium text-white/90">
-          Respuesta inicial en 24–48h · Sin compromiso
+          Respuesta inicial en 24-48 horas · Sin compromiso
         </div>
       </Container>
     </Section>

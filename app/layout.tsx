@@ -3,6 +3,7 @@ import { Inter, Poppins, JetBrains_Mono } from "next/font/google";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { brand } from "@/lib/brand";
+import { baseKeywords, organizationJsonLd, seo } from "@/lib/seo";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,33 +29,61 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(brand.siteUrl),
   title: {
-    default: "QuisqueyaTech — Del caos operativo al control inteligente",
+    default: seo.home.title,
     template: "%s | QuisqueyaTech",
   },
-  description:
-    "Consultora operativa para PYMES dominicanas. Diagnosticamos procesos e implementamos CRM, WhatsApp, agenda, IA y reportes. Evaluación inicial gratis.",
-  keywords: [
-    "automatización PYMES República Dominicana",
-    "CRM WhatsApp clínicas",
-    "consultora operativa RD",
-    "QuisqueyaTech",
-  ],
+  description: seo.home.description,
+  keywords: baseKeywords,
   authors: [{ name: "QuisqueyaTech" }],
+  creator: "QuisqueyaTech",
+  publisher: "QuisqueyaTech",
+  category: "business",
+  applicationName: "QuisqueyaTech",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/brand/favicon-32.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
   openGraph: {
     type: "website",
     locale: "es_DO",
     url: brand.siteUrl,
     siteName: brand.name,
-    title: "QuisqueyaTech — Del caos operativo al control inteligente",
-    description:
-      "Ayudamos a PYMES dominicanas a ordenar atención, automatizar tareas y operar con más control.",
+    title: seo.home.title,
+    description: seo.home.description,
+    images: [
+      {
+        url: seo.home.image,
+        width: 1200,
+        height: 630,
+        alt: "QuisqueyaTech - Orden operativo para PYMES dominicanas",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "QuisqueyaTech",
-    description: brand.tagline,
+    title: seo.home.title,
+    description: seo.home.description,
+    images: [seo.home.image],
   },
-  robots: { index: true, follow: true },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   alternates: { canonical: "/" },
 };
 
@@ -63,23 +92,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ProfessionalService",
-    name: brand.name,
-    description:
-      "Consultora operativa de automatización e IA para PYMES dominicanas.",
-    url: brand.siteUrl,
-    email: brand.email,
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: "Puerto Plata",
-      addressCountry: "DO",
-    },
-    areaServed: "DO",
-    slogan: brand.tagline,
-  };
-
   return (
     <html
       lang="es"
@@ -88,7 +100,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col font-sans text-text">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <Navbar />
         <main className="flex-1">{children}</main>

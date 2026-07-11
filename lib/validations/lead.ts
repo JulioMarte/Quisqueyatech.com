@@ -39,10 +39,10 @@ export const sectorLabels: Record<LeadInput["sector"], string> = {
 };
 
 export const painLabels: Record<LeadInput["pain"], string> = {
-  "whatsapp-perdido": "Leads que se pierden en WhatsApp",
-  citas: "Citas mal gestionadas / no-shows",
+  "whatsapp-perdido": "Clientes que se pierden en WhatsApp",
+  citas: "Citas mal gestionadas / pacientes que no llegan",
   seguimiento: "Clientes sin seguimiento",
-  reportes: "Sin reportes en tiempo real",
+  reportes: "Sin números claros del negocio",
   "tareas-manuales": "Tareas repetitivas manuales",
   otro: "Otro",
 };

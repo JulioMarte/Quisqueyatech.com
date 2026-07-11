@@ -18,7 +18,7 @@ export function buildWhatsAppUrl(ctx: WhatsAppContext = {}): string | null {
     ctx.name ? `Nombre: ${ctx.name}` : null,
     ctx.business ? `Negocio: ${ctx.business}` : null,
     ctx.sector ? `Sector: ${ctx.sector}` : null,
-    ctx.pain ? `Dolor principal: ${ctx.pain}` : null,
+    ctx.pain ? `Problema principal: ${ctx.pain}` : null,
     ctx.message ? `Detalle: ${ctx.message}` : null,
     ctx.source ? `Origen: ${ctx.source}` : null,
   ].filter(Boolean);

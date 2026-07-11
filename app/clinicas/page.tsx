@@ -6,6 +6,8 @@ import {
   Stethoscope,
   UserRound,
   Bell,
+  Check,
+  X,
 } from "lucide-react";
 import { LeadForm } from "@/components/forms/lead-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -15,39 +17,30 @@ import {
   Section,
   SectionHead,
 } from "@/components/ui/section";
-import { brand } from "@/lib/brand";
+import { clinicServiceJsonLd, pageMetadata, seo } from "@/lib/seo";
 import { whatsappHref } from "@/lib/whatsapp";
-import { Check, X } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Recepción inteligente para clínicas y odontólogos en RD",
-  description:
-    "Agenda, WhatsApp, recordatorios y seguimiento de pacientes para clínicas y odontólogos en República Dominicana. Evaluación inicial gratis.",
-  alternates: { canonical: "/clinicas" },
-  openGraph: {
-    title: "Recepción inteligente para clínicas | QuisqueyaTech",
-    description:
-      "Menos no-shows, más pacientes con seguimiento. Sistema de recepción, agenda y WhatsApp para clínicas en RD.",
-    url: `${brand.siteUrl}/clinicas`,
-  },
-};
+export const metadata: Metadata = pageMetadata(seo.clinicas);
 
 export default function ClinicasPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(clinicServiceJsonLd) }}
+      />
       <Section className="bg-[radial-gradient(ellipse_at_80%_0%,rgba(56,189,248,0.1),transparent_50%),radial-gradient(ellipse_at_0%_100%,rgba(249,115,22,0.07),transparent_50%)] py-16">
         <Container>
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
               <Eyebrow>Clínicas y odontólogos · RD</Eyebrow>
               <h1 className="mt-4 font-display text-[clamp(36px,4.5vw,56px)] font-extrabold leading-[1.05] tracking-[-0.03em] text-primary">
-                Recepción inteligente para clínicas que pierden pacientes en
-                WhatsApp.
+                Menos pacientes perdidos en WhatsApp. Menos huecos en la agenda.
               </h1>
               <p className="mt-5 max-w-[48ch] text-lg text-text-2">
                 Ordenamos citas, confirmaciones, recordatorios y seguimiento
-                post-consulta. Tu secretaria deja de improvisar; tú ves el
-                tablero sin pedirlo.
+                después de la consulta. Recepción trabaja con más calma; tú ves
+                lo importante sin pedirlo a cada rato.
               </p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <ButtonLink href="#evaluacion-clinicas" size="lg">
@@ -64,7 +57,7 @@ export default function ClinicasPage() {
                 </ButtonLink>
               </div>
               <div className="mt-5 flex flex-wrap gap-3 text-[13px] font-medium text-text-2">
-                {["Menos no-shows", "Agenda conectada", "Seguimiento de pacientes"].map(
+                {["Menos pacientes ausentes", "Agenda conectada", "Seguimiento después de consulta"].map(
                   (t) => (
                     <span key={t} className="inline-flex items-center gap-1.5">
                       <span className="text-success">✓</span> {t}
@@ -82,33 +75,33 @@ export default function ClinicasPage() {
         <Container>
           <SectionHead
             eyebrow="El dolor de la recepción"
-            title="Si esto te suena familiar, el sistema te va a servir."
+            title="Si esto pasa en tu clínica, no es falta de ganas. Es falta de sistema."
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                t: "WhatsApp a las 10pm",
-                d: "Pacientes escriben fuera de horario y el lunes ya agendaron en otra clínica.",
+                t: "WhatsApp fuera de horario",
+                d: "Pacientes escriben de noche y, si nadie responde rápido, agendan en otra clínica.",
               },
               {
-                t: "No-shows constantes",
-                d: "Sin recordatorios automáticos, la agenda se llena de huecos y cancelaciones.",
+                t: "Pacientes que no aparecen",
+                d: "Sin recordatorios a tiempo, la agenda se llena de huecos que cuestan dinero.",
               },
               {
-                t: "Secretaria improvisando",
-                d: "Libreta, Excel y memoria. Si falta una persona, se cae la recepción.",
+                t: "Recepción improvisando",
+                d: "Libreta, Excel y memoria. Si falta una persona, todo se vuelve una búsqueda.",
               },
               {
-                t: "Sin seguimiento post-consulta",
-                d: "Pacientes que no vuelven y nadie los reactiva.",
+                t: "Cero seguimiento después de consulta",
+                d: "Pacientes que debían volver se enfrían porque nadie los contacta.",
               },
               {
                 t: "Dueño sin visibilidad",
-                d: "No sabes cuántos leads entraron, de dónde vinieron ni cuántas citas se confirmaron.",
+                d: "No sabes cuántas personas preguntaron, de dónde llegaron ni cuántas citas se confirmaron.",
               },
               {
-                t: "FAQ manual todo el día",
-                d: "Precios, ubicación, horarios y especialidades — las mismas 5 preguntas, 40 veces.",
+                t: "Preguntas repetidas todo el día",
+                d: "Precios, ubicación, horarios y especialidades. Las mismas dudas, una y otra vez.",
               },
             ].map((p) => (
               <div
@@ -128,30 +121,30 @@ export default function ClinicasPage() {
           <SectionHead
             center
             eyebrow="Qué implementamos"
-            title="Un sistema de recepción que tu equipo sí usa."
-            lede="No un bot suelto. Un flujo completo: entrada → agenda → recordatorio → seguimiento."
+            title="Un sistema de recepción que el equipo entiende y usa."
+            lede="No es un asistente automático suelto. Es un flujo completo: entra el paciente, se agenda, se confirma, se recuerda y se le da seguimiento."
           />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 icon: MessageCircle,
                 t: "Bandeja de pacientes",
-                d: "WhatsApp e Instagram centralizados con estado y responsable.",
+                d: "WhatsApp e Instagram en un solo lugar, con responsable y estado.",
               },
               {
                 icon: CalendarCheck,
                 t: "Agenda conectada",
-                d: "Confirmación automática y reprogramación sin caos.",
+                d: "Confirmaciones y cambios sin depender de papelitos ni memoria.",
               },
               {
                 icon: Bell,
                 t: "Recordatorios 24h / 2h",
-                d: "Menos no-shows con mensajes a tiempo por WhatsApp.",
+                d: "Mensajes a tiempo para reducir ausencias y huecos.",
               },
               {
                 icon: Stethoscope,
-                t: "Reporte al doctor",
-                d: "Resumen diario: citas, nuevos, pendientes y fuente.",
+                t: "Resumen para el doctor",
+                d: "Citas, pacientes nuevos, pendientes y origen de cada solicitud.",
               },
             ].map((i) => (
               <div
@@ -177,9 +170,9 @@ export default function ClinicasPage() {
               <ul className="mt-4 space-y-2 text-sm text-text-2">
                 {[
                   "Citas en libreta o Excel",
-                  "Recordatorios a mano (o ninguno)",
-                  "Leads de Instagram sin seguimiento",
-                  "Doctor pregunta “¿quién viene hoy?”",
+                  "Recordatorios a mano, cuando da tiempo",
+                  "Mensajes de Instagram sin seguimiento",
+                  "Doctor preguntando “¿quién viene hoy?”",
                 ].map((i) => (
                   <li key={i} className="flex gap-2">
                     <X className="mt-0.5 h-4 w-4 shrink-0 text-rose" />
@@ -195,9 +188,9 @@ export default function ClinicasPage() {
               <ul className="mt-4 space-y-2 text-sm text-text-2">
                 {[
                   "Agenda viva con confirmaciones",
-                  "Recordatorios automáticos por WA",
+                  "Recordatorios automáticos por WhatsApp",
                   "Cada paciente con próxima acción",
-                  "Dashboard y reporte diario al doctor",
+                  "Panel de control y resumen diario",
                 ].map((i) => (
                   <li key={i} className="flex gap-2">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
@@ -219,9 +212,10 @@ export default function ClinicasPage() {
                 Evaluación inicial gratis para tu clínica.
               </h2>
               <p className="mt-4 text-text-2">
-                15 minutos para entender recepción, agenda y WhatsApp. Si hay
-                fit, avanzamos a un Diagnóstico Operativo pagado y luego a un
-                sprint de 7–21 días o un sistema completo.
+                En 15 minutos entendemos cómo manejan recepción, agenda y
+                WhatsApp. Si tiene sentido, pasamos a un diagnóstico operativo
+                pagado y luego a una implementación corta de 7-21 días o a un sistema más
+                completo por fases.
               </p>
               <ButtonLink
                 href={whatsappHref("clinicas-form")}
@@ -231,7 +225,7 @@ export default function ClinicasPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                WhatsApp clínicas
+                Escribir por WhatsApp
               </ButtonLink>
             </div>
             <LeadForm source="clinicas" />
@@ -274,10 +268,10 @@ function ClinicDemo() {
                   <Stethoscope className="h-3 w-3" /> Dra. Pérez
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <MessageCircle className="h-3 w-3" /> Fuente: Instagram
+                  <MessageCircle className="h-3 w-3" /> Llegó por Instagram
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <Clock className="h-3 w-3" /> Próxima acción: Llamar 9:00 AM
+                  <Clock className="h-3 w-3" /> Próxima acción: llamar 9:00 AM
                 </span>
               </div>
             </div>
@@ -302,7 +296,7 @@ function ClinicDemo() {
             para confirmar.”
           </p>
           <p className="mt-2 font-mono text-[11px] text-larimar">
-            Enviado hace 2 min · WhatsApp Business API
+            Enviado hace 2 min · WhatsApp
           </p>
         </div>
       </div>

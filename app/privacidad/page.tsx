@@ -34,9 +34,9 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-display text-xl font-bold text-text">Uso</h2>
             <p className="mt-2">
-              Usamos esos datos solo para responderte, calificar el lead y, si
-              hay acuerdo, prestar servicios de consultoría e implementación.
-              No vendemos tu información a terceros.
+              Usamos esos datos solo para responderte, entender si podemos
+              ayudarte y, si hay acuerdo, prestar servicios de consultoría e
+              implementación. No vendemos tu información a terceros.
             </p>
           </section>
           <section>

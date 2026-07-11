@@ -12,8 +12,8 @@ export function Footer() {
           <div className="md:col-span-1">
             <BrandLockup />
             <p className="mt-3 max-w-[30ch] text-sm text-text-2">
-              Diagnosticamos, diseñamos e implementamos sistemas para PYMES
-              dominicanas. Del caos operativo al control inteligente.
+              Ordenamos atención, citas, seguimiento y reportes para PYMES
+              dominicanas que quieren trabajar con más control.
             </p>
           </div>
           <div>
@@ -22,16 +22,16 @@ export function Footer() {
             </h5>
             <div className="flex flex-col gap-1">
               <Link href="/#soluciones" className="py-1 text-text-2 hover:text-amber-deep">
-                Atención omnicanal
+                Mensajes en orden
               </Link>
               <Link href="/#soluciones" className="py-1 text-text-2 hover:text-amber-deep">
-                CRM y seguimiento
+                Seguimiento de clientes
               </Link>
               <Link href="/#soluciones" className="py-1 text-text-2 hover:text-amber-deep">
                 Agenda inteligente
               </Link>
               <Link href="/#soluciones" className="py-1 text-text-2 hover:text-amber-deep">
-                Automatización e IA
+                Tareas repetitivas
               </Link>
             </div>
           </div>
@@ -65,7 +65,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="py-1 text-text-2 hover:text-amber-deep"
               >
-                WhatsApp Business
+                WhatsApp
               </a>
               <a
                 href={`mailto:${brand.email}`}
@@ -85,7 +85,7 @@ export function Footer() {
             <Link href="/privacidad" className="hover:text-amber-deep">
               Privacidad
             </Link>
-            <span>Consultora operativa · v1.0</span>
+            <span>Consultoría operativa · v1.0</span>
           </div>
         </div>
       </Container>

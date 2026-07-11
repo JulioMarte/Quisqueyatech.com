@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  --c-bg: #ffffff;
+  --c-bg-2: #f8fafc;
+  --c-bg-3: #f1f5f9;
+  --c-bg-dark: #0a1322;
+  --c-bg-dark-2: #0f1e36;
+  --c-card: #ffffff;
+  --c-line: #e2e8f0;
+  --c-line-2: #cbd5e1;
+  --c-text: #0f172a;
+  --c-text-2: #475569;
+  --c-mute: #64748b;
+  --c-primary: #082f49;
+  --c-primary-2: #0a2138;
+  --c-tech: #2563eb;
+  --c-larimar: #38bdf8;
+  --c-larimar-deep: #0ea5e9;
+  --c-larimar-soft: #f0f9ff;
+  --c-amber: #f97316;
+  --c-amber-deep: #ea580c;
+  --c-amber-soft: #fff7ed;
+  --c-rose: #e11d48;
+  --c-rose-soft: #ffe4e6;
+  --c-success: #10b981;
+  --c-success-soft: #ecfdf5;
+  --c-wa: #25d366;
+  --c-wa-hover: #1da851;
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-bg-2: var(--c-bg-2);
+  --color-bg-3: var(--c-bg-3);
+  --color-bg-dark: var(--c-bg-dark);
+  --color-bg-dark-2: var(--c-bg-dark-2);
+  --color-card: var(--c-card);
+  --color-line: var(--c-line);
+  --color-line-2: var(--c-line-2);
+  --color-text: var(--c-text);
+  --color-text-2: var(--c-text-2);
+  --color-mute: var(--c-mute);
+  --color-primary: var(--c-primary);
+  --color-primary-2: var(--c-primary-2);
+  --color-tech: var(--c-tech);
+  --color-larimar: var(--c-larimar);
+  --color-larimar-deep: var(--c-larimar-deep);
+  --color-larimar-soft: var(--c-larimar-soft);
+  --color-amber: var(--c-amber);
+  --color-amber-deep: var(--c-amber-deep);
+  --color-amber-soft: var(--c-amber-soft);
+  --color-rose: var(--c-rose);
+  --color-rose-soft: var(--c-rose-soft);
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+  --color-wa: var(--c-wa);
+  --color-wa-hover: var(--c-wa-hover);
+  --font-display: var(--font-poppins), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--c-larimar) 35%, white);
+  color: var(--c-primary);
+}

@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono, Poppins } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
+import { MotionProvider } from "@/components/ui/motion";
 import { brand } from "@/lib/brand";
 import { organizationJsonLd, seo } from "@/lib/seo";
 import "./globals.css";
@@ -36,7 +37,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={locale} className={`${inter.variable} ${poppins.variable} ${jetbrains.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans text-text">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
-        {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? <ClerkProvider>{page}</ClerkProvider> : page}
+        <MotionProvider>
+          {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? <ClerkProvider>{page}</ClerkProvider> : page}
+        </MotionProvider>
       </body>
     </html>
   );

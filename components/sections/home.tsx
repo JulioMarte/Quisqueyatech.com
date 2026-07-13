@@ -13,6 +13,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
+import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/motion";
 import { Container, Eyebrow, Section, SectionHead } from "@/components/ui/section";
 import { brand } from "@/lib/brand";
 import { getPublishedPosts } from "@/lib/server/content";
@@ -118,54 +119,56 @@ export async function HomePageContent({ locale }: { locale: Locale }) {
   return <>
     <Section className="overflow-hidden bg-[radial-gradient(ellipse_at_85%_0%,rgba(56,189,248,.16),transparent_44%),radial-gradient(ellipse_at_0%_100%,rgba(249,115,22,.09),transparent_42%)] py-16 sm:py-20">
       <Container className="max-w-[1080px] text-center">
-        <Eyebrow>{c.eyebrow}</Eyebrow>
-        <h1 className="mx-auto mt-5 max-w-[18ch] font-display text-[clamp(40px,6vw,68px)] font-extrabold leading-[1.03] tracking-[-.045em] text-primary">
-          {c.titleA} <span className="bg-gradient-to-r from-amber-deep to-larimar-deep bg-clip-text text-transparent">{c.titleB}</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-[65ch] text-[clamp(17px,1.6vw,20px)] leading-relaxed text-text-2">{c.lede}</p>
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          <ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink>
-          <ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" variant="outline"><Clock3 className="h-4 w-4" />{c.schedule}</ButtonLink>
-        </div>
-        <div className="mt-7 flex flex-col justify-center gap-2 text-sm text-text-2 sm:flex-row sm:flex-wrap sm:gap-x-6">{c.notes.map((note) => <span key={note} className="inline-flex items-center justify-center gap-1.5"><Check className="h-4 w-4 text-success" />{note}</span>)}</div>
+        <StaggerGroup delay={0.04} amount={0.05}>
+          <StaggerItem><Eyebrow>{c.eyebrow}</Eyebrow></StaggerItem>
+          <StaggerItem><h1 className="mx-auto mt-5 max-w-[18ch] font-display text-[clamp(40px,6vw,68px)] font-extrabold leading-[1.03] tracking-[-.045em] text-primary">
+            {c.titleA} <span className="bg-gradient-to-r from-amber-deep to-larimar-deep bg-clip-text text-transparent">{c.titleB}</span>
+          </h1></StaggerItem>
+          <StaggerItem><p className="mx-auto mt-6 max-w-[65ch] text-[clamp(17px,1.6vw,20px)] leading-relaxed text-text-2">{c.lede}</p></StaggerItem>
+          <StaggerItem><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink>
+            <ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" variant="outline"><Clock3 className="h-4 w-4" />{c.schedule}</ButtonLink>
+          </div></StaggerItem>
+          <StaggerItem><div className="mt-7 flex flex-col justify-center gap-2 text-sm text-text-2 sm:flex-row sm:flex-wrap sm:gap-x-6">{c.notes.map((note) => <span key={note} className="inline-flex items-center justify-center gap-1.5"><Check className="h-4 w-4 text-success" />{note}</span>)}</div></StaggerItem>
+        </StaggerGroup>
       </Container>
     </Section>
 
     <Section>
       <Container>
         <SectionHead eyebrow={c.problemEyebrow} title={c.problemTitle} lede={c.problemLede} />
-        <div className="grid gap-4 md:grid-cols-3">{c.problems.map(([title, body], index) => { const Icon = problemIcons[index]; return <article key={title} className="rounded-xl border border-line bg-white p-7 shadow-[0_12px_30px_-24px_rgba(8,47,73,.4)]"><Icon className="h-10 w-10 rounded-lg bg-larimar-soft p-2 text-larimar-deep" /><h2 className="mt-5 font-display text-xl font-bold text-text">{title}</h2><p className="mt-2 leading-relaxed text-text-2">{body}</p></article>; })}</div>
+        <StaggerGroup className="grid gap-4 md:grid-cols-3">{c.problems.map(([title, body], index) => { const Icon = problemIcons[index]; return <StaggerItem key={title}><article className="interactive-card h-full rounded-xl border border-line bg-white p-7 shadow-[0_12px_30px_-24px_rgba(8,47,73,.4)]"><Icon className="h-10 w-10 rounded-lg bg-larimar-soft p-2 text-larimar-deep" /><h2 className="mt-5 font-display text-xl font-bold text-text">{title}</h2><p className="mt-2 leading-relaxed text-text-2">{body}</p></article></StaggerItem>; })}</StaggerGroup>
       </Container>
     </Section>
 
     <Section className="bg-bg-2">
       <Container>
         <SectionHead eyebrow={c.solutionsEyebrow} title={c.solutionsTitle} lede={c.solutionsLede} />
-        <div className="grid gap-4 lg:grid-cols-3">{c.solutionCards.map(([title, body, href], index) => { const Icon = solutionIcons[index]; return <Link key={title} href={href} className="group rounded-xl border border-line bg-white p-7 transition hover:border-larimar-deep hover:shadow-lg"><Icon className="h-10 w-10 rounded-lg bg-primary p-2 text-white" /><h2 className="mt-5 font-display text-xl font-bold">{title}</h2><p className="mt-2 min-h-24 leading-relaxed text-text-2">{body}</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-deep">{locale === "es" ? "Explorar solución" : "Explore solution"}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span></Link>; })}</div>
+        <StaggerGroup className="grid gap-4 lg:grid-cols-3">{c.solutionCards.map(([title, body, href], index) => { const Icon = solutionIcons[index]; return <StaggerItem key={title}><Link href={href} className="interactive-card group block h-full rounded-xl border border-line bg-white p-7"><Icon className="h-10 w-10 rounded-lg bg-primary p-2 text-white" /><h2 className="mt-5 font-display text-xl font-bold">{title}</h2><p className="mt-2 min-h-24 leading-relaxed text-text-2">{body}</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-deep">{locale === "es" ? "Explorar solución" : "Explore solution"}<ArrowRight className="motion-arrow h-4 w-4" /></span></Link></StaggerItem>; })}</StaggerGroup>
       </Container>
     </Section>
 
     <Section className="overflow-hidden bg-primary text-white">
       <Container className="grid items-center gap-12 lg:grid-cols-[1.05fr_.95fr]">
-        <div><Eyebrow tone="dark">{c.assessmentEyebrow}</Eyebrow><h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight">{c.assessmentTitle}</h2><p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-white/75">{c.assessmentBody}</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" className="border border-white/25 bg-white/10 text-white hover:bg-white/15"><Clock3 className="h-4 w-4" />{c.schedule}</ButtonLink></div></div>
-        <div className="rounded-2xl border border-white/15 bg-white/[.07] p-7 backdrop-blur"><div className="flex items-center gap-3"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-larimar/20"><Headphones className="h-6 w-6 text-larimar" /></span><div><p className="font-semibold">{locale === "es" ? "Evaluación guiada por voz" : "Voice-guided assessment"}</p><p className="text-sm text-white/60">12–15 min · ES / EN</p></div></div><div className="mt-6 space-y-3">{(locale === "es" ? ["Entiende tu proceso actual", "Detecta trabajo repetitivo", "Prioriza oportunidades", "Entrega un resumen inmediato"] : ["Understands your current process", "Finds repetitive work", "Prioritizes opportunities", "Delivers an immediate summary"]).map((item) => <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[.06] px-4 py-3 text-sm text-white/85"><Sparkles className="h-4 w-4 text-amber" />{item}</div>)}</div></div>
+        <Reveal><div><Eyebrow tone="dark">{c.assessmentEyebrow}</Eyebrow><h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight">{c.assessmentTitle}</h2><p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-white/75">{c.assessmentBody}</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" className="border border-white/25 bg-white/10 text-white hover:bg-white/15"><Clock3 className="h-4 w-4" />{c.schedule}</ButtonLink></div></div></Reveal>
+        <Reveal delay={0.08}><div className="rounded-2xl border border-white/15 bg-white/[.07] p-7 backdrop-blur"><div className="flex items-center gap-3"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-larimar/20"><Headphones className="h-6 w-6 text-larimar" /></span><div><p className="font-semibold">{locale === "es" ? "Evaluación guiada por voz" : "Voice-guided assessment"}</p><p className="text-sm text-white/60">12–15 min · ES / EN</p></div></div><div className="mt-6 space-y-3">{(locale === "es" ? ["Entiende tu proceso actual", "Detecta trabajo repetitivo", "Prioriza oportunidades", "Entrega un resumen inmediato"] : ["Understands your current process", "Finds repetitive work", "Prioritizes opportunities", "Delivers an immediate summary"]).map((item) => <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[.06] px-4 py-3 text-sm text-white/85"><Sparkles className="h-4 w-4 text-amber" />{item}</div>)}</div></div></Reveal>
       </Container>
     </Section>
 
     <Section>
-      <Container><SectionHead eyebrow={c.methodEyebrow} title={c.methodTitle} /><div className="grid overflow-hidden rounded-xl border border-line md:grid-cols-4">{c.steps.map(([number, title, body], index) => <article key={number} className={`bg-white p-6 ${index < 3 ? "border-b border-line md:border-b-0 md:border-r" : ""}`}><span className="font-mono text-xs font-bold tracking-wider text-amber-deep">{number}</span><h2 className="mt-3 font-display text-xl font-bold">{title}</h2><p className="mt-2 text-sm leading-relaxed text-text-2">{body}</p></article>)}</div></Container>
+      <Container><SectionHead eyebrow={c.methodEyebrow} title={c.methodTitle} /><StaggerGroup className="grid overflow-hidden rounded-xl border border-line md:grid-cols-4">{c.steps.map(([number, title, body], index) => <StaggerItem key={number}><article className={`h-full bg-white p-6 ${index < 3 ? "border-b border-line md:border-b-0 md:border-r" : ""}`}><span className="font-mono text-xs font-bold tracking-wider text-amber-deep">{number}</span><h2 className="mt-3 font-display text-xl font-bold">{title}</h2><p className="mt-2 text-sm leading-relaxed text-text-2">{body}</p></article></StaggerItem>)}</StaggerGroup></Container>
     </Section>
 
     <Section className="bg-bg-2">
-      <Container className="grid items-center gap-10 lg:grid-cols-[320px_1fr]"><div className="flex aspect-square max-w-[320px] items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-2 text-[72px] font-bold tracking-[-.06em] text-white shadow-xl">{brand.founder.initials}</div><div><Eyebrow>{c.founderEyebrow}</Eyebrow><h2 className="mt-4 max-w-[22ch] font-display text-[clamp(30px,4vw,44px)] font-bold leading-tight text-primary">{c.founderTitle}</h2><p className="mt-5 max-w-[62ch] text-lg leading-relaxed text-text-2">{c.founderBody}</p><p className="mt-5 font-semibold text-text">{brand.founder.name}</p><p className="text-sm text-mute">{locale === "es" ? brand.founder.role : "Founder and automation & AI consultant"}</p><ButtonLink href={locale === "es" ? "/nosotros" : "/en/about"} variant="outline" className="mt-6">{locale === "es" ? "Conocer más" : "Learn more"}</ButtonLink></div></Container>
+      <Container className="grid items-center gap-10 lg:grid-cols-[320px_1fr]"><Reveal><div className="flex aspect-square max-w-[320px] items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-2 text-[72px] font-bold tracking-[-.06em] text-white shadow-xl">{brand.founder.initials}</div></Reveal><Reveal delay={0.06}><div><Eyebrow>{c.founderEyebrow}</Eyebrow><h2 className="mt-4 max-w-[22ch] font-display text-[clamp(30px,4vw,44px)] font-bold leading-tight text-primary">{c.founderTitle}</h2><p className="mt-5 max-w-[62ch] text-lg leading-relaxed text-text-2">{c.founderBody}</p><p className="mt-5 font-semibold text-text">{brand.founder.name}</p><p className="text-sm text-mute">{locale === "es" ? brand.founder.role : "Founder and automation & AI consultant"}</p><ButtonLink href={locale === "es" ? "/nosotros" : "/en/about"} variant="outline" className="mt-6">{locale === "es" ? "Conocer más" : "Learn more"}</ButtonLink></div></Reveal></Container>
     </Section>
 
     <Section>
       <Container><SectionHead eyebrow={locale === "es" ? "Recursos" : "Resources"} title={c.resources} lede={c.resourcesBody} />
-        <div className="grid gap-4 md:grid-cols-3">{posts.map((post) => <article key={post.slug} className="rounded-xl border border-line p-6"><span className="text-xs font-semibold uppercase tracking-wider text-amber-deep">{post.category}</span><h2 className="mt-3 font-display text-xl font-bold">{post.title}</h2><p className="mt-3 text-sm leading-relaxed text-text-2">{post.excerpt}</p><Link href={`${base}/recursos/${post.slug}`} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-tech">{c.read}<ArrowRight className="h-4 w-4" /></Link></article>)}</div>
+        <StaggerGroup className="grid gap-4 md:grid-cols-3">{posts.map((post) => <StaggerItem key={post.slug}><article className="interactive-card h-full rounded-xl border border-line p-6"><span className="text-xs font-semibold uppercase tracking-wider text-amber-deep">{post.category}</span><h2 className="mt-3 font-display text-xl font-bold">{post.title}</h2><p className="mt-3 text-sm leading-relaxed text-text-2">{post.excerpt}</p><Link href={`${base}/recursos/${post.slug}`} className="interactive-link mt-5 inline-flex items-center gap-2 text-sm font-semibold text-tech">{c.read}<ArrowRight className="motion-arrow h-4 w-4" /></Link></article></StaggerItem>)}</StaggerGroup>
       </Container>
     </Section>
 
-    <Section className="bg-gradient-to-br from-primary to-primary-2 py-24 text-white"><Container className="max-w-[820px] text-center"><h2 className="font-display text-[clamp(32px,4vw,50px)] font-bold">{c.finalTitle}</h2><p className="mx-auto mt-4 max-w-[55ch] text-lg text-white/75">{c.finalBody}</p><div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg">{c.now}</ButtonLink><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" className="border border-white/25 bg-white/10 text-white hover:bg-white/15">{c.schedule}</ButtonLink></div></Container></Section>
+    <Section className="bg-gradient-to-br from-primary to-primary-2 py-24 text-white"><Container className="max-w-[820px] text-center"><Reveal><h2 className="font-display text-[clamp(32px,4vw,50px)] font-bold">{c.finalTitle}</h2><p className="mx-auto mt-4 max-w-[55ch] text-lg text-white/75">{c.finalBody}</p><div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg">{c.now}</ButtonLink><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" className="border border-white/25 bg-white/10 text-white hover:bg-white/15">{c.schedule}</ButtonLink></div></Reveal></Container></Section>
   </>;
 }

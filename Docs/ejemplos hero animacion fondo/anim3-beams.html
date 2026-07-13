@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuisqueyaTech — Animated Dawn #3 Sunrise Beams</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --brand-orange: #F26B3A; --brand-navy: #0A2540; --brand-blue: #4F8FBF; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--brand-navy); -webkit-font-smoothing: antialiased; }
+    .nav { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.92); backdrop-filter: saturate(140%) blur(10px); border-bottom: 1px solid rgba(10,37,64,0.08); }
+    .nav-inner { max-width: 1280px; margin: 0 auto; padding: 18px 40px; display: flex; align-items: center; gap: 32px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--brand-navy); text-decoration: none; font-size: 18px; }
+    .brand-mark { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--brand-orange) 0%, var(--brand-blue) 100%); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px; }
+    .nav-links { display: flex; align-items: center; gap: 28px; margin-left: 24px; }
+    .nav-links a { color: #1A2B3D; text-decoration: none; font-size: 15px; font-weight: 500; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .lang { display: inline-flex; padding: 4px; background: #F2F5F8; border-radius: 999px; font-size: 13px; font-weight: 600; }
+    .lang a { padding: 6px 12px; border-radius: 999px; text-decoration: none; color: #5B6B7E; }
+    .lang a.active { background: #fff; color: var(--brand-navy); }
+    .btn-cta-nav { background: var(--brand-orange); color: #fff !important; text-decoration: none; padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 14.5px; box-shadow: 0 6px 16px rgba(242,107,58,0.32); }
+    .hero { position: relative; isolation: isolate; overflow: hidden; padding: 100px 24px 110px; text-align: center; }
+    .stage { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
+    .bg-base {
+      position: absolute; inset: 0;
+      background: linear-gradient(170deg, #FFFAF0 0%, #FFF4E0 30%, #FFE4C4 60%, #FFD4B0 80%, #DCE9F4 100%);
+    }
+    /* Sunrise "sun" glow that pulses from top-left */
+    .sun {
+      position: absolute;
+      width: 900px; height: 900px;
+      top: -350px; left: -250px;
+      background: radial-gradient(circle, rgba(255, 200, 130, 0.85) 0%, rgba(255, 170, 100, 0.4) 30%, transparent 60%);
+      filter: blur(40px);
+      animation: pulse 8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50%      { transform: scale(1.15); opacity: 1; }
+    }
+    /* Rotating beams */
+    .beams {
+      position: absolute;
+      width: 200%; height: 200%;
+      top: -50%; left: -50%;
+      background: conic-gradient(
+        from 0deg at 30% 20%,
+        transparent 0deg,
+        rgba(255, 220, 170, 0.35) 5deg,
+        transparent 12deg,
+        rgba(255, 200, 140, 0.3) 18deg,
+        transparent 26deg,
+        rgba(255, 230, 190, 0.4) 32deg,
+        transparent 42deg,
+        rgba(255, 200, 140, 0.3) 48deg,
+        transparent 58deg,
+        rgba(255, 220, 170, 0.35) 64deg,
+        transparent 80deg,
+        rgba(255, 200, 140, 0.3) 86deg,
+        transparent 100deg,
+        rgba(255, 220, 170, 0.35) 106deg,
+        transparent 130deg,
+        rgba(255, 200, 140, 0.3) 136deg,
+        transparent 200deg,
+        rgba(255, 220, 170, 0.35) 206deg,
+        transparent 260deg,
+        rgba(255, 230, 190, 0.4) 266deg,
+        transparent 300deg,
+        rgba(255, 200, 140, 0.3) 306deg,
+        transparent 360deg
+      );
+      filter: blur(30px);
+      animation: spin 60s linear infinite;
+      mix-blend-mode: screen;
+    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .hero-inner { max-width: 980px; margin: 0 auto; position: relative; }
+    .eyebrow { display: inline-block; color: var(--brand-orange); font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 28px; }
+    h1.headline { font-size: clamp(40px, 5.4vw, 68px); line-height: 1.05; letter-spacing: -0.025em; font-weight: 800; margin: 0 0 32px; }
+    h1.headline .l1 { color: var(--brand-navy); }
+    h1.headline .l2 { color: var(--brand-orange); }
+    h1.headline .l3 { background: linear-gradient(90deg, #5B7FA6 0%, #8FA8C4 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    h1.headline .l4 { background: linear-gradient(90deg, #6FA0CB 0%, #4F8FBF 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .sub { max-width: 720px; margin: 0 auto 40px; color: #2B3B4D; font-size: 17.5px; line-height: 1.6; }
+    .ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px; }
+    .btn-primary { background: var(--brand-orange); color: #fff; text-decoration: none; padding: 16px 26px; border-radius: 10px; font-weight: 600; font-size: 15.5px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 8px 22px rgba(242,107,58,0.38); }
+    .btn-secondary { background: #fff; color: var(--brand-navy); text-decoration: none; padding: 16px 26px; border-radius: 10px; font-weight: 600; font-size: 15.5px; display: inline-flex; align-items: center; gap: 10px; border: 1px solid rgba(10,37,64,0.12); }
+    .trust { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; color: #3B4A5C; font-size: 14px; }
+    .trust span { display: inline-flex; align-items: center; gap: 8px; }
+    .check { color: #2BB673; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#"><span class="brand-mark">Q</span><span>QuisqueyaTech</span></a>
+      <nav class="nav-links">
+        <a href="#">Soluciones ▾</a>
+        <a href="#">Cómo trabajamos</a>
+        <a href="#">Recursos</a>
+        <a href="#">Nosotros</a>
+      </nav>
+      <div class="nav-right">
+        <div class="lang"><a class="active" href="#">ES</a><a href="#">EN</a></div>
+        <a class="btn-cta-nav" href="#">Quiero mi evaluación</a>
+      </div>
+    </div>
+  </header>
+  <section class="hero">
+    <div class="stage">
+      <div class="bg-base"></div>
+      <div class="beams"></div>
+      <div class="sun"></div>
+    </div>
+    <div class="hero-inner">
+      <span class="eyebrow">— Automatización, IA y software para empresas</span>
+      <h1 class="headline">
+        <span class="l1">Tu empresa no necesita<br>más herramientas.</span><br>
+        <span class="l2">Necesita</span> <span class="l3">que trabajen</span><br>
+        <span class="l4">juntas.</span>
+      </h1>
+      <p class="sub">Evaluamos cómo opera tu equipo, detectamos dónde se pierde tiempo y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad sin complicar la operación.</p>
+      <div class="ctas">
+        <a class="btn-primary" href="#">📝 Quiero mi evaluación ahora</a>
+        <a class="btn-secondary" href="#">🕒 Agendar mi evaluación</a>
+      </div>
+      <div class="trust">
+        <span><span class="check">✓</span> Evaluación inicial sin costo</span>
+        <span><span class="check">✓</span> Disponible en español e inglés</span>
+        <span><span class="check">✓</span> Resumen preliminar inmediato</span>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

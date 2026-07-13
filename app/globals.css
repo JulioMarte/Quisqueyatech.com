@@ -91,6 +91,42 @@ body {
   color: var(--c-primary);
 }
 
+.interactive-card {
+  transition-property: transform, border-color, box-shadow, background-color;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(.22, 1, .36, 1);
+}
+
+.motion-arrow {
+  transition: transform 200ms cubic-bezier(.22, 1, .36, 1);
+}
+
+@media (hover: hover) {
+  .interactive-card:hover,
+  .interactive-card:focus-within {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--c-larimar-deep) 55%, var(--c-line));
+    box-shadow: 0 18px 40px -28px rgba(8, 47, 73, .55);
+  }
+
+  .group:hover .motion-arrow,
+  .interactive-link:hover .motion-arrow,
+  .motion-button:hover .motion-arrow {
+    transform: translateX(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-card:hover,
+  .interactive-card:focus-within,
+  .motion-button:hover,
+  .motion-arrow,
+  [data-motion] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 .prose { color: var(--c-text-2); line-height: 1.75; }
 .prose h2, .prose h3 { margin-top: 2rem; margin-bottom: .75rem; color: var(--c-primary); font-family: var(--font-poppins), system-ui, sans-serif; font-weight: 700; }
 .prose h2 { font-size: 1.6rem; }

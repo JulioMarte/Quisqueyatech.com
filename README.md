@@ -1,52 +1,47 @@
 # Quisqueyatech.com
 
-## Deploy en Coolify
+Sitio bilingüe de QuisqueyaTech construido con Next.js 16, React 19, Convex Cloud y Tailwind CSS. Incluye evaluación por voz, agenda propia sobre Easy!Appointments, recursos editoriales y panel administrativo.
 
-Esta app esta preparada para desplegarse en Coolify usando el build pack
-`Dockerfile`.
+## Desarrollo
 
-Configuracion recomendada:
-
-- Build Pack: `Dockerfile`
-- Dockerfile path: `Dockerfile`
-- Port Exposes: `3000`
-- Healthcheck path en la UI, si se configura ahi: `/api/health`
-- Dominio de produccion: `quisqueyatech.com`
-
-Variables requeridas en Coolify, marcadas como Build + Runtime:
-
-```env
-NEXT_PUBLIC_SITE_URL=https://quisqueyatech.com
-NEXT_PUBLIC_WHATSAPP_NUMBER=
-NEXT_PUBLIC_CONTACT_EMAIL=admin@quisqueyatech.com
+```bash
+npm install
+npx convex dev
+npm run dev
 ```
 
-Las variables `NEXT_PUBLIC_*` se incrustan durante `next build`, asi que
-cualquier cambio en ellas requiere redeploy.
+`npx convex dev` crea o selecciona el deployment personal de desarrollo y completa `.env.local`. Los datos de desarrollo y producción permanecen separados.
 
-Variables opcionales para futuras integraciones:
+La aplicación funciona en modo demostración sin credenciales externas. Copia `.env.example` y configura servicios según se activen.
 
-```env
-RESEND_API_KEY=
-LEAD_TO_EMAIL=admin@quisqueyatech.com
-CONVEX_DEPLOYMENT=
-NEXT_PUBLIC_CONVEX_URL=
+## Evaluación de voz
+
+`VOICE_PROVIDER` acepta `ultravox` o `livekit`. Ambos implementan la misma interfaz. Sin credenciales, la UI utiliza un modo demostrativo explícitamente identificado.
+
+LiveKit necesita además un worker de Agents conectado a Gemini Live. El sitio crea la sala y el token; el worker se despliega independientemente en LiveKit Cloud o Coolify.
+
+## Easy!Appointments
+
+Easy!Appointments 1.6.0 vive como servicio independiente en el VPS. La UI pública nunca enlaza al frontend predeterminado: consulta disponibilidad y crea reservas mediante su API HTTPS desde el servidor. Este repositorio conserva únicamente la guía de interoperabilidad en `infra/easy-appointments/README.md`.
+
+Configura un webhook hacia:
+
+```text
+https://quisqueyatech.com/api/webhooks/easy-appointments
 ```
 
-### Verificacion local
+y usa `X-EA-Token` con el mismo valor de `EASY_APPOINTMENTS_WEBHOOK_TOKEN`.
+
+## Producción
+
+El workflow `.github/workflows/deploy.yml` valida el proyecto, despliega Convex y después activa Coolify. Desactiva el autodeploy directo de Coolify para evitar despliegues paralelos.
+
+Variables públicas de Next.js deben configurarse como build arguments en Coolify. Los secretos de Easy!Appointments, voz, telefonía y correo son variables runtime y nunca deben incluirse en la imagen.
+
+## Verificación
 
 ```bash
 npm run lint
 npm run build
 docker build -t quisqueyatech-coolify .
-docker run --rm -p 3000:3000 --env NEXT_PUBLIC_SITE_URL=http://localhost:3000 quisqueyatech-coolify
 ```
-
-Despues de levantar el contenedor, revisar:
-
-- `http://localhost:3000/`
-- `http://localhost:3000/clinicas`
-- `http://localhost:3000/privacidad`
-- `http://localhost:3000/sitemap.xml`
-- `http://localhost:3000/robots.txt`
-- `http://localhost:3000/api/health`

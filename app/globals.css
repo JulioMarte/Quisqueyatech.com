@@ -25,8 +25,6 @@
   --c-rose-soft: #ffe4e6;
   --c-success: #10b981;
   --c-success-soft: #ecfdf5;
-  --c-wa: #25d366;
-  --c-wa-hover: #1da851;
 }
 
 @theme inline {
@@ -54,8 +52,6 @@
   --color-rose-soft: var(--c-rose-soft);
   --color-success: var(--c-success);
   --color-success-soft: var(--c-success-soft);
-  --color-wa: var(--c-wa);
-  --color-wa-hover: var(--c-wa-hover);
   --font-display: var(--font-poppins), system-ui, sans-serif;
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
@@ -69,6 +65,20 @@ html {
   scroll-behavior: smooth;
 }
 
+:focus-visible {
+  outline: 2px solid var(--c-tech);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 body {
   background: var(--c-bg);
   color: var(--c-text);
@@ -80,3 +90,14 @@ body {
   background: color-mix(in srgb, var(--c-larimar) 35%, white);
   color: var(--c-primary);
 }
+
+.prose { color: var(--c-text-2); line-height: 1.75; }
+.prose h2, .prose h3 { margin-top: 2rem; margin-bottom: .75rem; color: var(--c-primary); font-family: var(--font-poppins), system-ui, sans-serif; font-weight: 700; }
+.prose h2 { font-size: 1.6rem; }
+.prose h3 { font-size: 1.25rem; }
+.prose p, .prose ul, .prose ol { margin: 1rem 0; }
+.prose ul, .prose ol { padding-left: 1.5rem; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose a { color: var(--c-tech); text-decoration: underline; }
+.prose strong { color: var(--c-text); }

@@ -12,7 +12,6 @@ const buttonVariants = cva(
         ghost:
           "bg-transparent border border-line-2 text-text hover:border-primary hover:bg-white",
         dark: "bg-primary text-white hover:bg-primary-2",
-        wa: "bg-wa text-white hover:bg-wa-hover",
         outline:
           "border border-line bg-white text-text hover:border-larimar-deep",
       },

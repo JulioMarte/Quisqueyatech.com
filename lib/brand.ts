@@ -1,14 +1,27 @@
 export const brand = {
   name: "QuisqueyaTech",
-  descriptor: "Consultoría operativa",
-  tagline: "Ordenamos tu operación antes de venderte tecnología.",
+  descriptor: "Automatización, IA y software para empresas",
+  tagline: "La tecnología correcta, trabajando como un solo sistema.",
   domain: "quisqueyatech.com",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://quisqueyatech.com",
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "admin@quisqueyatech.com",
+  publicEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com",
+  adminEmail: "admin@quisqueyatech.com",
+  editorEmail: "juliomarte@quisqueyatech.com",
   location: "Puerto Plata, República Dominicana",
-  locationShort: "PYMES dominicanas · Toda RD",
-  whatsapp:
-    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.replace(/\D/g, "") || "",
+  locationShort: "República Dominicana · Servicio internacional",
+  founder: {
+    name: "Julio Alberto Marte Balbuena",
+    initials: "JM",
+    role: "Fundador y consultor de automatización e IA",
+    linkedIn:
+      "https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072",
+  },
+  social: {
+    instagram: "https://instagram.com/quisqueyait",
+    facebook: "https://facebook.com/quisqueyait",
+    x: "https://x.com/quisqueyait",
+    handle: "@quisqueyait",
+  },
 } as const;
 
 export const colors = {
@@ -16,18 +29,8 @@ export const colors = {
   primary2: "#0A2138",
   tech: "#2563EB",
   larimar: "#38BDF8",
-  larimarDeep: "#0EA5E9",
   amber: "#F97316",
-  amberDeep: "#EA580C",
   text: "#0F172A",
   text2: "#475569",
-  mute: "#64748B",
-  bg: "#FFFFFF",
-  bg2: "#F8FAFC",
-  bg3: "#F1F5F9",
-  line: "#E2E8F0",
-  dark: "#0A1322",
-  dark2: "#0F1E36",
-  success: "#10B981",
-  rose: "#E11D48",
+  background: "#FFFFFF",
 } as const;

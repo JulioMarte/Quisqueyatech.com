@@ -166,7 +166,7 @@ function buildPreliminaryResult(transcript: string, locale: "es" | "en") {
 
 async function sendResultEmail(
   assessmentId: string,
-  email: string,
+  email: string | undefined,
   locale: "es" | "en",
   result: ReturnType<typeof buildPreliminaryResult>,
 ) {
@@ -183,7 +183,7 @@ async function sendResultEmail(
       from:
         process.env.RESEND_FROM_EMAIL ||
         "QuisqueyaTech <evaluaciones@quisqueyatech.com>",
-      to: email === admin ? [admin] : [email, admin],
+      to: !email || email === admin ? [admin] : [email, admin],
       subject:
         locale === "es"
           ? `Tu evaluación preliminar · ${assessmentId}`

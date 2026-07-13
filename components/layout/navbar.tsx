@@ -84,10 +84,10 @@ export function Navbar() {
               )}
             >
               {copy.solutions}
-              <ChevronDown className="h-4 w-4 transition-transform duration-150 group-hover:rotate-180 group-focus-within:rotate-180" aria-hidden="true" />
-              {isSolutionsActive && <span className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-amber" aria-hidden="true" />}
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180 group-focus-within:rotate-180" aria-hidden="true" />
+              {isSolutionsActive && <m.span layoutId="nav-active-indicator" transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }} className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-amber" aria-hidden="true" />}
             </Link>
-            <div className="invisible absolute left-1/2 top-full w-[620px] -translate-x-1/2 translate-y-2 pt-2 opacity-0 transition duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            <div className="invisible absolute left-1/2 top-full w-[620px] -translate-x-1/2 translate-y-3 pt-2 opacity-0 transition duration-200 ease-[cubic-bezier(.16,1,.3,1)] group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
               <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
                 <div className="grid grid-cols-2 gap-1 p-2">
                   {solutionLinks[locale].map(([href, label, description]) => (
@@ -114,7 +114,7 @@ export function Navbar() {
           {mainLinks.map((link) => (
             <Link key={link.href} href={link.href} aria-current={isActive(link.href) ? "page" : undefined} className={cn("relative inline-flex min-h-11 cursor-pointer items-center rounded-md px-3 text-sm font-medium transition-colors hover:bg-bg-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep", isActive(link.href) ? "bg-bg-2 text-primary" : "text-text-2")}>
               {link.label}
-              {isActive(link.href) && <span className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-amber" aria-hidden="true" />}
+              {isActive(link.href) && <m.span layoutId="nav-active-indicator" transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }} className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-amber" aria-hidden="true" />}
             </Link>
           ))}
         </nav>
@@ -130,14 +130,14 @@ export function Navbar() {
       </Container>
 
       <AnimatePresence initial={false}>
-      {open ? <m.div id={mobileMenuId} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden border-t border-line bg-white shadow-lg xl:hidden">
+      {open ? <m.div id={mobileMenuId} initial={{ height: 0, opacity: 0, y: -8 }} animate={{ height: "auto", opacity: 1, y: 0 }} exit={{ height: 0, opacity: 0, y: -8 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden border-t border-line bg-white shadow-lg xl:hidden">
         <Container className="max-h-[calc(100dvh-68px)] overflow-y-auto py-4">
           <button type="button" className={cn("flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg px-3 text-sm font-semibold transition-colors hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep", isSolutionsActive ? "text-primary" : "text-text")} aria-expanded={solutionsOpen} aria-controls={mobileSolutionsId} onClick={() => setSolutionsOpen((value) => !value)}>
             <span>{copy.solutions}</span>
             <ChevronDown className={cn("h-4 w-4 transition-transform duration-150", solutionsOpen && "rotate-180")} aria-hidden="true" />
           </button>
           <AnimatePresence initial={false}>
-          {solutionsOpen ? <m.div id={mobileSolutionsId} initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} className="mt-1 overflow-hidden border-l-2 border-larimar-soft pl-2">
+          {solutionsOpen ? <m.div id={mobileSolutionsId} initial={{ height: 0, opacity: 0, y: -6 }} animate={{ height: "auto", opacity: 1, y: 0 }} exit={{ height: 0, opacity: 0, y: -6 }} transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }} className="mt-1 overflow-hidden border-l-2 border-larimar-soft pl-2">
             {solutionLinks[locale].map(([href, label]) => (
               <Link key={href} href={href} onClick={closeMobileMenu} aria-current={isActive(href) ? "page" : undefined} className={cn("flex min-h-11 items-center rounded-lg px-3 text-sm font-medium transition-colors hover:bg-bg-2", isActive(href) ? "bg-larimar-soft text-primary" : "text-text-2")}>{label}</Link>
             ))}

@@ -24,6 +24,13 @@ export const assessmentIntakeSchema = z.object({
   turnstileToken: z.string().optional(),
 });
 
+export const assessmentConferenceStartSchema = z.object({
+  locale: z.enum(["es", "en"]),
+  processingConsent: z.literal(true),
+  recordingConsent: z.literal(true),
+  turnstileToken: z.string().optional(),
+});
+
 export const bookingSchema = assessmentIntakeSchema
   .omit({ recordingConsent: true })
   .extend({
@@ -36,7 +43,7 @@ export const bookingSchema = assessmentIntakeSchema
 
 export const assessmentCompleteSchema = z.object({
   assessmentId: z.string().min(1).max(120),
-  email: z.string().email().max(160),
+  email: z.string().email().max(160).optional(),
   locale: z.enum(["es", "en"]),
   transcript: z.string().max(50000),
   provider: z.enum(["ultravox", "livekit", "demo"]),

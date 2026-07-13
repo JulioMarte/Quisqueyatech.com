@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { alternatePath, localeFromPath, withLocale } from "../lib/i18n";
 import {
+  assessmentConferenceStartSchema,
   assessmentIntakeSchema,
   bookingSchema,
 } from "../lib/validations/assessment";
@@ -52,6 +53,22 @@ test("assessment intake requires international mobile and both consents", () => 
       channel: "web",
     }).success,
     true,
+  );
+});
+
+test("voice conference starts without requesting contact details", () => {
+  const valid = {
+    locale: "es",
+    processingConsent: true,
+    recordingConsent: true,
+  };
+  assert.equal(assessmentConferenceStartSchema.safeParse(valid).success, true);
+  assert.equal(
+    assessmentConferenceStartSchema.safeParse({
+      ...valid,
+      recordingConsent: false,
+    }).success,
+    false,
   );
 });
 

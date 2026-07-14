@@ -9,7 +9,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test": "npm run test:core && npm run test:convex",
+    "test:core": "node --import tsx --test tests/**/*.test.ts",
+    "test:convex": "vitest run",
+    "test:e2e": "playwright test",
     "og": "node scripts/generate-og.mjs"
   },
   "dependencies": {
@@ -41,15 +44,19 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^10.0.3",
+    "convex-test": "^0.0.54",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

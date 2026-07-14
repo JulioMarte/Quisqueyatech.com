@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
-import { requireAdminResponse } from "@/lib/client/admin-response";
+import { adminRequest } from "@/lib/client/admin-response";
 
 const VisualMarkdownEditor = dynamic(
   () => import("@/components/admin/visual-markdown-editor"),
@@ -120,21 +120,12 @@ export function AdminEditor() {
   const [uploading, setUploading] = useState(false);
 
   const loadPosts = useCallback(async () => {
-    const response = await fetch("/api/admin/v1/posts", { cache: "no-store" });
-    requireAdminResponse(response);
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error);
-    setPosts(payload.data || []);
+    setPosts(await adminRequest<Post[]>("/api/admin/v1/posts", { cache: "no-store" }));
   }, []);
   useEffect(() => {
     let active = true;
-    fetch("/api/admin/v1/posts", { cache: "no-store" })
-      .then(async (response) => {
-        requireAdminResponse(response);
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error);
-        if (active) setPosts(payload.data || []);
-      })
+    adminRequest<Post[]>("/api/admin/v1/posts", { cache: "no-store" })
+      .then((data) => { if (active) setPosts(data); })
       .catch((error) => {
         if (active)
           setMessage(
@@ -170,7 +161,7 @@ export function AdminEditor() {
       setSaving(true);
       if (!silent) setMessage("");
       try {
-        const response = await fetch(
+        const payload = await adminRequest<{ id: string }>(
           post._id ? `/api/admin/v1/posts/${post._id}` : "/api/admin/v1/posts",
           {
             method: post._id ? "PATCH" : "POST",
@@ -181,9 +172,7 @@ export function AdminEditor() {
             body: JSON.stringify({ ...post, id: post._id }),
           },
         );
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error);
-        const saved = { ...post, _id: String(payload.data.id) };
+        const saved = { ...post, _id: String(payload.id) };
         setPost(saved);
         setDirty(false);
         if (!silent) setMessage("Recurso guardado correctamente.");
@@ -239,7 +228,7 @@ export function AdminEditor() {
     setProposal(null);
     setMessage("");
     try {
-      const response = await fetch("/api/admin/v1/ai/actions", {
+      const payload = await adminRequest<{ proposal: Proposal }>("/api/admin/v1/ai/actions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -257,9 +246,7 @@ export function AdminEditor() {
           currentContent: post.body,
         }),
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error);
-      setProposal(payload.data.proposal);
+      setProposal(payload.proposal);
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -294,43 +281,42 @@ export function AdminEditor() {
       )
     )
       return;
-    const response = await fetch(`/api/admin/v1/posts/${post._id}`, {
-      method: "DELETE",
-    });
-    const payload = await response.json();
-    if (!response.ok) return setMessage(payload.error);
-    await loadPosts();
-    setPost(emptyPost());
+    try {
+      await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, { method: "DELETE" });
+      await loadPosts();
+      setPost(emptyPost());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo archivar.");
+    }
   }
   async function seedContent() {
-    const response = await fetch("/api/admin/v1/posts/seed", {
-      method: "POST",
-    });
-    const payload = await response.json();
-    if (!response.ok) return setMessage(payload.error);
-    await loadPosts();
-    setMessage("Contenido inicial migrado sin duplicar recursos existentes.");
+    try {
+      await adminRequest<{ inserted: number }>("/api/admin/v1/posts/seed", { method: "POST" });
+      await loadPosts();
+      setMessage("Contenido inicial migrado sin duplicar recursos existentes.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo migrar el contenido inicial.");
+    }
   }
   async function loadHistory() {
     if (!post._id) return;
     setTab("history");
-    const response = await fetch(
-      `/api/admin/v1/posts/${post._id}?include=revisions`,
-    );
-    const payload = await response.json();
-    setRevisions(response.ok ? payload.data : []);
+    try {
+      setRevisions(await adminRequest<Revision[]>(`/api/admin/v1/posts/${post._id}?include=revisions`));
+    } catch (error) {
+      setRevisions([]);
+      setMessage(error instanceof Error ? error.message : "No se pudo cargar el historial.");
+    }
   }
   async function restore(revisionId: string) {
     if (!post._id) return;
-    const response = await fetch(`/api/admin/v1/posts/${post._id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ revisionId }),
-    });
-    const payload = await response.json();
-    if (!response.ok) return setMessage(payload.error);
-    await loadPosts();
-    setMessage("Versión restaurada. Selecciona el recurso para revisarla.");
+    try {
+      await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revisionId }) });
+      await loadPosts();
+      setMessage("Versión restaurada. Selecciona el recurso para revisarla.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo restaurar la versión.");
+    }
   }
 
   async function upload(file?: File) {
@@ -344,21 +330,19 @@ export function AdminEditor() {
       return setMessage("Usa JPG, PNG, WebP o AVIF de máximo 5 MB.");
     setUploading(true);
     try {
-      const prepared = await fetch("/api/admin/v1/media/upload-url", {
+      const first = await adminRequest<{ uploadUrl: string }>("/api/admin/v1/media/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
-      const first = await prepared.json();
-      if (!prepared.ok) throw new Error(first.error);
-      const sent = await fetch(first.data.uploadUrl, {
+      const sent = await fetch(first.uploadUrl, {
         method: "POST",
         headers: { "Content-Type": file.type },
         body: file,
       });
       const stored = await sent.json();
       if (!sent.ok) throw new Error("No se pudo subir la imagen");
-      await fetch("/api/admin/v1/media/upload-url", {
+      await adminRequest<{ id: string }>("/api/admin/v1/media/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

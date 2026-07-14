@@ -11,8 +11,9 @@ const status = v.union(v.literal("draft"), v.literal("review_pending"), v.litera
 const actor = { actorType: v.union(v.literal("admin"), v.literal("agent"), v.literal("system")), actorId: v.string(), actorLabel: v.string() };
 
 async function requireServer(ctx: GenericCtx<DataModel>, secret?: string) {
+  void ctx;
   if (process.env.ADMIN_API_SECRET && secret === process.env.ADMIN_API_SECRET) return;
-  await requireAdmin(ctx);
+  throw new Error("Unauthorized");
 }
 
 const postFields = {
@@ -37,6 +38,10 @@ async function withImage(ctx: { storage: { getUrl(id: Id<"_storage">): Promise<s
   return { ...post, imageUrl: post.imageId ? await ctx.storage.getUrl(post.imageId) : null };
 }
 
+function adminLabel(admin: { email: string; name: string }) {
+  return admin.name || admin.email;
+}
+
 export const published = query({
   args: { locale },
   handler: async (ctx, args) => {
@@ -54,6 +59,61 @@ export const publishedBySlug = query({
     return withImage(ctx, post);
   },
 });
+
+export const adminList = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const posts = await ctx.db.query("posts").order("desc").take(500);
+    return Promise.all(posts.map((post) => withImage(ctx, post)));
+  },
+});
+
+export const adminSave = mutation({
+  args: postFields,
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const { id, ...input } = args;
+    const duplicate = await ctx.db.query("posts").withIndex("by_locale_slug", (q) => q.eq("locale", input.locale).eq("slug", input.slug)).unique();
+    if (duplicate && duplicate._id !== id) throw new Error("A post already uses this slug and locale");
+    const now = Date.now();
+    const label = adminLabel(admin);
+    const values = { ...input, readingMinutes: input.readingMinutes ?? Math.max(1, Math.ceil(input.body.trim().split(/\s+/).length / 220)), authorEmail: admin.email, actorType: "admin" as const, actorId: admin.userId, actorLabel: label, updatedAt: now };
+    if (id) {
+      const current = await ctx.db.get(id);
+      if (!current) throw new Error("Post not found");
+      await ctx.db.insert("postRevisions", { postId: id, snapshot: editable(current as unknown as Record<string, unknown>), reason: "save", actorEmail: admin.email, actorType: "admin", actorId: admin.userId, actorLabel: label, createdAt: now });
+      await ctx.db.patch(id, values);
+      return id;
+    }
+    return ctx.db.insert("posts", { ...values, createdAt: now });
+  },
+});
+
+export const adminArchive = mutation({ args: { id: v.id("posts") }, handler: async (ctx, args) => {
+  const admin = await requireAdmin(ctx); const current = await ctx.db.get(args.id); if (!current) throw new Error("Post not found");
+  const now = Date.now(), label = adminLabel(admin);
+  await ctx.db.insert("postRevisions", { postId: args.id, snapshot: editable(current as unknown as Record<string, unknown>), reason: "archive", actorEmail: admin.email, actorType: "admin", actorId: admin.userId, actorLabel: label, createdAt: now });
+  await ctx.db.patch(args.id, { status: "archived", actorType: "admin", actorId: admin.userId, actorLabel: label, updatedAt: now });
+} });
+
+export const adminRevisions = query({ args: { postId: v.id("posts") }, handler: async (ctx, args) => { await requireAdmin(ctx); return ctx.db.query("postRevisions").withIndex("by_post_created", (q) => q.eq("postId", args.postId)).order("desc").take(30); } });
+
+export const adminRestore = mutation({ args: { revisionId: v.id("postRevisions") }, handler: async (ctx, args) => {
+  const admin = await requireAdmin(ctx); const revision = await ctx.db.get(args.revisionId); if (!revision) throw new Error("Post not found");
+  const current = await ctx.db.get(revision.postId); if (!current) throw new Error("Post not found");
+  const now = Date.now(), label = adminLabel(admin);
+  await ctx.db.insert("postRevisions", { postId: revision.postId, snapshot: editable(current as unknown as Record<string, unknown>), reason: "before-restore", actorEmail: admin.email, actorType: "admin", actorId: admin.userId, actorLabel: label, createdAt: now });
+  await ctx.db.patch(revision.postId, { ...revision.snapshot, actorType: "admin", actorId: admin.userId, actorLabel: label, updatedAt: now });
+  return revision.postId;
+} });
+
+export const adminGenerateUploadUrl = mutation({ args: {}, handler: async (ctx) => { await requireAdmin(ctx); return ctx.storage.generateUploadUrl(); } });
+export const adminRegisterMedia = mutation({ args: { storageId: v.id("_storage"), filename: v.string(), contentType: v.string(), purpose: v.string() }, handler: async (ctx, args) => { const admin = await requireAdmin(ctx); const metadata = await ctx.db.system.get("_storage", args.storageId); const accepted = ["image/jpeg", "image/png", "image/webp", "image/avif"]; if (!metadata || metadata.size > 5_000_000 || !metadata.contentType || metadata.contentType !== args.contentType || !accepted.includes(metadata.contentType)) { if (metadata) await ctx.storage.delete(args.storageId); throw new Error("Invalid media upload"); } return ctx.db.insert("media", { storageId: args.storageId, filename: args.filename, contentType: args.contentType, purpose: args.purpose, ownerEmail: admin.email, createdAt: Date.now() }); } });
+export const adminRecordAiRun = mutation({ args: { postId: v.optional(v.id("posts")), action: v.string(), provider: v.string(), model: v.string(), status: v.string(), warnings: v.array(v.string()), inputTokens: v.optional(v.number()), outputTokens: v.optional(v.number()), durationMs: v.number() }, handler: async (ctx, args) => { const admin = await requireAdmin(ctx); return ctx.db.insert("aiRuns", { ...args, actorEmail: admin.email, createdAt: Date.now() }); } });
+export const adminIdempotencyGet = query({ args: { scope: v.string(), key: v.string() }, handler: async (ctx, args) => { await requireAdmin(ctx); const record = await ctx.db.query("apiIdempotency").withIndex("by_scope_key", (q) => q.eq("scope", args.scope).eq("key", args.key)).unique(); return record && record.expiresAt > Date.now() ? record.value : null; } });
+export const adminIdempotencyPut = mutation({ args: { scope: v.string(), key: v.string(), value: v.any() }, handler: async (ctx, args) => { await requireAdmin(ctx); const existing = await ctx.db.query("apiIdempotency").withIndex("by_scope_key", (q) => q.eq("scope", args.scope).eq("key", args.key)).unique(); if (existing) return existing.value; const now = Date.now(); await ctx.db.insert("apiIdempotency", { scope: args.scope, key: args.key, value: args.value, createdAt: now, expiresAt: now + 24 * 60 * 60 * 1000 }); return args.value; } });
+export const adminSeed = mutation({ args: { posts: v.array(v.object({ locale, slug: v.string(), translationKey: v.optional(v.string()), title: v.string(), excerpt: v.string(), category: v.string(), body: v.string(), publishedAt: v.number() })) }, handler: async (ctx, args) => { const admin = await requireAdmin(ctx); let inserted = 0; for (const post of args.posts) { const exists = await ctx.db.query("posts").withIndex("by_locale_slug", (q) => q.eq("locale", post.locale).eq("slug", post.slug)).unique(); if (exists) continue; const now = Date.now(); await ctx.db.insert("posts", { ...post, status: "published", authorEmail: admin.email, actorType: "system", actorId: "seed", actorLabel: "System seed", readingMinutes: Math.max(1, Math.ceil(post.body.trim().split(/\s+/).length / 220)), createdAt: now, updatedAt: now }); inserted += 1; } return { inserted }; } });
 
 export const serverList = query({
   args: { secret: v.optional(v.string()) },

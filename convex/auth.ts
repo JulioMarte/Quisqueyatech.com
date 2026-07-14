@@ -120,14 +120,19 @@ export const recoverAdmin = action({
   args: { codeHash: v.string(), newPassword: v.string(), now: v.number() },
   handler: async (ctx, args) => {
     if (args.newPassword.length < 14 || args.newPassword.length > 128) throw new ConvexError("Invalid recovery request");
-    const claimed: { userId: string } | null = await ctx.runMutation(internal.auth.claimRecoveryCode, { codeHash: args.codeHash, now: args.now });
+    const claimed: { userId: string; claimedAt: number } | null = await ctx.runMutation(internal.auth.claimRecoveryCode, { codeHash: args.codeHash, now: args.now });
     if (!claimed) throw new ConvexError("Invalid recovery request");
-    const account = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "account", where: [{ field: "userId", value: claimed.userId }, { field: "providerId", value: "credential" }] });
-    if (!account) throw new ConvexError("Invalid recovery request");
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, { input: { model: "account", where: [{ field: "_id", value: account._id }], update: { password: await hashPassword(args.newPassword) } } });
-    await ctx.runMutation(components.betterAuth.adapter.deleteMany, { input: { model: "session", where: [{ field: "userId", value: claimed.userId }] }, paginationOpts: { numItems: 100, cursor: null } });
-    await ctx.runMutation(internal.auth.consumeRecoveryCode, { codeHash: args.codeHash, now: Date.now() });
-    return { ok: true };
+    try {
+      const account = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "account", where: [{ field: "userId", value: claimed.userId }, { field: "providerId", value: "credential" }] });
+      if (!account) throw new ConvexError("Invalid recovery request");
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, { input: { model: "account", where: [{ field: "_id", value: account._id }], update: { password: await hashPassword(args.newPassword) } } });
+      await ctx.runMutation(components.betterAuth.adapter.deleteMany, { input: { model: "session", where: [{ field: "userId", value: claimed.userId }] }, paginationOpts: { numItems: 100, cursor: null } });
+      await ctx.runMutation(internal.auth.consumeRecoveryCode, { codeHash: args.codeHash, claimedAt: claimed.claimedAt, now: Date.now() });
+      return { ok: true };
+    } catch (error) {
+      await ctx.runMutation(internal.auth.releaseRecoveryCode, { codeHash: args.codeHash, claimedAt: claimed.claimedAt });
+      throw error;
+    }
   },
 });
 
@@ -136,67 +141,24 @@ export const claimRecoveryCode = internalMutation({
   handler: async (ctx, args) => {
     const code = await ctx.db.query("adminRecoveryCodes").withIndex("by_code_hash", q => q.eq("codeHash", args.codeHash)).unique();
     const installation = await ctx.db.query("adminInstallation").withIndex("by_singleton", q => q.eq("singleton", "admin")).unique();
-    if (!code || code.consumedAt || code.claimedAt || installation?.adminUserId !== code.userId) return null;
-    await ctx.db.patch(code._id, { claimedAt: args.now });
-    return { userId: code.userId };
+    if (!code || code.consumedAt || (code.claimExpiresAt ?? 0) > args.now || installation?.adminUserId !== code.userId) return null;
+    await ctx.db.patch(code._id, { claimedAt: args.now, claimExpiresAt: args.now + 10 * 60_000 });
+    return { userId: code.userId, claimedAt: args.now };
   },
 });
 
-export const consumeRecoveryCode = internalMutation({ args: { codeHash: v.string(), now: v.number() }, handler: async (ctx, args) => { const code = await ctx.db.query("adminRecoveryCodes").withIndex("by_code_hash", q => q.eq("codeHash", args.codeHash)).unique(); if (code?.claimedAt && !code.consumedAt) await ctx.db.patch(code._id, { consumedAt: args.now }); } });
+export const consumeRecoveryCode = internalMutation({ args: { codeHash: v.string(), claimedAt: v.number(), now: v.number() }, handler: async (ctx, args) => { const code = await ctx.db.query("adminRecoveryCodes").withIndex("by_code_hash", q => q.eq("codeHash", args.codeHash)).unique(); if (code?.claimedAt === args.claimedAt && !code.consumedAt) await ctx.db.patch(code._id, { consumedAt: args.now, claimExpiresAt: undefined }); } });
+export const releaseRecoveryCode = internalMutation({ args: { codeHash: v.string(), claimedAt: v.number() }, handler: async (ctx, args) => { const code = await ctx.db.query("adminRecoveryCodes").withIndex("by_code_hash", q => q.eq("codeHash", args.codeHash)).unique(); if (code?.claimedAt === args.claimedAt && !code.consumedAt) await ctx.db.patch(code._id, { claimedAt: undefined, claimExpiresAt: undefined }); } });
 
-async function requireServer(ctx: GenericCtx<DataModel>, secret?: string) {
-  if (process.env.ADMIN_API_SECRET && secret === process.env.ADMIN_API_SECRET) return;
-  await requireAdmin(ctx);
-}
-
-export const createSession = mutation({
-  args: { secret: v.string(), tokenHash: v.string(), email: v.string(), version: v.string(), now: v.number(), expiresAt: v.number(), previousHash: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    await requireServer(ctx, args.secret);
-    if (args.previousHash) {
-      const previous = await ctx.db.query("adminSessions").withIndex("by_token_hash", q => q.eq("tokenHash", args.previousHash!)).unique();
-      if (previous && !previous.revokedAt) await ctx.db.patch(previous._id, { revokedAt: args.now });
-    }
-    return ctx.db.insert("adminSessions", { tokenHash: args.tokenHash, email: args.email, version: args.version, createdAt: args.now, expiresAt: args.expiresAt, lastSeenAt: args.now });
-  },
-});
-
-export const verifySession = query({
-  args: { secret: v.string(), tokenHash: v.string(), version: v.string(), now: v.number() },
-  handler: async (ctx, args) => {
-    await requireServer(ctx, args.secret);
-    const session = await ctx.db.query("adminSessions").withIndex("by_token_hash", q => q.eq("tokenHash", args.tokenHash)).unique();
-    return session && !session.revokedAt && session.expiresAt > args.now && session.version === args.version ? { email: session.email, expiresAt: session.expiresAt } : null;
-  },
-});
-
-export const revokeSession = mutation({ args: { secret: v.string(), tokenHash: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireServer(ctx, args.secret); const row = await ctx.db.query("adminSessions").withIndex("by_token_hash", q => q.eq("tokenHash", args.tokenHash)).unique(); if (row && !row.revokedAt) await ctx.db.patch(row._id, { revokedAt: args.now }); } });
-
-export const loginStatus = mutation({
-  args: { secret: v.string(), key: v.string(), now: v.number(), success: v.boolean() },
-  handler: async (ctx, args) => {
-    await requireServer(ctx, args.secret);
-    const row = await ctx.db.query("authLoginAttempts").withIndex("by_key", q => q.eq("key", args.key)).unique();
-    if (args.success) { if (row) await ctx.db.delete(row._id); return { blocked: false, retryAfter: 0 }; }
-    const fresh = !row || args.now - row.windowStartedAt > 15 * 60_000;
-    const count = fresh ? 1 : row.count + 1;
-    const blockedUntil = count >= 5 ? args.now + Math.min(30 * 60_000, 30_000 * 2 ** Math.min(count - 5, 6)) : undefined;
-    if (row) await ctx.db.patch(row._id, { count, windowStartedAt: fresh ? args.now : row.windowStartedAt, blockedUntil, updatedAt: args.now });
-    else await ctx.db.insert("authLoginAttempts", { key: args.key, count, windowStartedAt: args.now, blockedUntil, updatedAt: args.now });
-    return { blocked: Boolean(blockedUntil && blockedUntil > args.now), retryAfter: blockedUntil ? Math.ceil((blockedUntil - args.now) / 1000) : 0 };
-  },
-});
-
-export const checkLogin = query({ args: { secret: v.string(), key: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireServer(ctx, args.secret); const row = await ctx.db.query("authLoginAttempts").withIndex("by_key", q => q.eq("key", args.key)).unique(); return { blocked: Boolean(row?.blockedUntil && row.blockedUntil > args.now), retryAfter: row?.blockedUntil ? Math.max(0, Math.ceil((row.blockedUntil - args.now) / 1000)) : 0 }; } });
-
-export const listAgents = query({ args: { secret: v.optional(v.string()) }, handler: async (ctx, args) => { await requireServer(ctx, args.secret); return (await ctx.db.query("contentAgents").order("desc").take(500)).map(agent => ({ _id: agent._id, keyId: agent.keyId, name: agent.name, prefix: agent.prefix, status: agent.status, requestLimit: agent.requestLimit, uploadLimit: agent.uploadLimit, createdBy: agent.createdBy, createdAt: agent.createdAt, rotatedAt: agent.rotatedAt, revokedAt: agent.revokedAt, lastUsedAt: agent.lastUsedAt })); } });
-export const createAgent = mutation({ args: { secret: v.optional(v.string()), keyId: v.string(), name: v.string(), tokenHash: v.string(), prefix: v.string(), requestLimit: v.number(), uploadLimit: v.number(), createdBy: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireServer(ctx, args.secret); return ctx.db.insert("contentAgents", { keyId: args.keyId, name: args.name, tokenHash: args.tokenHash, prefix: args.prefix, status: "active", requestLimit: args.requestLimit, uploadLimit: args.uploadLimit, createdBy: args.createdBy, createdAt: args.now }); } });
-export const revokeAgent = mutation({ args: { secret: v.optional(v.string()), keyId: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireServer(ctx, args.secret); const row = await ctx.db.query("contentAgents").withIndex("by_key_id", q => q.eq("keyId", args.keyId)).unique(); if (!row) return false; await ctx.db.patch(row._id, { status: "revoked", revokedAt: args.now }); return true; } });
-export const rotateAgent = mutation({ args: { secret: v.optional(v.string()), keyId: v.string(), tokenHash: v.string(), prefix: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireServer(ctx, args.secret); const row = await ctx.db.query("contentAgents").withIndex("by_key_id", q => q.eq("keyId", args.keyId)).unique(); if (!row) return false; await ctx.db.patch(row._id, { tokenHash: args.tokenHash, prefix: args.prefix, status: "active", revokedAt: undefined, rotatedAt: args.now }); return true; } });
+export const listAgents = query({ args: {}, handler: async (ctx) => { await requireAdmin(ctx); return (await ctx.db.query("contentAgents").order("desc").take(500)).map(agent => ({ _id: agent._id, keyId: agent.keyId, name: agent.name, prefix: agent.prefix, status: agent.status, requestLimit: agent.requestLimit, uploadLimit: agent.uploadLimit, createdBy: agent.createdBy, createdAt: agent.createdAt, rotatedAt: agent.rotatedAt, revokedAt: agent.revokedAt, lastUsedAt: agent.lastUsedAt })); } });
+export const createAgent = mutation({ args: { keyId: v.string(), name: v.string(), tokenHash: v.string(), prefix: v.string(), requestLimit: v.number(), uploadLimit: v.number(), createdBy: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireAdmin(ctx); return ctx.db.insert("contentAgents", { keyId: args.keyId, name: args.name, tokenHash: args.tokenHash, prefix: args.prefix, status: "active", requestLimit: args.requestLimit, uploadLimit: args.uploadLimit, createdBy: args.createdBy, createdAt: args.now }); } });
+export const revokeAgent = mutation({ args: { keyId: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireAdmin(ctx); const row = await ctx.db.query("contentAgents").withIndex("by_key_id", q => q.eq("keyId", args.keyId)).unique(); if (!row) return false; await ctx.db.patch(row._id, { status: "revoked", revokedAt: args.now }); return true; } });
+export const rotateAgent = mutation({ args: { keyId: v.string(), tokenHash: v.string(), prefix: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireAdmin(ctx); const row = await ctx.db.query("contentAgents").withIndex("by_key_id", q => q.eq("keyId", args.keyId)).unique(); if (!row) return false; await ctx.db.patch(row._id, { tokenHash: args.tokenHash, prefix: args.prefix, status: "active", revokedAt: undefined, rotatedAt: args.now }); return true; } });
+function requireService(secret: string) { const expected = process.env.ADMIN_API_SECRET; if (!expected || secret !== expected) throw new ConvexError("Unauthorized"); }
 export const authenticateAgent = mutation({
   args: { secret: v.string(), tokenHash: v.string(), operation: v.string(), now: v.number() },
   handler: async (ctx, args) => {
-    await requireServer(ctx, args.secret);
+    requireService(args.secret);
     const agent = await ctx.db.query("contentAgents").withIndex("by_token_hash", q => q.eq("tokenHash", args.tokenHash)).unique();
     if (!agent || agent.status !== "active") return { status: "unauthorized" as const };
     const window = Math.floor(args.now / 3_600_000); const rateKey = `${agent.keyId}:${args.operation}:${window}`;
@@ -209,4 +171,4 @@ export const authenticateAgent = mutation({
   },
 });
 
-export const cleanup = internalMutation({ args: {}, handler: async (ctx) => { const now = Date.now(); for (const session of await ctx.db.query("adminSessions").withIndex("by_expiry", q => q.lte("expiresAt", now)).take(100)) await ctx.db.delete(session._id); for (const attempt of await ctx.db.query("authLoginAttempts").withIndex("by_updated_at", q => q.lte("updatedAt", now - 24 * 60 * 60_000)).take(100)) await ctx.db.delete(attempt._id); for (const rate of await ctx.db.query("contentAgentRateLimits").withIndex("by_reset_at", q => q.lte("resetAt", now - 60 * 60_000)).take(100)) await ctx.db.delete(rate._id); return null; } });
+export const cleanup = internalMutation({ args: {}, handler: async (ctx) => { const now = Date.now(); for (const rate of await ctx.db.query("contentAgentRateLimits").withIndex("by_reset_at", q => q.lte("resetAt", now - 60 * 60_000)).take(100)) await ctx.db.delete(rate._id); return null; } });

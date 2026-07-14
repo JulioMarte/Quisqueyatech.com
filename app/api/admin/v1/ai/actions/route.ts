@@ -1,29 +1,36 @@
-import { NextResponse } from "next/server";
-import { authorizeContentRequest, requestId } from "@/lib/server/admin-content";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { adminException, adminFailure, adminJson, authorizeContentRequest, requestId } from "@/lib/server/admin-content";
 import { contentAiProvider } from "@/lib/server/content-ai";
-import { convexMutation, convexQuery } from "@/lib/server/convex";
+import { fetchAuthMutation, fetchAuthQuery } from "@/lib/server/auth-server";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { aiActionSchema } from "@/lib/validations/content";
 
 export async function POST(request: Request) {
   const trace = requestId(request);
-  const actor = await authorizeContentRequest(request);
-  if (!actor) return NextResponse.json({ data: null, error: "Unauthorized", requestId: trace }, { status: 401 });
+  let actor;
+  let previous: unknown = null;
   const idempotencyKey = request.headers.get("idempotency-key")?.slice(0, 160);
-  if (idempotencyKey) { const previous = await convexQuery("posts:serverIdempotencyGet", { scope: "content-ai", key: idempotencyKey }); if (previous) return NextResponse.json({ data: previous, error: null, requestId: trace }); }
-  if (!allowRequest(`content-ai:${actor.email}`, 30, 60 * 60 * 1000)) return NextResponse.json({ data: null, error: "AI request limit reached", requestId: trace }, { status: 429 });
-  const parsed = aiActionSchema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ data: null, error: parsed.error.issues[0]?.message, requestId: trace }, { status: 400 });
+  try {
+    actor = await authorizeContentRequest(request);
+    if (!actor) return adminFailure(trace, "Unauthorized", 401);
+    if (idempotencyKey) previous = await fetchAuthQuery(api.posts.adminIdempotencyGet, { scope: "content-ai", key: idempotencyKey });
+  } catch (error) { return adminException(trace, "content-ai.authorize", error); }
+  if (previous) return adminJson(trace, previous);
+  if (!allowRequest(`content-ai:${actor.id}`, 30, 60 * 60 * 1000)) return adminFailure(trace, "AI request limit reached", 429);
+  const parsed = aiActionSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return adminFailure(trace, parsed.error.issues[0]?.message || "Invalid request", 400);
   const started = Date.now();
   try {
     const generated = await contentAiProvider().generate(parsed.data);
-    const runId = await convexMutation("posts:serverRecordAiRun", { postId: parsed.data.postId, action: parsed.data.action, provider: "gemini", model: generated.model, status: "completed", warnings: generated.proposal.warnings, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, durationMs: Date.now() - started });
+    const runId = await fetchAuthMutation(api.posts.adminRecordAiRun, { postId: parsed.data.postId as Id<"posts"> | undefined, action: parsed.data.action, provider: "gemini", model: generated.model, status: "completed", warnings: generated.proposal.warnings, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, durationMs: Date.now() - started });
     const data = { proposal: generated.proposal, warnings: generated.proposal.warnings, runId, usage: { inputTokens: generated.inputTokens, outputTokens: generated.outputTokens } };
-    if (idempotencyKey) await convexMutation("posts:serverIdempotencyPut", { scope: "content-ai", key: idempotencyKey, value: data });
-    return NextResponse.json({ data, error: null, requestId: trace });
+    if (idempotencyKey) await fetchAuthMutation(api.posts.adminIdempotencyPut, { scope: "content-ai", key: idempotencyKey, value: data });
+    return adminJson(trace, data);
   } catch (error) {
     const message = error instanceof Error ? error.message : "AI generation failed";
-    try { await convexMutation("posts:serverRecordAiRun", { postId: parsed.data.postId, action: parsed.data.action, provider: "gemini", model: process.env.CONTENT_AI_MODEL || "gemini-2.5-flash", status: "failed", warnings: [message], durationMs: Date.now() - started }); } catch { /* storage may be unavailable too */ }
-    return NextResponse.json({ data: null, error: message, requestId: trace }, { status: 502 });
+    try { await fetchAuthMutation(api.posts.adminRecordAiRun, { postId: parsed.data.postId as Id<"posts"> | undefined, action: parsed.data.action, provider: "gemini", model: process.env.CONTENT_AI_MODEL || "gemini-2.5-flash", status: "failed", warnings: [message], durationMs: Date.now() - started }); } catch { /* storage may be unavailable too */ }
+    const response = adminException(trace, "content-ai.generate", error);
+    return response.status === 503 ? adminFailure(trace, message, 502) : response;
   }
 }

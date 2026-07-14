@@ -1,6 +1,4 @@
-import { createHash, scrypt as nodeScrypt, timingSafeEqual } from "node:crypto";
-const scrypt = (password: string, salt: Buffer, length: number, options: { N: number; r: number; p: number; maxmem: number }) => new Promise<Buffer>((resolve, reject) => nodeScrypt(password, salt, length, options, (error, key) => error ? reject(error) : resolve(key)));
+import { createHash } from "node:crypto";
 export function tokenHash(value: string) { return createHash("sha256").update(value).digest("hex"); }
 export function safeReturnTo(value: unknown) { return typeof value === "string" && (value === "/admin" || value.startsWith("/admin?")) ? value : "/admin"; }
 export function isAgentToken(value: string) { return /^qta_[A-Za-z0-9_-]{8,32}_[A-Za-z0-9_-]{40,}$/.test(value); }
-export async function verifyScryptPassword(password: string, encoded: string) { const parts = encoded.split("$"); if (parts.length !== 8 || parts[0] !== "scrypt" || parts[1] !== "v1") return false; const [, , nText, rText, pText, lengthText, salt, expectedText] = parts, N = Number(nText), r = Number(rText), p = Number(pText), length = Number(lengthText); if (!Number.isInteger(N) || N < 16384 || N > 262144 || r !== 8 || p < 1 || p > 4 || length !== 64) return false; try { const actual = await scrypt(password, Buffer.from(salt, "base64url"), length, { N, r, p, maxmem: 256 * 1024 * 1024 }), expected = Buffer.from(expectedText, "base64url"); return expected.length === actual.length && timingSafeEqual(expected, actual); } catch { return false; } }

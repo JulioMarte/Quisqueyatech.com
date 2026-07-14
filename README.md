@@ -99,6 +99,8 @@ En desarrollo ambos comandos usan `CONVEX_DEPLOYMENT` desde `.env.local`. Reinic
 
 ### Agentes de contenido
 
+Las tablas `adminSessions` y `authLoginAttempts` pertenecen al sistema anterior. Se conservan temporalmente para rollback, pero la aplicación no las lee ni escribe. Antes de eliminarlas en una versión posterior, exporta su contenido y confirma durante una versión completa que sus fechas y cantidades no cambian.
+
 Dentro de `/admin`, abre la sección **Agentes** para crear, rotar o revocar credenciales. Cada clave se muestra una sola vez y solamente autentica `/api/content/v1`; los agentes pueden trabajar con borradores y enviarlos a revisión, pero no publicar.
 
 ## Evaluación de voz
@@ -130,7 +132,19 @@ Para producción ejecuta `npx convex deploy` con la credencial del deployment de
 ## Verificación
 
 ```bash
+npm test
 npm run lint
+npx tsc --noEmit
 npm run build
 docker build -t quisqueyatech-coolify .
 ```
+
+Las pruebas E2E anónimas no necesitan credenciales. Para probar login, las tres áreas y logout con una cuenta efímera:
+
+```powershell
+$env:E2E_ADMIN_EMAIL="admin-de-prueba@ejemplo.com"
+$env:E2E_ADMIN_PASSWORD="contraseña-efímera"
+npm run test:e2e
+```
+
+No guardes esas variables en `.env.local`, CI ni el repositorio. En producción ejecuta primero el smoke test anónimo; crea la cuenta mediante `/setup`, elimina `ADMIN_SETUP_CODE` y solo entonces ejecuta el flujo autenticado.

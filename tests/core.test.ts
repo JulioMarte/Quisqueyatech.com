@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { randomBytes, scrypt as nodeScrypt } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { alternatePath, localeFromPath, withLocale } from "../lib/i18n";
 import {
   assessmentConferenceStartSchema,
@@ -222,12 +222,7 @@ test("Clerk is absent from application boundaries", async () => {
 });
 
 test("custom authentication primitives validate hashes and safe redirects", async () => {
-  const { safeReturnTo, tokenHash, verifyScryptPassword, isAgentToken } = await import("../lib/auth-core");
-  const password = "a-long-administrator-password", salt = randomBytes(16), N = 16384, r = 8, p = 1, length = 64;
-  const derived = await new Promise<Buffer>((resolve, reject) => nodeScrypt(password, salt, length, { N, r, p, maxmem: 128 * 1024 * 1024 }, (error, key) => error ? reject(error) : resolve(key)));
-  const encoded = `scrypt$v1$${N}$${r}$${p}$${length}$${salt.toString("base64url")}$${derived.toString("base64url")}`;
-  assert.equal(await verifyScryptPassword(password, encoded), true);
-  assert.equal(await verifyScryptPassword("wrong-password", encoded), false);
+  const { safeReturnTo, tokenHash, isAgentToken } = await import("../lib/auth-core");
   assert.equal(safeReturnTo("https://evil.example/admin"), "/admin");
   assert.equal(safeReturnTo("/admin?area=agents"), "/admin?area=agents");
   assert.equal(tokenHash("same"), tokenHash("same"));

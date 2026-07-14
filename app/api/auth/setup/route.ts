@@ -24,5 +24,6 @@ export async function POST(request: Request) {
   const upstream = await handler.POST(new Request(url, { method: "POST", headers, body: JSON.stringify({ name: parsed.data.name, email: parsed.data.email.toLowerCase(), password: parsed.data.password }) }));
   if (!upstream.ok) return upstream;
   const responseHeaders = new Headers(upstream.headers); responseHeaders.set("Cache-Control", "no-store"); responseHeaders.delete("content-length");
-  return Response.json({ data: { recoveryCodes } }, { status: 201, headers: responseHeaders });
+  console.info(JSON.stringify({ scope: "auth", operation: "setup", status: "configured", setupCodeRemovalRequired: true }));
+  return Response.json({ data: { recoveryCodes, setupCodeRemovalRequired: true } }, { status: 201, headers: responseHeaders });
 }

@@ -1,21 +1,34 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bot, ClipboardList, FileText, Loader2, LogOut } from "lucide-react";
 import { AdminEditor } from "@/components/admin/editor";
 import { AssessmentAdmin } from "@/components/admin/assessment-admin";
 import { AgentManager } from "@/components/admin/agent-manager";
 import { authClient } from "@/lib/auth-client";
 
+type Area = "assessments" | "content" | "agents";
+const validArea = (value: string | null): value is Area => value === "assessments" || value === "content" || value === "agents";
+
 export function AdminWorkspace() {
-  const [area, setArea] = useState<"assessments" | "content" | "agents">(
-    "assessments",
-  );
+  const [area, setArea] = useState<Area>("assessments");
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  useEffect(() => {
+    const sync = () => { const value = new URL(window.location.href).searchParams.get("area"); setArea(validArea(value) ? value : "assessments"); };
+    sync();
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+  function selectArea(next: Area) {
+    setArea(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("area", next);
+    window.history.pushState({}, "", url);
+  }
   const tab = (id: typeof area, label: string, icon: React.ReactNode) => (
     <button
       type="button"
-      onClick={() => setArea(id)}
+      onClick={() => selectArea(id)}
       aria-pressed={area === id}
       className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tech ${area === id ? "bg-primary text-white" : "hover:bg-bg-2"}`}
     >

@@ -13,10 +13,8 @@ export function adminSecret() {
 }
 
 export async function currentAdmin(): Promise<AdminActor | null> {
-  try {
-    const admin = await fetchAuthQuery(api.auth.currentAdmin, {});
-    return admin ? { type: "admin", id: admin.userId, label: admin.name || admin.email, email: admin.email } : null;
-  } catch { return null; }
+  const admin = await fetchAuthQuery(api.auth.currentAdmin, {});
+  return admin ? { type: "admin", id: admin.userId, label: admin.name || admin.email, email: admin.email } : null;
 }
 
 function requestIp(request: Request) {
@@ -29,6 +27,12 @@ export function loginFingerprints(request: Request, email: string) {
   if (!secret) throw new Error("AUTH_IP_HASH_SECRET is required");
   const hmac = (value: string) => createHmac("sha256", secret).update(value).digest("hex");
   return [`email:${hmac(email.trim().toLowerCase())}`, `ip:${hmac(requestIp(request))}`];
+}
+
+export function requestFingerprint(request: Request, scope: string) {
+  const secret = process.env.AUTH_IP_HASH_SECRET;
+  if (!secret) throw new Error("AUTH_IP_HASH_SECRET is required");
+  return `${scope}:${createHmac("sha256", secret).update(requestIp(request)).digest("hex")}`;
 }
 
 export function validOrigin(request: Request) {

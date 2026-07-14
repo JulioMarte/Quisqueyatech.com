@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
-import { requireAdminResponse } from "@/lib/client/admin-response";
+import { adminRequest } from "@/lib/client/admin-response";
 type Agent = {
   keyId: string;
   name: string;
@@ -27,12 +27,11 @@ export function AgentManager() {
     [name, setName] = useState(""),
     [busy, setBusy] = useState(false),
     [secret, setSecret] = useState<string | null>(null),
-    [copied, setCopied] = useState(false);
+    [copied, setCopied] = useState(false),
+    [error, setError] = useState("");
   async function load() {
-    const response = await fetch("/api/admin/v1/agents", { cache: "no-store" });
-    requireAdminResponse(response);
-    const body = await response.json();
-    if (response.ok) setAgents(body.data);
+    try { setAgents(await adminRequest<Agent[]>("/api/admin/v1/agents", { cache: "no-store" })); setError(""); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudieron cargar los agentes."); }
   }
   useEffect(() => {
     queueMicrotask(() => void load());
@@ -43,20 +42,15 @@ export function AgentManager() {
   async function create(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    const response = await fetch("/api/admin/v1/agents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, requestLimit: 120, uploadLimit: 10 }),
-    });
-    requireAdminResponse(response);
-    const body = await response.json();
-    setBusy(false);
-    if (response.ok) {
+    setError("");
+    try {
+      const data = await adminRequest<{ keyId: string; token: string }>("/api/admin/v1/agents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, requestLimit: 120, uploadLimit: 10 }) });
       setName("");
-      setSecret(body.data.token);
+      setSecret(data.token);
       setCopied(false);
       await load();
-    }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear la credencial."); }
+    finally { setBusy(false); }
   }
   async function act(keyId: string, method: "POST" | "DELETE") {
     if (
@@ -64,14 +58,9 @@ export function AgentManager() {
       !window.confirm("¿Revocar esta credencial inmediatamente?")
     )
       return;
-    const response = await fetch(`/api/admin/v1/agents/${keyId}`, { method });
-    requireAdminResponse(response);
-    const body = await response.json();
-    if (response.ok && body.data?.token) {
-      setSecret(body.data.token);
-      setCopied(false);
-    }
-    await load();
+    setError("");
+    try { const data = await adminRequest<{ token?: string }>(`/api/admin/v1/agents/${keyId}`, { method }); if (data.token) { setSecret(data.token); setCopied(false); } await load(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo actualizar la credencial."); }
   }
   function closeSecret() {
     if (
@@ -124,6 +113,7 @@ export function AgentManager() {
             Crear credencial
           </Button>
         </form>
+        {error ? <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
         <div className="mt-6 space-y-3">
           {agents.map((agent) => (
             <article

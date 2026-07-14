@@ -37,4 +37,7 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
       - name: Trigger Coolify after Convex succeeds
         if: ${{ env.COOLIFY_WEBHOOK_URL != '' }}
-        run: curl --fail --show-error --silent --request GET "$COOLIFY_WEBHOOK_URL" --header "Authorization: Bearer $COOLIFY_TOKEN"
+        run: >-
+          curl --fail --show-error --silent --request GET
+          "$COOLIFY_WEBHOOK_URL"
+          --header "Authorization: Bearer $COOLIFY_TOKEN"

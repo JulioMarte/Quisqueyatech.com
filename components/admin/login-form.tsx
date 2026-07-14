@@ -10,22 +10,27 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
     setLoading(true);
     setError("");
     const data = new FormData(event.currentTarget);
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: data.get("email"),
-        password: data.get("password"),
-        returnTo,
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error || "No se pudo iniciar sesión.");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.get("email"),
+          password: data.get("password"),
+          returnTo,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        setError(body.error || "No se pudo iniciar sesión.");
+        return;
+      }
+      window.location.assign(body.data.returnTo);
+    } catch {
+      setError("No se pudo conectar con el servicio de autenticación.");
+    } finally {
       setLoading(false);
-      return;
     }
-    window.location.assign(body.data.returnTo);
   }
   return (
     <form

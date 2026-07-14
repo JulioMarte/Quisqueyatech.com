@@ -8,14 +8,18 @@ export async function POST(request: Request) {
   if (!validOrigin(request)) return NextResponse.json({ error: "Solicitud no permitida." }, { status: 403 });
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success || !process.env.ADMIN_PASSWORD_HASH || !adminEmail()) return NextResponse.json({ error: "Email o contraseña incorrectos." }, { status: 401 });
-  const email = parsed.data.email.trim().toLowerCase(), keys = loginFingerprints(request, email), now = Date.now();
-  const states = await Promise.all(keys.map(key => convexQuery("auth:checkLogin", { secret: adminSecret(), key, now }) as Promise<{ blocked: boolean; retryAfter: number } | null>));
-  const blocked = states.some(state => state?.blocked), passwordOk = await verifyPassword(parsed.data.password), valid = !blocked && email === adminEmail() && passwordOk;
-  const updates = await Promise.all(keys.map(key => convexMutation("auth:loginStatus", { secret: adminSecret(), key, now, success: valid }) as Promise<{ blocked: boolean; retryAfter: number }>));
-  const limited = blocked || updates.some(state => state?.blocked), retryAfter = Math.max(30, ...states.map(state => state?.retryAfter || 0), ...updates.map(state => state?.retryAfter || 0));
-  if (!valid) return NextResponse.json({ error: "Email o contraseña incorrectos." }, { status: limited ? 429 : 401, headers: limited ? { "Retry-After": String(retryAfter) } : undefined });
-  const jar = await cookies(), previous = jar.get(SESSION_COOKIE)?.value, raw = await createAdminSession(previous);
-  const response = NextResponse.json({ data: { returnTo: safeReturnTo(parsed.data.returnTo) } });
-  response.cookies.set(SESSION_COOKIE, raw, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: SESSION_MAX_AGE });
-  return response;
+  try {
+    const email = parsed.data.email.trim().toLowerCase(), keys = loginFingerprints(request, email), now = Date.now();
+    const states = await Promise.all(keys.map(key => convexQuery("auth:checkLogin", { secret: adminSecret(), key, now }) as Promise<{ blocked: boolean; retryAfter: number } | null>));
+    const blocked = states.some(state => state?.blocked), passwordOk = await verifyPassword(parsed.data.password), valid = !blocked && email === adminEmail() && passwordOk;
+    const updates = await Promise.all(keys.map(key => convexMutation("auth:loginStatus", { secret: adminSecret(), key, now, success: valid }) as Promise<{ blocked: boolean; retryAfter: number }>));
+    const limited = blocked || updates.some(state => state?.blocked), retryAfter = Math.max(30, ...states.map(state => state?.retryAfter || 0), ...updates.map(state => state?.retryAfter || 0));
+    if (!valid) return NextResponse.json({ error: "Email o contraseña incorrectos." }, { status: limited ? 429 : 401, headers: limited ? { "Retry-After": String(retryAfter) } : undefined });
+    const jar = await cookies(), previous = jar.get(SESSION_COOKIE)?.value, raw = await createAdminSession(previous);
+    const response = NextResponse.json({ data: { returnTo: safeReturnTo(parsed.data.returnTo) } });
+    response.cookies.set(SESSION_COOKIE, raw, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: SESSION_MAX_AGE });
+    return response;
+  } catch {
+    return NextResponse.json({ error: "El servicio de autenticación no está disponible. Revisa la configuración de Convex." }, { status: 503 });
+  }
 }

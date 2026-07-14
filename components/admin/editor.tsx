@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
+import { requireAdminResponse } from "@/lib/client/admin-response";
 
 const VisualMarkdownEditor = dynamic(
   () => import("@/components/admin/visual-markdown-editor"),
@@ -120,6 +121,7 @@ export function AdminEditor() {
 
   const loadPosts = useCallback(async () => {
     const response = await fetch("/api/admin/v1/posts", { cache: "no-store" });
+    requireAdminResponse(response);
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error);
     setPosts(payload.data || []);
@@ -128,6 +130,7 @@ export function AdminEditor() {
     let active = true;
     fetch("/api/admin/v1/posts", { cache: "no-store" })
       .then(async (response) => {
+        requireAdminResponse(response);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error);
         if (active) setPosts(payload.data || []);

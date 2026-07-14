@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
+import { requireAdminResponse } from "@/lib/client/admin-response";
 type Agent = {
   keyId: string;
   name: string;
@@ -29,6 +30,7 @@ export function AgentManager() {
     [copied, setCopied] = useState(false);
   async function load() {
     const response = await fetch("/api/admin/v1/agents", { cache: "no-store" });
+    requireAdminResponse(response);
     const body = await response.json();
     if (response.ok) setAgents(body.data);
   }
@@ -46,6 +48,7 @@ export function AgentManager() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, requestLimit: 120, uploadLimit: 10 }),
     });
+    requireAdminResponse(response);
     const body = await response.json();
     setBusy(false);
     if (response.ok) {
@@ -62,6 +65,7 @@ export function AgentManager() {
     )
       return;
     const response = await fetch(`/api/admin/v1/agents/${keyId}`, { method });
+    requireAdminResponse(response);
     const body = await response.json();
     if (response.ok && body.data?.token) {
       setSecret(body.data.token);

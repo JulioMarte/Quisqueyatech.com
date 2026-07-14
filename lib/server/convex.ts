@@ -12,7 +12,15 @@ function assessmentStorageSecret() {
 }
 
 function securedArgs(name: string, args: Record<string, unknown>) {
-  return name.startsWith("assessments:") ? { ...args, serviceSecret: assessmentStorageSecret() } : args;
+  const adminIdentityFunctions = new Set([
+    "assessments:adminList",
+    "assessments:adminReview",
+    "assessments:claimReportSend",
+    "assessments:adminSetDefaultProvider",
+  ]);
+  return name.startsWith("assessments:") && !adminIdentityFunctions.has(name)
+    ? { ...args, serviceSecret: assessmentStorageSecret() }
+    : args;
 }
 
 export function getConvexServerClient() {

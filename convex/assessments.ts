@@ -1,16 +1,13 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { AssessmentInterviewEngine } from "../lib/assessment/engine";
+import { requireAdmin as requireAdminIdentity } from "./auth";
 
 const serviceArgs = { serviceSecret: v.string() } as const;
 
 function requireService(secret: string) {
   const expected = process.env.ASSESSMENT_STORAGE_SECRET;
   if (!expected || secret !== expected) throw new Error("Unauthorized");
-}
-
-function requireAdmin(secret: string) {
-  if (!process.env.ADMIN_API_SECRET || secret !== process.env.ADMIN_API_SECRET) throw new Error("Unauthorized");
 }
 
 export const create = mutation({
@@ -112,12 +109,12 @@ export const complete = mutation({
   },
 });
 
-export const adminList = query({ args: { ...serviceArgs, secret: v.string() }, handler: async (ctx, args) => { requireService(args.serviceSecret); requireAdmin(args.secret); const items = await ctx.db.query("assessments").order("desc").take(100); return Promise.all(items.map(async (item) => ({ ...item, lead: await ctx.db.get(item.leadId) }))); } });
-export const adminReview = mutation({ args: { ...serviceArgs, secret: v.string(), assessmentId: v.string(), reportDraft: v.any(), reportStatus: v.string(), reviewedBy: v.string(), reviewedAt: v.number(), sentAt: v.optional(v.number()), sendError: v.optional(v.string()) }, handler: async (ctx, args) => { requireService(args.serviceSecret); requireAdmin(args.secret); const item = await assessmentById(ctx, args.assessmentId); await ctx.db.patch(item._id, { reportDraft: args.reportDraft, reportStatus: args.reportStatus, reviewedBy: args.reviewedBy, reviewedAt: args.reviewedAt, sentAt: args.sentAt, sendError: args.sendError, reportRevision: (item.reportRevision || 0) + 1 }); return item._id; } });
-export const claimReportSend = mutation({ args: { ...serviceArgs, secret: v.string(), assessmentId: v.string(), reviewedBy: v.string(), now: v.number() }, handler: async (ctx, args) => { requireService(args.serviceSecret); requireAdmin(args.secret); const item = await assessmentById(ctx, args.assessmentId); if (item.reportStatus === "sent" || item.reportStatus === "sending") return null; const revision = (item.reportRevision || 0) + 1; await ctx.db.patch(item._id, { reportStatus: "sending", reviewedBy: args.reviewedBy, reviewedAt: args.now, reportRevision: revision, sendError: undefined }); return { revision }; } });
+export const adminList = query({ args: {}, handler: async (ctx) => { await requireAdminIdentity(ctx); const items = await ctx.db.query("assessments").order("desc").take(100); return Promise.all(items.map(async (item) => ({ ...item, lead: await ctx.db.get(item.leadId) }))); } });
+export const adminReview = mutation({ args: { assessmentId: v.string(), reportDraft: v.any(), reportStatus: v.string(), reviewedBy: v.string(), reviewedAt: v.number(), sentAt: v.optional(v.number()), sendError: v.optional(v.string()) }, handler: async (ctx, args) => { await requireAdminIdentity(ctx); const item = await assessmentById(ctx, args.assessmentId); await ctx.db.patch(item._id, { reportDraft: args.reportDraft, reportStatus: args.reportStatus, reviewedBy: args.reviewedBy, reviewedAt: args.reviewedAt, sentAt: args.sentAt, sendError: args.sendError, reportRevision: (item.reportRevision || 0) + 1 }); return item._id; } });
+export const claimReportSend = mutation({ args: { assessmentId: v.string(), reviewedBy: v.string(), now: v.number() }, handler: async (ctx, args) => { await requireAdminIdentity(ctx); const item = await assessmentById(ctx, args.assessmentId); if (item.reportStatus === "sent" || item.reportStatus === "sending") return null; const revision = (item.reportRevision || 0) + 1; await ctx.db.patch(item._id, { reportStatus: "sending", reviewedBy: args.reviewedBy, reviewedAt: args.now, reportRevision: revision, sendError: undefined }); return { revision }; } });
 
 export const getDefaultProvider = query({ args: { ...serviceArgs }, handler: async (ctx, args) => { requireService(args.serviceSecret); return (await ctx.db.query("systemSettings").withIndex("by_key", (q) => q.eq("key", "voice.defaultProvider")).unique())?.value || "ultravox"; } });
-export const adminSetDefaultProvider = mutation({ args: { ...serviceArgs, secret: v.string(), provider: v.string(), updatedBy: v.string(), updatedAt: v.number() }, handler: async (ctx, args) => { requireService(args.serviceSecret); requireAdmin(args.secret); const item = await ctx.db.query("systemSettings").withIndex("by_key", (q) => q.eq("key", "voice.defaultProvider")).unique(); if (item) await ctx.db.patch(item._id, { value: args.provider, updatedBy: args.updatedBy, updatedAt: args.updatedAt }); else await ctx.db.insert("systemSettings", { key: "voice.defaultProvider", value: args.provider, updatedBy: args.updatedBy, updatedAt: args.updatedAt }); } });
+export const adminSetDefaultProvider = mutation({ args: { provider: v.string(), updatedBy: v.string(), updatedAt: v.number() }, handler: async (ctx, args) => { await requireAdminIdentity(ctx); const item = await ctx.db.query("systemSettings").withIndex("by_key", (q) => q.eq("key", "voice.defaultProvider")).unique(); if (item) await ctx.db.patch(item._id, { value: args.provider, updatedBy: args.updatedBy, updatedAt: args.updatedAt }); else await ctx.db.insert("systemSettings", { key: "voice.defaultProvider", value: args.provider, updatedBy: args.updatedBy, updatedAt: args.updatedAt }); } });
 
 async function assessmentById(ctx: MutationCtx | QueryCtx, assessmentId: string) {
   const item = await assessmentByIdOrNull(ctx, assessmentId);

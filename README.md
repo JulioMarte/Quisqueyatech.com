@@ -6,11 +6,13 @@ Sitio bilingüe de QuisqueyaTech construido con Next.js 16, React 19, Convex Clo
 
 ```bash
 npm install
-npx convex dev
+npx convex dev --once
 npm run dev
 ```
 
-`npx convex dev` crea o selecciona el deployment personal de desarrollo y completa `.env.local`. Los datos de desarrollo y producción permanecen separados.
+`npx convex dev --once` crea o selecciona el deployment personal de desarrollo, publica las funciones actuales y completa `.env.local`. Vuelve a ejecutarlo después de cambiar funciones, validadores o el esquema de Convex. Los datos de desarrollo y producción permanecen separados.
+
+`npx convex codegen` solamente genera los bindings y comprueba tipos locales. No publica las funciones en Convex Cloud y no sustituye a `npx convex dev --once`.
 
 La aplicación funciona en modo demostración sin credenciales externas. Copia `.env.example` y configura servicios según se activen.
 
@@ -86,6 +88,15 @@ Si la página carga indefinidamente o devuelve 503, confirma que:
 - Reiniciaste Next.js después de cambiar variables locales.
 - En producción, la cookie se está enviando por HTTPS.
 
+Si Convex devuelve `ArgumentValidationError` indicando que falta un argumento que el código local ya no utiliza, sincroniza y comprueba el contrato remoto:
+
+```powershell
+npx convex dev --once
+npx convex function-spec
+```
+
+En desarrollo ambos comandos usan `CONVEX_DEPLOYMENT` desde `.env.local`. Reinicia `npm run dev` después de publicar y recarga el navegador con `Ctrl+Shift+R`.
+
 ### Agentes de contenido
 
 Dentro de `/admin`, abre la sección **Agentes** para crear, rotar o revocar credenciales. Cada clave se muestra una sola vez y solamente autentica `/api/content/v1`; los agentes pueden trabajar con borradores y enviarlos a revisión, pero no publicar.
@@ -114,7 +125,7 @@ El workflow `.github/workflows/deploy.yml` valida el proyecto, despliega Convex 
 
 Variables públicas de Next.js deben configurarse como build arguments en Coolify. Los secretos de Easy!Appointments, voz, telefonía y correo son variables runtime y nunca deben incluirse en la imagen.
 
-Para producción despliega primero Convex (`npx convex deploy`) y después activa Coolify. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina inmediatamente `ADMIN_SETUP_CODE` del deployment de producción. No copies `BETTER_AUTH_SECRET` a Coolify.
+Para producción ejecuta `npx convex deploy` con la credencial del deployment de producción y comprueba el contrato publicado con `npx convex function-spec --prod` antes de activar Coolify. Convex debe desplegarse primero; después se reconstruye y reinicia Next.js en Coolify. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina inmediatamente `ADMIN_SETUP_CODE` del deployment de producción. No copies `BETTER_AUTH_SECRET` a Coolify.
 
 ## Verificación
 

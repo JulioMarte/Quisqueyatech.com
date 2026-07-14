@@ -1,49 +1,63 @@
 "use client";
 import { useState } from "react";
-import { Bot, ClipboardList, FileText, LogOut } from "lucide-react";
+import { Bot, ClipboardList, FileText, Loader2, LogOut } from "lucide-react";
 import { AdminEditor } from "@/components/admin/editor";
 import { AssessmentAdmin } from "@/components/admin/assessment-admin";
 import { AgentManager } from "@/components/admin/agent-manager";
+import { authClient } from "@/lib/auth-client";
 
 export function AdminWorkspace() {
   const [area, setArea] = useState<"assessments" | "content" | "agents">(
     "assessments",
   );
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const tab = (id: typeof area, label: string, icon: React.ReactNode) => (
     <button
       type="button"
       onClick={() => setArea(id)}
-      className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tech ${area === id ? "bg-primary text-white" : "hover:bg-bg-2"}`}
+      aria-pressed={area === id}
+      className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tech ${area === id ? "bg-primary text-white" : "hover:bg-bg-2"}`}
     >
       {icon}
       {label}
     </button>
   );
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.assign("/sign-in");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw new Error(result.error.message || "No se pudo cerrar la sesión.");
+      window.location.assign("/sign-in");
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : "No se pudo cerrar la sesión.");
+      setLoggingOut(false);
+    }
   }
   return (
     <>
-      <div className="sticky top-[68px] z-30 border-b border-line bg-white/95 px-4 py-2 backdrop-blur">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap gap-2">
-          {tab(
-            "assessments",
-            "Evaluaciones",
-            <ClipboardList className="h-4 w-4" />,
-          )}
-          {tab("content", "Contenido", <FileText className="h-4 w-4" />)}
-          {tab("agents", "Agentes", <Bot className="h-4 w-4" />)}
+      <header className="sticky top-0 z-30 border-b border-line bg-white/95 px-3 py-2 backdrop-blur sm:px-4">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-2">
+          <nav aria-label="Secciones administrativas" className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+            {tab("assessments", "Evaluaciones", <ClipboardList className="h-4 w-4" />)}
+            {tab("content", "Contenido", <FileText className="h-4 w-4" />)}
+            {tab("agents", "Agentes", <Bot className="h-4 w-4" />)}
+          </nav>
           <button
             type="button"
             onClick={() => void logout()}
-            className="ml-auto inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-4 text-sm font-semibold hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tech"
+            disabled={loggingOut}
+            className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-semibold hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tech disabled:cursor-wait disabled:opacity-60 sm:px-4"
           >
-            <LogOut className="h-4 w-4" />
-            Salir
+            {loggingOut ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LogOut className="h-4 w-4" aria-hidden="true" />}
+            <span className="hidden sm:inline">{loggingOut ? "Saliendo…" : "Salir"}</span>
+            <span className="sr-only sm:hidden">{loggingOut ? "Cerrando sesión" : "Salir"}</span>
           </button>
         </div>
-      </div>
+        {logoutError ? <p role="alert" className="mx-auto mt-2 max-w-[1600px] rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{logoutError}</p> : null}
+      </header>
       {area === "assessments" ? (
         <AssessmentAdmin />
       ) : area === "content" ? (

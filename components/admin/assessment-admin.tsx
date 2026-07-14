@@ -5,6 +5,7 @@ import { CheckCircle2, Copy, Loader2, Mail, RefreshCw, Save, ShieldAlert } from 
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
 import type { AssessmentSnapshot, VoiceProviderId } from "@/lib/assessment/types";
+import { requireAdminResponse } from "@/lib/client/admin-response";
 
 type Report = {
   subject: string;
@@ -45,6 +46,7 @@ export function AssessmentAdmin() {
 
   const load = useCallback(async () => {
     const response = await fetch("/api/admin/v1/assessments", { cache: "no-store" });
+    requireAdminResponse(response);
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error);
     setItems(payload.data || []);
@@ -53,7 +55,10 @@ export function AssessmentAdmin() {
   useEffect(() => {
     queueMicrotask(() => void load().catch((error) => setMessage(error.message)));
     void fetch("/api/admin/v1/voice-settings")
-      .then((response) => response.json())
+      .then((response) => {
+        requireAdminResponse(response);
+        return response.json();
+      })
       .then((payload) => setProvider(payload.data?.defaultProvider || "ultravox"));
   }, [load]);
 
@@ -66,11 +71,13 @@ export function AssessmentAdmin() {
   async function setDefaultProvider(next: VoiceProviderId) {
     setProvider(next);
     const response = await fetch("/api/admin/v1/voice-settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: next }) });
+    requireAdminResponse(response);
     if (!response.ok) setMessage("No se pudo actualizar el proveedor.");
   }
 
   async function copyTestLink() {
     const response = await fetch("/api/admin/v1/voice-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider }) });
+    requireAdminResponse(response);
     const payload = await response.json();
     if (!response.ok) return setMessage(payload.error || "No se pudo generar el enlace.");
     await navigator.clipboard.writeText(payload.data.url);
@@ -83,6 +90,7 @@ export function AssessmentAdmin() {
     setMessage("");
     try {
       const response = await fetch("/api/admin/v1/assessments", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assessmentId: selected.assessmentId, action, report }) });
+      requireAdminResponse(response);
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error);
       setMessage(action === "save" ? "Borrador guardado." : "Reporte aprobado y enviado.");

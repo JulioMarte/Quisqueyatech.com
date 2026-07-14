@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authorizeContentRequest, adminSecret, requestId } from "@/lib/server/admin-content";
+import { authorizeContentRequest, requestId } from "@/lib/server/admin-content";
 import { convexMutation } from "@/lib/server/convex";
 
 const registration = z.object({ storageId: z.string(), filename: z.string().min(1).max(180), contentType: z.enum(["image/jpeg", "image/png", "image/webp", "image/avif"]), purpose: z.literal("post-cover") });
@@ -13,10 +13,10 @@ export async function POST(request: Request) {
     if (body?.storageId) {
       const parsed = registration.safeParse(body);
       if (!parsed.success) return NextResponse.json({ data: null, error: parsed.error.issues[0]?.message, requestId: trace }, { status: 400 });
-      const id = await convexMutation("posts:serverRegisterMedia", { secret: adminSecret(), ...parsed.data });
+      const id = await convexMutation("posts:serverRegisterMedia", { ...parsed.data });
       return NextResponse.json({ data: { id }, error: null, requestId: trace });
     }
-    const uploadUrl = await convexMutation("posts:serverGenerateUploadUrl", { secret: adminSecret() });
+    const uploadUrl = await convexMutation("posts:serverGenerateUploadUrl", {});
     return NextResponse.json({ data: { uploadUrl, maxBytes: 5_000_000, acceptedTypes: registration.shape.contentType.options }, error: null, requestId: trace });
   } catch (error) {
     return NextResponse.json({ data: null, error: error instanceof Error ? error.message : "Could not prepare upload", requestId: trace }, { status: 503 });

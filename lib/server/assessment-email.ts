@@ -1,0 +1,15 @@
+import "server-only";
+import type { AssessmentReport } from "@/lib/server/assessment-report";
+
+export async function sendApprovedAssessmentReport(email: string, locale: "es" | "en", report: AssessmentReport, idempotencyKey: string) {
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not configured");
+  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ from: process.env.RESEND_FROM_EMAIL || "QuisqueyaTech <evaluaciones@quisqueyatech.com>", to: [email], bcc: process.env.LEAD_TO_EMAIL ? [process.env.LEAD_TO_EMAIL] : undefined, subject: report.subject, html: reportHtml(locale, report) }) });
+  if (!response.ok) throw new Error(`Report email failed (${response.status})`);
+}
+
+function reportHtml(locale: "es" | "en", report: AssessmentReport) {
+  const section = (title: string, body: string) => `<h2 style="color:#082f49;margin:28px 0 8px">${escapeHtml(title)}</h2><p style="line-height:1.7;color:#334155">${escapeHtml(body)}</p>`;
+  return `<div style="font-family:Inter,Arial,sans-serif;max-width:720px;margin:auto;padding:32px;color:#0f172a"><div style="border-bottom:3px solid #f97316;padding-bottom:18px"><strong style="font-size:22px;color:#082f49">QuisqueyaTech</strong></div><h1 style="font-size:30px;color:#082f49;margin-top:32px">${escapeHtml(report.subject)}</h1><p style="line-height:1.7;color:#334155">${escapeHtml(report.executiveSummary)}</p>${section(locale === "es" ? "Proceso analizado" : "Process reviewed", report.processSummary)}<h2 style="color:#082f49;margin-top:28px">${locale === "es" ? "Oportunidades preliminares" : "Preliminary opportunities"}</h2>${report.opportunities.map((item) => `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:18px;margin:12px 0"><strong>${escapeHtml(item.title)}</strong><p style="color:#475569;line-height:1.6">${escapeHtml(item.rationale)}</p><small>${escapeHtml(item.impact)} · ${escapeHtml(item.confidence)}</small></div>`).join("")}${report.assumptions.length ? `<h2>${locale === "es" ? "Supuestos" : "Assumptions"}</h2><ul>${report.assumptions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}${report.openQuestions.length ? `<h2>${locale === "es" ? "Pendientes" : "Open questions"}</h2><ul>${report.openQuestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}${section(locale === "es" ? "Siguiente paso" : "Next step", report.nextStep)}<p style="margin-top:32px;color:#64748b;font-size:13px">${locale === "es" ? "Este reporte fue revisado por QuisqueyaTech y representa una evaluación preliminar, no una garantía de resultados." : "This report was reviewed by QuisqueyaTech and is a preliminary assessment, not a guarantee of results."}</p></div>`;
+}
+
+function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]!); }

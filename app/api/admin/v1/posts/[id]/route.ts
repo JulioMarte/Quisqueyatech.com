@@ -20,7 +20,8 @@ export async function GET(request: Request, context: Context) {
 
 export async function PATCH(request: Request, context: Context) {
   const trace = requestId(request);
-  if (!(await authorizeContentRequest(request))) return NextResponse.json({ data: null, error: "Unauthorized", requestId: trace }, { status: 401 });
+  const actor = await authorizeContentRequest(request);
+  if (!actor) return NextResponse.json({ data: null, error: "Unauthorized", requestId: trace }, { status: 401 });
   const { id } = await context.params;
   const body = await request.json();
   if (body.revisionId) {
@@ -29,7 +30,7 @@ export async function PATCH(request: Request, context: Context) {
   }
   const parsed = postInputSchema.safeParse({ ...body, id });
   if (!parsed.success) return NextResponse.json({ data: null, error: parsed.error.issues[0]?.message, requestId: trace }, { status: 400 });
-  try { const data = await convexMutation("posts:serverSave", { secret: adminSecret(), ...parsed.data }); return NextResponse.json({ data: { id: data }, error: null, requestId: trace }); }
+  try { const data = await convexMutation("posts:serverSave", { secret: adminSecret(), ...parsed.data, actorType: "admin", actorId: actor.id, actorLabel: actor.label }); return NextResponse.json({ data: { id: data }, error: null, requestId: trace }); }
   catch (error) { const message = error instanceof Error ? error.message : "Could not update post"; return NextResponse.json({ data: null, error: message, requestId: trace }, { status: message.includes("already uses") ? 409 : 503 }); }
 }
 

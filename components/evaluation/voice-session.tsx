@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   CheckCircle2,
   Headphones,
@@ -17,29 +17,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
+import type { AssessmentEvidence, AssessmentSnapshot } from "@/lib/assessment/types";
+import { crossedThresholds, thresholdInstruction } from "@/lib/assessment/scheduler";
+import { normalizeVoiceStatus } from "@/lib/voice/status";
 
 type Session = {
-  provider: "ultravox" | "livekit" | "demo";
+  provider: "ultravox" | "livekit" | "gemini-live" | "demo";
   assessmentId: string;
   contactEmail?: string;
   locale: Locale;
   joinUrl?: string;
+  callId?: string;
   roomUrl?: string;
   token?: string;
+  roomName?: string;
+  ephemeralToken?: string;
+  model?: string;
+  sessionConfig?: { responseModalities: ["AUDIO"]; language: "es" | "en"; systemInstruction: string };
+  progressToken: string;
+  resumeToken: string;
+  snapshot: AssessmentSnapshot;
+  sessionKey: string;
   notice?: string;
 };
 
 type TranscriptLine = { speaker: string; text: string };
-type Result = {
-  opportunities: {
-    title: string;
-    category: string;
-    impact: string;
-    effort: string;
-    rationale: string;
-  }[];
-  nextStep: string;
-};
+type Result = { reviewPending: true };
 
 const activeStatuses = new Set(["idle", "listening", "thinking", "speaking"]);
 
@@ -52,20 +55,51 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
+  const [resumeUrl, setResumeUrl] = useState("");
   const started = useRef(0);
   const controller = useRef<{
     leave: () => Promise<void>;
     muteMic: (value: boolean) => void;
     muteSpeaker: (value: boolean) => void;
+    sendGuidance: (instruction: string) => void;
   } | null>(null);
+  const lastThresholdSeconds = useRef(0);
+  const finishing = useRef(false);
+
+  const saveProgress = useCallback(async (reason: "answer" | "correction" | "time-threshold" | "interruption" | "close", updates?: AssessmentEvidence[]) => {
+    const response = await fetch("/api/assessment/progress", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.progressToken}` }, body: JSON.stringify({ assessmentId: session.assessmentId, sessionKey: session.sessionKey, eventId: crypto.randomUUID(), locale, reason, elapsedSeconds: Math.min(900, Math.floor((Date.now() - started.current) / 1000)), updates }) });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Progress could not be saved");
+    return payload as { nextInstruction: string };
+  }, [locale, session.assessmentId, session.progressToken, session.sessionKey]);
+
+  const onHardStop = useEffectEvent(() => { void finish(); });
 
   useEffect(() => {
     started.current = Date.now();
     const timer = window.setInterval(() => {
-      setElapsed(Math.floor((Date.now() - started.current) / 1000));
+      const current = Math.floor((Date.now() - started.current) / 1000);
+      setElapsed(current);
+      const crossed = crossedThresholds(lastThresholdSeconds.current, current);
+      lastThresholdSeconds.current = current;
+      for (const threshold of crossed) {
+        const instruction = thresholdInstruction(threshold.key, locale);
+        controller.current?.sendGuidance(instruction);
+        void saveProgress(threshold.key === "hard-stop" ? "close" : "time-threshold");
+        if (threshold.key === "hard-stop") onHardStop();
+      }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [locale, saveProgress]);
+
+  useEffect(() => {
+    const persistInterruption = () => {
+      if (finishing.current) return;
+      void fetch("/api/assessment/progress", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.progressToken}` }, body: JSON.stringify({ assessmentId: session.assessmentId, sessionKey: session.sessionKey, eventId: crypto.randomUUID(), locale, reason: "interruption", elapsedSeconds: Math.min(900, Math.floor((Date.now() - started.current) / 1000)) }) });
+    };
+    window.addEventListener("pagehide", persistInterruption);
+    return () => window.removeEventListener("pagehide", persistInterruption);
+  }, [locale, session.assessmentId, session.progressToken, session.sessionKey]);
 
   useEffect(() => {
     if (session.provider === "demo") return;
@@ -76,8 +110,13 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
         if (session.provider === "ultravox" && session.joinUrl) {
           const { UltravoxSession } = await import("ultravox-client");
           const voice = new UltravoxSession();
+          voice.registerToolImplementation("update_assessment_state", async (parameters) => {
+            const reason = ["answer", "correction", "interruption", "close"].includes(String(parameters.reason)) ? parameters.reason as "answer" | "correction" | "interruption" | "close" : "answer";
+            const output = await saveProgress(reason, Array.isArray(parameters.updates) ? parameters.updates as AssessmentEvidence[] : []);
+            return { result: output.nextInstruction, responseType: "tool-response" };
+          });
           voice.addEventListener("status", () => {
-            if (!disposed) setStatus(voice.status);
+            if (!disposed) setStatus(normalizeVoiceStatus(voice.status));
           });
           voice.addEventListener("transcripts", () => {
             if (disposed) return;
@@ -92,6 +131,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             leave: () => voice.leaveCall(),
             muteMic: (value) => (value ? voice.muteMic() : voice.unmuteMic()),
             muteSpeaker: (value) => (value ? voice.muteSpeaker() : voice.unmuteSpeaker()),
+            sendGuidance: (instruction) => voice.sendText(`<instruction>${instruction}</instruction>`, true),
           };
           return;
         }
@@ -111,6 +151,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
               }));
             if (final.length) setTranscript((current) => [...current, ...final]);
           });
+          room.on(RoomEvent.Reconnecting, () => setStatus("reconnecting"));
+          room.on(RoomEvent.Reconnected, () => setStatus("listening"));
+          room.on(RoomEvent.Disconnected, () => { if (!disposed && !finishing.current) { setStatus("ended"); setResumeUrl(resumeLink(session.resumeToken)); void saveProgress("interruption"); } });
           await room.connect(session.roomUrl, session.token);
           await room.localParticipant.setMicrophoneEnabled(true);
           setStatus("listening");
@@ -120,14 +163,22 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
               void room.localParticipant.setMicrophoneEnabled(!value);
             },
             muteSpeaker: () => undefined,
+            sendGuidance: (instruction) => { void room.localParticipant.publishData(new TextEncoder().encode(instruction), { reliable: true, topic: "assessment.guidance" }); },
           };
           return;
         }
 
+        if (session.provider === "gemini-live" && session.ephemeralToken && session.model && session.sessionConfig) {
+          const { connectGeminiLive } = await import("@/lib/voice/gemini-live-client");
+          const gemini = await connectGeminiLive({ token: session.ephemeralToken, model: session.model, systemInstruction: session.sessionConfig.systemInstruction, onStatus: (next) => { if (!disposed) { setStatus(next); if (next === "error") setResumeUrl(resumeLink(session.resumeToken)); } }, onTranscript: (line) => !disposed && setTranscript((current) => [...current, line]), onProgress: saveProgress });
+          controller.current = gemini;
+          return;
+        }
         throw new Error(es ? "La sala no recibió credenciales válidas." : "The room did not receive valid credentials.");
       } catch (reason) {
         if (disposed) return;
         setError(reason instanceof Error ? reason.message : "Connection error");
+        setResumeUrl(resumeLink(session.resumeToken));
         setStatus("error");
       }
     }
@@ -137,17 +188,21 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       disposed = true;
       void controller.current?.leave();
     };
-  }, [es, session]);
+  }, [es, saveProgress, session]);
 
   async function finish() {
+    if (finishing.current) return;
+    finishing.current = true;
     setStatus("finishing");
     await controller.current?.leave();
+    try { await saveProgress("close"); } catch { /* completion still attempts to preserve the transcript */ }
     try {
       const response = await fetch("/api/assessment/complete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.progressToken}` },
         body: JSON.stringify({
           assessmentId: session.assessmentId,
+          sessionKey: session.sessionKey,
           email: session.contactEmail,
           locale: session.locale,
           transcript: transcript.map((line) => `${line.speaker}: ${line.text}`).join("\n"),
@@ -159,10 +214,12 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not complete assessment");
-      setResult(data.result);
+      setResult({ reviewPending: true });
       setStatus("complete");
     } catch (reason) {
+      finishing.current = false;
       setError(reason instanceof Error ? reason.message : "Error");
+      setResumeUrl(resumeLink(session.resumeToken));
       setStatus("error");
     }
   }
@@ -176,6 +233,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
         listening: "Te está escuchando",
         thinking: "Analizando tu respuesta",
         speaking: "El agente está hablando",
+        reconnecting: "Reconectando…",
+        ended: "Conferencia finalizada",
         disconnected: "Conferencia finalizada",
         disconnecting: "Finalizando…",
         finishing: "Preparando tu resultado…",
@@ -188,6 +247,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
         listening: "Listening to you",
         thinking: "Considering your answer",
         speaking: "The agent is speaking",
+        reconnecting: "Reconnecting…",
+        ended: "Conference ended",
         disconnected: "Conference ended",
         disconnecting: "Ending…",
         finishing: "Preparing your result…",
@@ -225,7 +286,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-7">
               <div className="flex items-center gap-2 text-sm text-white/65">
                 <Radio className="h-4 w-4 text-success" aria-hidden="true" />
-                {session.provider === "ultravox" ? "Ultravox" : session.provider === "demo" ? "Demo" : "LiveKit"}
+                {session.provider === "ultravox" ? "Ultravox" : session.provider === "gemini-live" ? "Gemini Live" : session.provider === "demo" ? "Demo" : "LiveKit"}
               </div>
               <div className="flex items-center gap-2 text-xs text-white/50">
                 <ShieldCheck className="h-4 w-4 text-success" aria-hidden="true" />
@@ -264,6 +325,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                   {error}
                 </p>
               ) : null}
+              {resumeUrl ? <a className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-white/20 px-4 text-sm font-semibold text-white hover:bg-white/10" href={resumeUrl}>{es ? "Retomar con un enlace seguro" : "Resume with a secure link"}</a> : null}
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-black/10 px-4 py-5">
@@ -335,7 +397,12 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   );
 }
 
-function AssessmentResult({ locale, result }: { locale: Locale; result: Result }) {
+function resumeLink(token: string) {
+  const base = window.location.pathname;
+  return `${base}#resume=${encodeURIComponent(token)}`;
+}
+
+function AssessmentResult({ locale }: { locale: Locale; result: Result }) {
   const es = locale === "es";
   return (
     <Section className="bg-bg-2">
@@ -343,34 +410,17 @@ function AssessmentResult({ locale, result }: { locale: Locale; result: Result }
         <div className="text-center">
           <CheckCircle2 className="mx-auto h-12 w-12 text-success" />
           <h1 className="mt-4 font-display text-4xl font-bold text-primary">
-            {es ? "Tu evaluación preliminar está lista" : "Your preliminary assessment is ready"}
+            {es ? "Recibimos tu levantamiento" : "We received your discovery session"}
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-text-2">
             {es
-              ? "Estas oportunidades orientan el próximo paso; no sustituyen un diagnóstico operativo formal."
-              : "These opportunities guide the next step; they do not replace a formal operational diagnosis."}
+              ? "Nuestro equipo revisará la conversación y preparará un reporte detallado de oportunidades. Lo recibirás por correo dentro de un día laborable."
+              : "Our team will review the conversation and prepare a detailed opportunity report. You will receive it by email within one business day."}
           </p>
         </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {result.opportunities.map((item) => (
-            <article key={item.title} className="rounded-xl border border-line bg-white p-6">
-              <span className="text-xs font-semibold uppercase tracking-wider text-amber-deep">{item.category}</span>
-              <h2 className="mt-3 font-display text-xl font-bold">{item.title}</h2>
-              <p className="mt-3 text-sm leading-relaxed text-text-2">{item.rationale}</p>
-              <div className="mt-5 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-success-soft px-3 py-1 text-emerald-700">
-                  {es ? "Impacto" : "Impact"}: {item.impact}
-                </span>
-                <span className="rounded-full bg-bg-3 px-3 py-1">
-                  {es ? "Esfuerzo" : "Effort"}: {item.effort}
-                </span>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="mt-6 rounded-xl bg-primary p-6 text-white">
-          <p className="text-sm text-white/60">{es ? "Próximo paso" : "Next step"}</p>
-          <p className="mt-1 text-lg font-semibold">{result.nextStep}</p>
+        <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-line bg-white p-6 text-center">
+          <p className="font-semibold text-primary">{es ? "Siguiente paso" : "Next step"}</p>
+          <p className="mt-2 text-text-2">{es ? "Validaremos los datos confirmados, separaremos los supuestos y te enviaremos el reporte cuando esté aprobado." : "We will validate confirmed facts, separate assumptions, and send the report once it is approved."}</p>
         </div>
       </Container>
     </Section>

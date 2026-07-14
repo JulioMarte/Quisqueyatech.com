@@ -16,7 +16,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const id = requestId(request);
-  if (!(await authorizeContentRequest(request))) return NextResponse.json({ data: null, error: "Unauthorized", requestId: id }, { status: 401 });
+  const actor = await authorizeContentRequest(request);
+  if (!actor) return NextResponse.json({ data: null, error: "Unauthorized", requestId: id }, { status: 401 });
   const idempotencyKey = request.headers.get("idempotency-key")?.slice(0, 160);
   if (idempotencyKey) {
     const previous = await convexQuery("posts:serverIdempotencyGet", { secret: adminSecret(), scope: "create-post", key: idempotencyKey });
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   const parsed = postInputSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ data: null, error: parsed.error.issues[0]?.message, requestId: id }, { status: 400 });
   try {
-    const data = await convexMutation("posts:serverSave", { secret: adminSecret(), ...parsed.data });
+    const data = await convexMutation("posts:serverSave", { secret: adminSecret(), ...parsed.data, actorType: "admin", actorId: actor.id, actorLabel: actor.label });
     const result = { id: data };
     if (idempotencyKey) await convexMutation("posts:serverIdempotencyPut", { secret: adminSecret(), scope: "create-post", key: idempotencyKey, value: result });
     return NextResponse.json({ data: result, error: null, requestId: id }, { status: 201 });

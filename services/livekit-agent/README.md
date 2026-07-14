@@ -1,6 +1,6 @@
 # LiveKit + Gemini Live prototype
 
-This worker is intentionally deployed separately from the Next.js application. The web app creates a private LiveKit room and an ephemeral participant token; a LiveKit Agents worker must join that room and connect the shared assessment script to Gemini Live.
+This Node.js worker is intentionally deployed separately from the Next.js application. It joins private assessment rooms, runs Gemini Live through LiveKit Agents, and sends structured discoveries to the same provider-neutral progress API used by Ultravox and Gemini Direct.
 
 ## Required contract
 
@@ -12,3 +12,12 @@ This worker is intentionally deployed separately from the Next.js application. T
 
 Deploy one worker in dev first. The production worker should only be enabled if LiveKit wins the documented provider scorecard; otherwise set `VOICE_PROVIDER=ultravox` and leave this worker disabled.
 
+## Run locally
+
+```bash
+cd services/livekit-agent
+npm install
+npm run dev
+```
+
+Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `GEMINI_API_KEY`, `NEXT_PUBLIC_SITE_URL`, and `GEMINI_LIVE_MODEL`. The web app passes a short-lived assessment token as a participant attribute; the worker never receives an Ultravox or browser credential.

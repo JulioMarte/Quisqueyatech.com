@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Poppins } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { MotionProvider } from "@/components/ui/motion";
@@ -38,7 +37,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="flex min-h-full flex-col font-sans text-text">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <MotionProvider>
-          {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? <ClerkProvider>{page}</ClerkProvider> : page}
+          {page}
         </MotionProvider>
       </body>
     </html>

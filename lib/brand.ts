@@ -1,9 +1,14 @@
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quisqueyatech.com";
+const siteUrl = configuredSiteUrl
+  .replace(/^https:\/\/quisqueyatech\.com\/?$/i, "https://www.quisqueyatech.com")
+  .replace(/\/$/, "");
+
 export const brand = {
   name: "QuisqueyaTech",
   descriptor: "Automatización, IA y software para empresas",
   tagline: "La tecnología correcta, trabajando como un solo sistema.",
   domain: "quisqueyatech.com",
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://quisqueyatech.com",
+  siteUrl,
   publicEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com",
   location: "Puerto Plata, República Dominicana",
   locationShort: "República Dominicana · Servicio internacional",

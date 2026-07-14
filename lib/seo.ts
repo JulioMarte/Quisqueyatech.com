@@ -27,6 +27,8 @@ type SeoPage = {
 };
 
 export function pageMetadata(page: SeoPage): Metadata {
+  const image = new URL(page.image || "/og/home.png", brand.siteUrl).toString();
+
   return {
     title: page.title,
     description: page.description,
@@ -38,9 +40,9 @@ export function pageMetadata(page: SeoPage): Metadata {
       siteName: brand.name,
       title: page.title,
       description: page.description,
-      images: [{ url: page.image || "/og/home.png", width: 1200, height: 630, alt: page.title }],
+      images: [{ url: image, width: 1200, height: 630, type: "image/png", alt: page.title }],
     },
-    twitter: { card: "summary_large_image", title: page.title, description: page.description, images: [page.image || "/og/home.png"] },
+    twitter: { card: "summary_large_image", title: page.title, description: page.description, images: [image] },
   };
 }
 

@@ -1,33 +1,29 @@
 # QuisqueyaTech
 
-QuisqueyaTech es una consultoría operativa para PYMES dominicanas.
+QuisqueyaTech diseña automatizaciones, agentes de inteligencia artificial, software e integraciones para empresas.
 
-Ayuda a negocios en República Dominicana a ordenar WhatsApp, agenda, seguimiento de clientes, tareas repetitivas y reportes. El enfoque es entender primero cómo trabaja el negocio y luego implementar un sistema sencillo que el equipo pueda usar.
+La firma opera desde Puerto Plata, República Dominicana, y trabaja con empresas dentro y fuera del país. Primero evalúa cómo funciona un proceso; después recomienda e implementa la tecnología que produce un resultado operativo verificable.
 
-## Servicios principales
+## Oferta de entrada
 
-- Evaluación inicial gratuita de 15 minutos.
-- Diagnóstico operativo pagado con mapa de problemas, recomendaciones y plan por fases.
-- Implementaciones cortas para resolver problemas puntuales de agenda, mensajes, seguimiento o tareas repetitivas.
-- Sistemas completos para ordenar atención, clientes, citas, reportes y automatizaciones.
-- Soluciones para clínicas, odontólogos, academias, comercios y servicios profesionales.
+- Evaluación inicial sin costo mediante un agente de voz.
+- Conversación estructurada de 12–15 minutos en español o inglés.
+- Tres oportunidades preliminares y un próximo paso recomendado.
+- La evaluación no sustituye un diagnóstico operativo formal.
 
-## Audiencia
+## Soluciones
 
-Dueños, administradores y equipos operativos de pequeñas y medianas empresas dominicanas que reciben clientes por WhatsApp, Instagram, llamadas o formularios.
+- Automatización de procesos.
+- Agentes de IA de voz y texto.
+- Software e integraciones.
+- Aplicaciones para clínicas, presentadas como posibilidades y no como casos de éxito.
 
-## Ubicación y cobertura
+## Principios
 
-Base: Puerto Plata, República Dominicana.
-Cobertura: toda República Dominicana.
+- No se publican clientes, métricas, testimonios ni experiencia no verificable.
+- La tecnología se selecciona después de entender el proceso.
+- Los proyectos se diseñan con controles y escalamiento humano.
 
-## URLs principales
-
-- Sitio principal: https://quisqueyatech.com
-- Clínicas y odontólogos: https://quisqueyatech.com/clinicas
-- Privacidad: https://quisqueyatech.com/privacidad
-
-## Contacto
-
-Correo: admin@quisqueyatech.com
-Canal principal: WhatsApp desde el formulario o botones del sitio.
+Sitio: https://quisqueyatech.com
+Correo: info@quisqueyatech.com
+Fundador: Julio Alberto Marte Balbuena

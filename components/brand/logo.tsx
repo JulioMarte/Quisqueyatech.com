@@ -37,10 +37,12 @@ export function BrandLockup({
   light,
   size = "md",
   priority,
+  showDescriptor = true,
 }: {
   light?: boolean;
   size?: "sm" | "md" | "lg";
   priority?: boolean;
+  showDescriptor?: boolean;
 }) {
   const textSize =
     size === "sm" ? "text-base" : size === "lg" ? "text-lg" : "text-[17px]";
@@ -56,14 +58,16 @@ export function BrandLockup({
         )}
       >
         QuisqueyaTech
-        <small
-          className={cn(
-            "mt-[-2px] block font-mono text-[9.5px] font-normal uppercase tracking-[0.18em]",
-            light ? "text-white/60" : "text-mute",
-          )}
-        >
-          {brand.descriptor}
-        </small>
+        {showDescriptor && (
+          <small
+            className={cn(
+              "mt-[-2px] block font-mono text-[9.5px] font-normal uppercase tracking-[0.18em]",
+              light ? "text-white/60" : "text-mute",
+            )}
+          >
+            {brand.descriptor}
+          </small>
+        )}
       </span>
     </span>
   );

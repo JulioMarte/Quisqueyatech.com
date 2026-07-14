@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Reveal } from "@/components/ui/motion";
 
 export function Container({
   className,
@@ -74,7 +75,8 @@ export function SectionHead({
   className?: string;
 }) {
   return (
-    <div
+    <Reveal
+      variant="mask"
       className={cn(
         "mb-12 flex max-w-[820px] flex-col gap-3",
         center && "mx-auto items-center text-center",
@@ -103,6 +105,6 @@ export function SectionHead({
           {lede}
         </p>
       ) : null}
-    </div>
+    </Reveal>
   );
 }

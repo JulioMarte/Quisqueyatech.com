@@ -15,15 +15,25 @@ import { TurnstileField } from "@/components/security/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
+import type { AssessmentSnapshot } from "@/lib/assessment/types";
 
 type SessionData = {
-  provider: "ultravox" | "livekit" | "demo";
+  provider: "ultravox" | "livekit" | "gemini-live" | "demo";
   assessmentId: string;
   contactEmail?: string;
   locale: Locale;
   joinUrl?: string;
+  callId?: string;
   roomUrl?: string;
+  roomName?: string;
   token?: string;
+  ephemeralToken?: string;
+  model?: string;
+  sessionConfig?: { responseModalities: ["AUDIO"]; language: "es" | "en"; systemInstruction: string };
+  progressToken: string;
+  resumeToken: string;
+  snapshot: AssessmentSnapshot;
+  sessionKey: string;
   notice?: string;
 };
 
@@ -52,6 +62,8 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
           turnstileToken,
           processingConsent: true,
           recordingConsent: true,
+          providerOverrideToken: new URLSearchParams(window.location.search).get("provider") || undefined,
+          resumeToken: new URLSearchParams(window.location.hash.replace(/^#/, "")).get("resume") || undefined,
         }),
       });
       const result = await response.json();
@@ -183,8 +195,9 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               />
               <span>
                 {es
-                  ? "Acepto el procesamiento de la conversación y su grabación por un máximo de 30 días."
-                  : "I consent to processing the conversation and recording it for up to 30 days."}
+                  ? "Acepto el procesamiento: audio hasta 30 días, transcripción hasta 90 días y ficha de contacto hasta 12 meses."
+                  : "I consent to processing: audio up to 30 days, transcript up to 90 days, and contact record up to 12 months."}
+                {" "}<a className="underline" href={es ? "/privacidad" : "/en/privacy"} target="_blank" rel="noreferrer">{es ? "Ver privacidad" : "View privacy policy"}</a>
               </span>
             </label>
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const postStatusSchema = z.enum(["draft", "scheduled", "published", "archived"]);
+export const postStatusSchema = z.enum(["draft", "review_pending", "scheduled", "published", "archived"]);
 
 export const postInputSchema = z.object({
   id: z.string().optional(),

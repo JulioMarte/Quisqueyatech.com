@@ -2,7 +2,7 @@ import "server-only";
 
 export async function verifyTurnstile(token?: string, ip?: string) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) return true;
+  if (!secret) return process.env.NODE_ENV !== "production";
   if (!token) return false;
   const body = new URLSearchParams({ secret, response: token });
   if (ip) body.set("remoteip", ip);

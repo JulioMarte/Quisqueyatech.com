@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Bot,
@@ -172,7 +173,7 @@ export async function HomePageContent({ locale }: { locale: Locale }) {
     </Section>
 
     <Section className="bg-bg-2">
-      <Container className="grid items-center gap-10 lg:grid-cols-[320px_1fr]"><Reveal><div className="flex aspect-square max-w-[320px] items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-2 text-[72px] font-bold tracking-[-.06em] text-white shadow-xl">{brand.founder.initials}</div></Reveal><Reveal delay={0.06}><div><Eyebrow>{c.founderEyebrow}</Eyebrow><h2 className="mt-4 max-w-[22ch] font-display text-[clamp(30px,4vw,44px)] font-bold leading-tight text-primary">{c.founderTitle}</h2><p className="mt-5 max-w-[62ch] text-lg leading-relaxed text-text-2">{c.founderBody}</p><p className="mt-5 font-semibold text-text">{brand.founder.name}</p><p className="text-sm text-mute">{locale === "es" ? brand.founder.role : "Founder and automation & AI consultant"}</p><ButtonLink href={locale === "es" ? "/nosotros" : "/en/about"} variant="outline" className="mt-6">{locale === "es" ? "Conocer más" : "Learn more"}</ButtonLink></div></Reveal></Container>
+      <Container className="grid items-center gap-10 lg:grid-cols-[320px_1fr]"><Reveal><div className="relative aspect-square max-w-[320px] overflow-hidden rounded-2xl shadow-xl"><Image src={brand.founder.image} alt={brand.founder.name} fill sizes="(min-width: 1024px) 320px, 100vw" className="object-cover" /></div></Reveal><Reveal delay={0.06}><div><Eyebrow>{c.founderEyebrow}</Eyebrow><h2 className="mt-4 max-w-[22ch] font-display text-[clamp(30px,4vw,44px)] font-bold leading-tight text-primary">{c.founderTitle}</h2><p className="mt-5 max-w-[62ch] text-lg leading-relaxed text-text-2">{c.founderBody}</p><p className="mt-5 font-semibold text-text">{brand.founder.name}</p><p className="text-sm text-mute">{locale === "es" ? brand.founder.role : "Founder and automation & AI consultant"}</p><ButtonLink href={locale === "es" ? "/nosotros" : "/en/about"} variant="outline" className="mt-6">{locale === "es" ? "Conocer más" : "Learn more"}</ButtonLink></div></Reveal></Container>
     </Section>
 
     <Section>

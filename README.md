@@ -14,6 +14,12 @@ npm run dev
 
 La aplicación funciona en modo demostración sin credenciales externas. Copia `.env.example` y configura servicios según se activen.
 
+## Autenticación administrativa
+
+El panel usa una cuenta propia y sesiones opacas revocables almacenadas en Convex. Genera el hash de la contraseña de forma interactiva con `npm run auth:hash-password` y configura `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `AUTH_SESSION_VERSION`, `AUTH_IP_HASH_SECRET` y `ADMIN_API_SECRET`.
+
+Las credenciales de agentes se crean y revocan desde la sección **Agentes** del panel. Cada secreto se muestra una sola vez y solamente autentica la API `/api/content/v1`.
+
 ## Evaluación de voz
 
 `VOICE_PROVIDER` acepta `ultravox` o `livekit`. Ambos implementan la misma interfaz. Sin credenciales, la UI utiliza un modo demostrativo explícitamente identificado.

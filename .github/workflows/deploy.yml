@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: read
     env:
-      NEXT_PUBLIC_SITE_URL: https://quisqueyatech.com
+      NEXT_PUBLIC_SITE_URL: https://www.quisqueyatech.com
       NEXT_PUBLIC_CONTACT_EMAIL: info@quisqueyatech.com
       NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}

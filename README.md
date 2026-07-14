@@ -108,7 +108,7 @@ Variables públicas de Next.js deben configurarse como build arguments en Coolif
 Para activar el panel en producción:
 
 1. Configura en Coolify `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `AUTH_SESSION_VERSION`, `AUTH_IP_HASH_SECRET` y `ADMIN_API_SECRET` como variables runtime.
-2. Configura `NEXT_PUBLIC_SITE_URL=https://quisqueyatech.com`.
+2. Configura `NEXT_PUBLIC_SITE_URL=https://www.quisqueyatech.com`.
 3. Configura `TRUST_PROXY_HEADERS=true` únicamente cuando las peticiones lleguen mediante el proxy confiable de Coolify.
 4. Copia el mismo `ADMIN_EMAIL` y `ADMIN_API_SECRET` al deployment de producción de Convex:
 

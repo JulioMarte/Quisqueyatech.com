@@ -7,14 +7,14 @@ export const seo = {
     description: "Evaluamos cómo opera tu empresa y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad.",
     url: brand.siteUrl,
     locale: "es_DO",
-    image: "/og/home.png",
+    image: "/og/home-hero-v2.png",
   },
   homeEn: {
     title: "Automation, AI, and software for modern companies",
     description: "We assess how your company operates and build automation, AI agents, and software that improve productivity.",
     url: `${brand.siteUrl}/en`,
     locale: "en_US",
-    image: "/og/home.png",
+    image: "/og/home-hero-v2.png",
   },
 } as const;
 
@@ -27,7 +27,7 @@ type SeoPage = {
 };
 
 export function pageMetadata(page: SeoPage): Metadata {
-  const image = new URL(page.image || "/og/home.png", brand.siteUrl).toString();
+  const image = new URL(page.image || "/og/home-hero-v2.png", brand.siteUrl).toString();
 
   return {
     title: page.title,

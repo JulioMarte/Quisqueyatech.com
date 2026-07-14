@@ -12,7 +12,7 @@ import { Container, Eyebrow, Section, SectionHead } from "@/components/ui/sectio
 import { brand } from "@/lib/brand";
 import { getPublishedPost, getPublishedPosts } from "@/lib/server/content";
 import type { Locale } from "@/lib/i18n";
-import { PrivacySections } from "@/app/privacidad/page";
+import { PrivacySections } from "@/components/pages/privacy-sections";
 import { ResourceGrid } from "@/components/resources/resource-grid";
 
 type PageKind = "solutions" | "automation" | "agents" | "software" | "clinics" | "method" | "assessment" | "assessmentNow" | "assessmentSchedule" | "resources" | "about" | "privacy";

@@ -15,7 +15,7 @@ Use secretos aleatorios distintos, de al menos 32 bytes. No reutilice `ADMIN_API
 
 ## Orden de despliegue
 
-1. Configurar variables en Convex, incluido `CLERK_JWT_ISSUER_DOMAIN`, y ejecutar `npm run convex:deploy`.
+1. Configurar las variables de Convex Cloud descritas en el README y ejecutar `npm run convex:deploy`.
 2. Desplegar Next y comprobar `GET /api/health/assessment`.
 3. Desplegar el worker LiveKit cuando ese proveedor esté habilitado.
 4. Configurar el webhook Ultravox hacia `/api/webhooks/ultravox` y verificar una firma real.

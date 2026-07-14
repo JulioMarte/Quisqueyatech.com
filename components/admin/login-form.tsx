@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { LockKeyhole, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 export function LoginForm({ returnTo }: { returnTo: string }) {
   const [error, setError] = useState(""),
     [loading, setLoading] = useState(false);
@@ -20,12 +21,12 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
           returnTo,
         }),
       });
-      const body = await response.json();
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(body.error || "No se pudo iniciar sesión.");
+        setError(body.message || body.error || "Email o contraseña incorrectos.");
         return;
       }
-      window.location.assign(body.data.returnTo);
+      window.location.assign(returnTo);
     } catch {
       setError("No se pudo conectar con el servicio de autenticación.");
     } finally {
@@ -86,6 +87,7 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
         )}
         Entrar
       </Button>
+      <Link href="/recovery" className="mt-4 block min-h-11 py-3 text-center text-sm font-semibold text-tech underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tech">Usar un código de recuperación</Link>
     </form>
   );
 }

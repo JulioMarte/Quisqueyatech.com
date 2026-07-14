@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Poppins } from "next/font/google";
-import { Footer } from "@/components/layout/footer";
-import { Navbar } from "@/components/layout/navbar";
 import { MotionProvider } from "@/components/ui/motion";
 import { brand } from "@/lib/brand";
-import { organizationJsonLd, seo } from "@/lib/seo";
+import { seo } from "@/lib/seo";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -25,20 +23,10 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = (await headers()).get("x-quisqueya-locale") === "en" ? "en" : "es";
-  const page = (
-    <>
-      <Navbar />
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </>
-  );
   return (
     <html lang={locale} className={`${inter.variable} ${poppins.variable} ${jetbrains.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans text-text">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
-        <MotionProvider>
-          {page}
-        </MotionProvider>
+        <MotionProvider>{children}</MotionProvider>
       </body>
     </html>
   );

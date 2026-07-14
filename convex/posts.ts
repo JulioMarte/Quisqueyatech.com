@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { paginationOptsValidator } from "convex/server";
 
-function configuredAdminEmail() { return process.env.ADMIN_EMAIL || "admin@quisqueyatech.com"; }
+function configuredAdminEmail() { return "admin@quisqueyatech.com"; }
 const locale = v.union(v.literal("es"), v.literal("en"));
 const status = v.union(v.literal("draft"), v.literal("review_pending"), v.literal("scheduled"), v.literal("published"), v.literal("archived"));
 const actor = { actorType: v.union(v.literal("admin"), v.literal("agent"), v.literal("system")), actorId: v.string(), actorLabel: v.string() };

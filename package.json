@@ -10,15 +10,16 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --import tsx --test tests/**/*.test.ts",
-    "og": "node scripts/generate-og.mjs",
-    "auth:hash-password": "node scripts/hash-admin-password.mjs"
+    "og": "node scripts/generate-og.mjs"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "0.12.5",
     "@google/genai": "^2.11.0",
     "@hookform/resolvers": "^5.4.0",
     "@livekit/agents": "^1.5.1",
     "@livekit/agents-plugin-google": "^1.5.1",
     "@mdxeditor/editor": "^4.0.4",
+    "better-auth": "1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.42.1",

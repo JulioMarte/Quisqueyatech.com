@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as bookings from "../bookings.js";
 import type * as crons from "../crons.js";
 import type * as funnel from "../funnel.js";
+import type * as http from "../http.js";
 import type * as posts from "../posts.js";
 import type * as retention from "../retention.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   bookings: typeof bookings;
   crons: typeof crons;
   funnel: typeof funnel;
+  http: typeof http;
   posts: typeof posts;
   retention: typeof retention;
 }>;
@@ -58,4 +60,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+};

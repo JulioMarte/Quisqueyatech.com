@@ -127,7 +127,16 @@ El workflow `.github/workflows/deploy.yml` valida el proyecto, despliega Convex 
 
 Variables públicas de Next.js deben configurarse como build arguments en Coolify. Los secretos de Easy!Appointments, voz, telefonía y correo son variables runtime y nunca deben incluirse en la imagen.
 
-Para producción ejecuta `npx convex deploy` con la credencial del deployment de producción y comprueba el contrato publicado con `npx convex function-spec --prod` antes de activar Coolify. Convex debe desplegarse primero; después se reconstruye y reinicia Next.js en Coolify. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina inmediatamente `ADMIN_SETUP_CODE` del deployment de producción. No copies `BETTER_AUTH_SECRET` a Coolify.
+Para producción ejecuta `npx convex deploy` con la credencial del deployment de producción y comprueba el contrato publicado con `npx convex function-spec --prod` antes de activar Coolify. Convex debe desplegarse primero; después se reconstruye y reinicia Next.js en Coolify. `SITE_URL` debe ser exactamente `https://www.quisqueyatech.com`, sin retorno de carro. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina inmediatamente `ADMIN_SETUP_CODE` del deployment de producción. No copies `BETTER_AUTH_SECRET` a Coolify.
+
+Después de desplegar el esquema ampliado, clasifica los medios históricos por lotes. Ejecuta primero el dry-run y solo después la migración real:
+
+```bash
+npx convex run migrations:classifyExistingMedia '{"dryRun":true}' --prod
+npx convex run migrations:classifyExistingMedia --prod
+```
+
+Las credenciales de agentes se preparan y se activan en dos pasos. Una clave pendiente no autentica y la clave anterior continúa activa hasta confirmar la activación. Si se pierde la respuesta, deja expirar la pendiente o revócala; no rote repetidamente.
 
 ## Verificación
 
@@ -139,11 +148,15 @@ npm run build
 docker build -t quisqueyatech-coolify .
 ```
 
-Las pruebas E2E anónimas no necesitan credenciales. Para probar login, las tres áreas y logout con una cuenta efímera:
+Las pruebas E2E anónimas no necesitan credenciales. La suite completa es destructiva (crea contenido y agentes, cambia la contraseña y consume un código), por lo que solo debe ejecutarse contra un deployment preview aislado. Si el preview está vacío usa `E2E_ADMIN_SETUP_CODE`; si ya está configurado proporciona además la cuenta y un código de recuperación:
 
 ```powershell
+$env:E2E_BASE_URL="https://preview.example.com"
+$env:E2E_ADMIN_SETUP_CODE="código-efímero-del-preview"
+# Para un preview ya configurado:
 $env:E2E_ADMIN_EMAIL="admin-de-prueba@ejemplo.com"
 $env:E2E_ADMIN_PASSWORD="contraseña-efímera"
+$env:E2E_ADMIN_RECOVERY_CODE="código-de-recuperación-efímero"
 npm run test:e2e
 ```
 

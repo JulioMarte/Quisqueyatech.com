@@ -31,6 +31,7 @@ export const cleanup = internalMutation({
 
     const webhookCutoff = now - 90 * 24 * 60 * 60_000;
     for (const event of await ctx.db.query("webhookEvents").collect()) if (event.receivedAt <= webhookCutoff) await ctx.db.delete(event._id);
-    for (const item of await ctx.db.query("media").collect()) if (item.expiresAt && item.expiresAt <= now) { await ctx.storage.delete(item.storageId); await ctx.db.delete(item._id); }
+    for (const item of await ctx.db.query("media").withIndex("by_expiry", q => q.gt("expiresAt", 0).lte("expiresAt", now)).take(100)) { await ctx.storage.delete(item.storageId); await ctx.db.delete(item._id); }
+    for (const item of await ctx.db.query("apiIdempotency").withIndex("by_expiry", q => q.lte("expiresAt", now)).take(100)) await ctx.db.delete(item._id);
   },
 });

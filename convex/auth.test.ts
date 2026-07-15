@@ -17,7 +17,7 @@ function authTest() {
 describe("administrative authorization", () => {
   test("anonymous callers cannot list assessments or content agents", async () => {
     const t = authTest();
-    await expect(t.query(api.assessments.adminList, {})).rejects.toThrow();
+    await expect(t.query(api.assessments.adminList, { paginationOpts: { cursor: null, numItems: 10 } })).rejects.toThrow();
     await expect(t.query(api.auth.listAgents, {})).rejects.toThrow();
   });
 
@@ -25,6 +25,34 @@ describe("administrative authorization", () => {
     const t = authTest();
     const listAgents = api.auth.listAgents as unknown as Parameters<typeof t.query>[0];
     await expect(t.query(listAgents, { secret: "legacy-secret" })).rejects.toThrow(/argument|unexpected field|Unauthorized/i);
+  });
+});
+
+describe("service and human identity separation", () => {
+  test("direct recovery without the machine secret is rejected at the contract", async () => {
+    const t = authTest();
+    const recover = api.auth.recoverAdmin as unknown as Parameters<typeof t.action>[0];
+    await expect(t.action(recover, { codeHash: "a".repeat(64), newPassword: "correct-horse-battery-staple" })).rejects.toThrow(/argument|serviceSecret|missing/i);
+  });
+
+  test("deprecated human-auth tables remain empty during current flows", async () => {
+    const t = authTest();
+    const counts = await t.run(async (ctx) => ({ sessions: (await ctx.db.query("adminSessions").take(1)).length, attempts: (await ctx.db.query("authLoginAttempts").take(1)).length }));
+    expect(counts).toEqual({ sessions: 0, attempts: 0 });
+  });
+
+  test("persistent auth limiter enforces its window without legacy tables", async () => {
+    const t = authTest();
+    const prior = process.env.ADMIN_API_SECRET;
+    process.env.ADMIN_API_SECRET = "test-machine-secret";
+    try {
+      const args = { serviceSecret: "test-machine-secret", key: "login:hmac-fingerprint", limit: 2, windowMs: 60_000 };
+      await expect(t.mutation(api.auth.checkSecurityRateLimit, args)).resolves.toMatchObject({ allowed: true });
+      await expect(t.mutation(api.auth.checkSecurityRateLimit, args)).resolves.toMatchObject({ allowed: true });
+      await expect(t.mutation(api.auth.checkSecurityRateLimit, args)).resolves.toMatchObject({ allowed: false });
+    } finally {
+      if (prior === undefined) delete process.env.ADMIN_API_SECRET; else process.env.ADMIN_API_SECRET = prior;
+    }
   });
 });
 

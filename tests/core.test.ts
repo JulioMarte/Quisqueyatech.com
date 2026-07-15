@@ -106,6 +106,9 @@ test("editorial content requires complete scheduled publishing data", () => {
   assert.equal(postInputSchema.safeParse(base).success, true);
   assert.equal(postInputSchema.safeParse({ ...base, status: "scheduled" }).success, false);
   assert.equal(postInputSchema.safeParse({ ...base, status: "scheduled", publishedAt: Date.now() + 60_000 }).success, true);
+  assert.equal(postInputSchema.safeParse({ ...base, status: "scheduled", publishedAt: Date.now() - 60_000 }).success, false);
+  assert.equal(postInputSchema.safeParse({ ...base, status: "published", imageId: "storage-id" }).success, false);
+  assert.equal(postInputSchema.safeParse({ ...base, status: "published", imageId: "storage-id", imageAlt: "Equipo colaborando frente a una pantalla" }).success, true);
   assert.equal(postInputSchema.safeParse({ ...base, slug: "Slug Inválido" }).success, false);
 });
 

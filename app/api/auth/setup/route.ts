@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { handler } from "@/lib/server/auth-server";
-import { validOrigin } from "@/lib/server/auth";
+import { checkSecurityRateLimit, loginFingerprints, validOrigin } from "@/lib/server/auth";
 import { convexQuery } from "@/lib/server/convex";
 
 const input = z.object({ name: z.string().trim().min(2).max(100), email: z.string().trim().email().max(254), password: z.string().min(14).max(128), setupCode: z.string().min(24).max(512) });
@@ -12,6 +12,14 @@ export async function POST(request: Request) {
   if (Number(request.headers.get("content-length") || 0) > 8_192) return Response.json({ error: "Solicitud demasiado grande." }, { status: 413 });
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 400 });
+  try {
+    for (const key of loginFingerprints(request, parsed.data.email)) {
+      const rate = await checkSecurityRateLimit(`setup:${key}`, 5, 60 * 60_000);
+      if (!rate.allowed) return Response.json({ error: "La instalación no está disponible." }, { status: 429, headers: { "Retry-After": String(rate.retryAfter) } });
+    }
+  } catch {
+    return Response.json({ error: "El servicio de autenticación no está configurado." }, { status: 503 });
+  }
   const status = await convexQuery("auth:setupStatus", {}) as { status: string } | null;
   if (!status || status.status !== "uninitialized") return Response.json({ error: "La instalación ya fue configurada o está en progreso." }, { status: 403 });
   const recoveryCodes = Array.from({ length: 8 }, () => `QTR-${randomBytes(9).toString("base64url").toUpperCase()}`);

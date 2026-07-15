@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
-import { adminRequest } from "@/lib/client/admin-response";
+import { adminRequest, type AdminPage } from "@/lib/client/admin-response";
 
 const VisualMarkdownEditor = dynamic(
   () => import("@/components/admin/visual-markdown-editor"),
@@ -60,6 +60,7 @@ type Post = {
   featured?: boolean;
   status: Status;
   publishedAt?: number;
+  updatedAt?: number;
   actorType?: "admin" | "agent" | "system";
   actorLabel?: string;
 };
@@ -94,7 +95,8 @@ const emptyPost = (): Post => ({
   translationKey: crypto.randomUUID(),
 });
 
-export function AdminEditor() {
+export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty: boolean) => void; saveRef?: React.MutableRefObject<(() => Promise<boolean>) | null> }) {
+  const changeDialog = useRef<HTMLDialogElement>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [post, setPost] = useState<Post>(emptyPost);
   const [query, setQuery] = useState("");
@@ -118,29 +120,39 @@ export function AdminEditor() {
   const [generating, setGenerating] = useState(false);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [uploading, setUploading] = useState(false);
+  const editVersion = useRef(0);
+  const createIdempotencyKey = useRef<string | null>(null);
+  const objectUrl = useRef<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ kind: "new" } | { kind: "select"; id: string } | { kind: "archive" } | { kind: "restore"; revisionId: string } | null>(null);
+  useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
+  useEffect(() => () => { if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); }, []);
 
   const loadPosts = useCallback(async () => {
-    setPosts(await adminRequest<Post[]>("/api/admin/v1/posts", { cache: "no-store" }));
-  }, []);
+    const params = new URLSearchParams({ limit: "50" });
+    if (query.trim()) params.set("q", query.trim());
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    const page = await adminRequest<AdminPage<Post>>(`/api/admin/v1/posts?${params}`, { cache: "no-store" });
+    setPosts(page.items);
+  }, [query, statusFilter]);
   useEffect(() => {
     let active = true;
-    adminRequest<Post[]>("/api/admin/v1/posts", { cache: "no-store" })
-      .then((data) => { if (active) setPosts(data); })
-      .catch((error) => {
+    const timer = window.setTimeout(() => loadPosts().catch((error) => {
         if (active)
           setMessage(
             error instanceof Error
               ? error.message
               : "No se pudieron cargar los recursos.",
           );
-      });
+      }), 250);
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
-  }, []);
+  }, [loadPosts]);
 
   const update = useCallback(<K extends keyof Post>(key: K, value: Post[K]) => {
     setPost((current) => ({ ...current, [key]: value }));
+    editVersion.current += 1;
     setDirty(true);
   }, []);
   const validDraft =
@@ -156,43 +168,49 @@ export function AdminEditor() {
           setMessage(
             "Completa título, slug, resumen y contenido antes de guardar.",
           );
-        return;
+        return false;
       }
+      if (saving) return false;
       setSaving(true);
+      const versionAtStart = editVersion.current;
+      if (!post._id && !createIdempotencyKey.current) createIdempotencyKey.current = crypto.randomUUID();
       if (!silent) setMessage("");
       try {
-        const payload = await adminRequest<{ id: string }>(
+        const payload = await adminRequest<{ id: string; updatedAt: number }>(
           post._id ? `/api/admin/v1/posts/${post._id}` : "/api/admin/v1/posts",
           {
             method: post._id ? "PATCH" : "POST",
             headers: {
               "Content-Type": "application/json",
-              "Idempotency-Key": crypto.randomUUID(),
+              "Idempotency-Key": createIdempotencyKey.current || crypto.randomUUID(),
             },
-            body: JSON.stringify({ ...post, id: post._id }),
+            body: JSON.stringify({ ...post, id: post._id, expectedUpdatedAt: post.updatedAt }),
           },
         );
-        const saved = { ...post, _id: String(payload.id) };
-        setPost(saved);
-        setDirty(false);
+        setPost((current) => ({ ...current, _id: String(payload.id), updatedAt: payload.updatedAt }));
+        createIdempotencyKey.current = null;
+        if (editVersion.current === versionAtStart) setDirty(false);
         if (!silent) setMessage("Recurso guardado correctamente.");
         await loadPosts();
+        return true;
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "No se pudo guardar.",
         );
+        return false;
       } finally {
         setSaving(false);
       }
     },
-    [loadPosts, post, validDraft],
+    [loadPosts, post, saving, validDraft],
   );
+  useEffect(() => { if (saveRef) saveRef.current = () => save(false); return () => { if (saveRef) saveRef.current = null; }; }, [save, saveRef]);
 
   useEffect(() => {
     if (!dirty || !post._id || !validDraft || post.status !== "draft") return;
     const timer = window.setTimeout(() => void save(true), 2500);
     return () => window.clearTimeout(timer);
-  }, [dirty, post._id, post.status, save, validDraft]);
+  }, [dirty, post._id, post.status, save, saving, validDraft]);
 
   const visiblePosts = useMemo(
     () =>
@@ -230,7 +248,7 @@ export function AdminEditor() {
     try {
       const payload = await adminRequest<{ proposal: Proposal }>("/api/admin/v1/ai/actions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({
           action: aiAction,
           postId: post._id,
@@ -275,12 +293,6 @@ export function AdminEditor() {
 
   async function archive() {
     if (!post._id) return;
-    if (
-      !window.confirm(
-        "¿Archivar este recurso? Podrás recuperarlo desde el filtro Archivados.",
-      )
-    )
-      return;
     try {
       await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, { method: "DELETE" });
       await loadPosts();
@@ -288,6 +300,26 @@ export function AdminEditor() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo archivar.");
     }
+  }
+  async function executeAction(action: NonNullable<typeof pendingAction>) {
+    if (action.kind === "new") { setPost(emptyPost()); createIdempotencyKey.current = null; setDirty(false); setTab("content"); return; }
+    if (action.kind === "archive") { await archive(); return; }
+    if (action.kind === "restore") { await restore(action.revisionId); return; }
+    try { const data = await adminRequest<{ post: Post }>(`/api/admin/v1/posts/${action.id}`); setPost(data.post); setDirty(false); setTab("content"); setProposal(null); requestAnimationFrame(() => document.getElementById("post-editor-main")?.focus()); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "No se pudo cargar el recurso."); }
+  }
+  function requestAction(action: NonNullable<typeof pendingAction>) {
+    if (dirty || action.kind === "archive") { setPendingAction(action); changeDialog.current?.showModal(); return; }
+    void executeAction(action);
+  }
+  async function confirmPending(saveFirst: boolean) {
+    if (!pendingAction) return;
+    if (saveFirst && !(await save())) return;
+    const action = pendingAction;
+    setPendingAction(null);
+    changeDialog.current?.close();
+    if (!saveFirst) setDirty(false);
+    await executeAction(action);
   }
   async function seedContent() {
     try {
@@ -302,7 +334,8 @@ export function AdminEditor() {
     if (!post._id) return;
     setTab("history");
     try {
-      setRevisions(await adminRequest<Revision[]>(`/api/admin/v1/posts/${post._id}?include=revisions`));
+      const detail = await adminRequest<{ post: Post; revisions?: Revision[] }>(`/api/admin/v1/posts/${post._id}?include=revisions`);
+      setRevisions(detail.revisions || []);
     } catch (error) {
       setRevisions([]);
       setMessage(error instanceof Error ? error.message : "No se pudo cargar el historial.");
@@ -311,7 +344,10 @@ export function AdminEditor() {
   async function restore(revisionId: string) {
     if (!post._id) return;
     try {
-      await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revisionId }) });
+      await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revisionId, expectedUpdatedAt: post.updatedAt }) });
+      const detail = await adminRequest<{ post: Post }>(`/api/admin/v1/posts/${post._id}`);
+      setPost(detail.post);
+      setDirty(false);
       await loadPosts();
       setMessage("Versión restaurada. Selecciona el recurso para revisarla.");
     } catch (error) {
@@ -353,9 +389,11 @@ export function AdminEditor() {
         }),
       });
       update("imageId", stored.storageId);
+      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+      objectUrl.current = URL.createObjectURL(file);
       setPost((current) => ({
         ...current,
-        imageUrl: URL.createObjectURL(file),
+        imageUrl: objectUrl.current,
       }));
     } catch (error) {
       setMessage(
@@ -384,11 +422,7 @@ export function AdminEditor() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setPost(emptyPost());
-                setDirty(false);
-                setTab("content");
-              }}
+              onClick={() => requestAction({ kind: "new" })}
             >
               <FilePlus2 className="h-4 w-4" />
               Nuevo
@@ -401,6 +435,8 @@ export function AdminEditor() {
                 setPost({
                   ...post,
                   _id: undefined,
+                  updatedAt: undefined,
+                  translationKey: crypto.randomUUID(),
                   title: `${post.title} (copia)`,
                   slug: `${post.slug}-copia`,
                   status: "draft",
@@ -410,6 +446,20 @@ export function AdminEditor() {
             >
               <Copy className="h-4 w-4" />
               Duplicar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!post._id}
+              onClick={() => {
+                setPost({ ...post, _id: undefined, updatedAt: undefined, locale: post.locale === "es" ? "en" : "es", slug: "", title: "", excerpt: "", body: "", status: "draft" });
+                createIdempotencyKey.current = null;
+                editVersion.current += 1;
+                setDirty(true);
+              }}
+            >
+              <FilePlus2 className="h-4 w-4" />
+              Crear traducción
             </Button>
             <Button
               type="button"
@@ -466,12 +516,7 @@ export function AdminEditor() {
                 <button
                   type="button"
                   key={item._id}
-                  onClick={() => {
-                    setPost(item);
-                    setDirty(false);
-                    setTab("content");
-                    setProposal(null);
-                  }}
+                  onClick={() => item._id && requestAction({ kind: "select", id: item._id })}
                   className={`block min-h-11 w-full cursor-pointer rounded-xl px-3 py-2 text-left transition-colors ${item._id === post._id ? "bg-primary text-white" : "hover:bg-bg-2"}`}
                 >
                   <span className="block line-clamp-2 text-sm font-semibold">
@@ -491,7 +536,7 @@ export function AdminEditor() {
               ))}
             </div>
           </aside>
-          <main className="min-w-0">
+          <main id="post-editor-main" tabIndex={-1} className="min-w-0 focus:outline-none">
             <div className="flex overflow-x-auto rounded-xl border border-line bg-white p-1">
               {(["content", "seo", "preview"] as const).map((item) => (
                 <button
@@ -662,7 +707,7 @@ export function AdminEditor() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => void archive()}
+                    onClick={() => requestAction({ kind: "archive" })}
                   >
                     <Archive className="h-4 w-4" />
                     Archivar recurso
@@ -726,7 +771,7 @@ export function AdminEditor() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => void restore(revision._id)}
+                          onClick={() => requestAction({ kind: "restore", revisionId: revision._id })}
                         >
                           <RefreshCw className="h-4 w-4" />
                           Restaurar
@@ -818,13 +863,15 @@ export function AdminEditor() {
                 {proposal.title ? (
                   <p className="mt-2 text-sm font-semibold">{proposal.title}</p>
                 ) : null}
+                {proposal.alternativeTitles?.length ? <div className="mt-3 space-y-2"><p className="text-xs font-semibold uppercase text-mute">Títulos alternativos</p>{proposal.alternativeTitles.map((title) => <div key={title} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2 text-sm"><span>{title}</span><Button type="button" size="sm" variant="outline" onClick={() => update("title", title)}>Aplicar</Button></div>)}</div> : null}
                 {proposal.outline ? (
-                  <ul className="mt-2 list-disc pl-5 text-sm text-text-2">
+                  <><ul className="mt-2 list-disc pl-5 text-sm text-text-2">
                     {proposal.outline.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
-                  </ul>
+                  </ul><Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => void navigator.clipboard.writeText(proposal.outline!.map(item => `## ${item}`).join("\n\n")).catch(() => setMessage("No se pudo copiar el outline."))}>Copiar outline</Button></>
                 ) : null}
+                {proposal.imagePrompt ? <div className="mt-3 rounded-lg bg-white p-3 text-sm"><p className="font-semibold">Prompt de imagen</p><p className="mt-1 text-text-2">{proposal.imagePrompt}</p><Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => void navigator.clipboard.writeText(proposal.imagePrompt!).catch(() => setMessage("No se pudo copiar el prompt."))}>Copiar prompt</Button></div> : null}
                 {proposal.warnings?.length ? (
                   <div className="mt-3 rounded-lg bg-amber-soft p-3 text-xs text-amber-deep">
                     {proposal.warnings.join(" ")}
@@ -864,6 +911,7 @@ export function AdminEditor() {
           </aside>
         </div>
       </Container>
+      <dialog ref={changeDialog} onCancel={() => setPendingAction(null)} className="fixed inset-0 z-50 m-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl backdrop:bg-primary/70"><h2 className="font-display text-xl font-bold text-primary">{pendingAction?.kind === "archive" ? "Archivar recurso" : "Cambios sin guardar"}</h2><p className="mt-3 text-text-2">{pendingAction?.kind === "archive" ? "El recurso dejará de estar visible. Puedes guardar primero los cambios pendientes o archivar la versión guardada." : "Guarda, descarta o cancela antes de cambiar de recurso."}</p><div className="mt-5 flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => { setPendingAction(null); changeDialog.current?.close(); }}>Cancelar</Button>{dirty ? <Button type="button" variant="outline" disabled={saving} onClick={() => void confirmPending(true)}>Guardar y continuar</Button> : null}<Button type="button" disabled={saving} onClick={() => void confirmPending(false)}>{pendingAction?.kind === "archive" ? "Archivar" : "Descartar"}</Button></div></dialog>
     </Section>
   );
 }

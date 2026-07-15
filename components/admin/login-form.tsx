@@ -81,7 +81,7 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
           {error}
         </p>
       )}
-      <Button className="mt-6 w-full" type="submit" disabled={loading}>
+      <Button variant="dark" className="mt-6 w-full" type="submit" disabled={loading}>
         {loading && (
           <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
         )}

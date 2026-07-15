@@ -9,7 +9,9 @@ export { safeReturnTo, tokenHash };
 export type AdminActor = { type: "admin"; id: string; label: string; email: string };
 
 export function adminSecret() {
-  return process.env.ADMIN_API_SECRET || "";
+  const value = process.env.ADMIN_API_SECRET?.trim();
+  if (!value) throw new Error("ADMIN_API_SECRET is required");
+  return value;
 }
 
 export async function currentAdmin(): Promise<AdminActor | null> {
@@ -33,6 +35,15 @@ export function requestFingerprint(request: Request, scope: string) {
   const secret = process.env.AUTH_IP_HASH_SECRET;
   if (!secret) throw new Error("AUTH_IP_HASH_SECRET is required");
   return `${scope}:${createHmac("sha256", secret).update(requestIp(request)).digest("hex")}`;
+}
+
+export async function checkSecurityRateLimit(key: string, limit: number, windowMs: number) {
+  return convexMutation("auth:checkSecurityRateLimit", {
+    serviceSecret: adminSecret(),
+    key,
+    limit,
+    windowMs,
+  }) as Promise<{ allowed: boolean; retryAfter: number }>;
 }
 
 export function validOrigin(request: Request) {

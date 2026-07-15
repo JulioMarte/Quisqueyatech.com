@@ -19,8 +19,12 @@ export const postInputSchema = z.object({
   featured: z.boolean().optional(),
   status: postStatusSchema,
   publishedAt: z.number().optional(),
+  expectedUpdatedAt: z.number().optional(),
 }).superRefine((post, ctx) => {
   if (post.status === "scheduled" && !post.publishedAt) ctx.addIssue({ code: "custom", path: ["publishedAt"], message: "Scheduled posts require a publication date" });
+  if (post.status === "scheduled" && post.publishedAt && post.publishedAt <= Date.now()) ctx.addIssue({ code: "custom", path: ["publishedAt"], message: "Scheduled publication must be in the future" });
+  if (post.status === "published" && post.publishedAt && post.publishedAt > Date.now()) ctx.addIssue({ code: "custom", path: ["publishedAt"], message: "Future publication requires scheduled status" });
+  if ((post.status === "published" || post.status === "scheduled") && post.imageId && !post.imageAlt?.trim()) ctx.addIssue({ code: "custom", path: ["imageAlt"], message: "Cover image alt text is required before publishing" });
 });
 
 export type PostInput = z.infer<typeof postInputSchema>;

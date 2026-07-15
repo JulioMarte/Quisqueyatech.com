@@ -496,3 +496,15 @@ body {
 .prose ol { list-style: decimal; }
 .prose a { color: var(--c-tech); text-decoration: underline; }
 .prose strong { color: var(--c-text); }
+
+/* Admin actions use a darker orange so white labels pass WCAG AA. Public CTAs
+   keep the established brand treatment. */
+.admin-shell .motion-button.bg-amber {
+  background-color: #9a3412 !important;
+}
+.admin-shell .motion-button.bg-amber:hover {
+  background-color: #7c2d12 !important;
+}
+.admin-shell :focus-visible {
+  outline-offset: 2px;
+}

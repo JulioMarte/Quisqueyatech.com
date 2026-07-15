@@ -1,0 +1,42 @@
+name: Admin preview E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Isolated preview URL (never production)
+        required: true
+        type: string
+
+concurrency:
+  group: admin-preview-e2e-${{ inputs.base_url }}
+  cancel-in-progress: true
+
+jobs:
+  verify-admin-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      E2E_BASE_URL: ${{ inputs.base_url }}
+      E2E_ADMIN_SETUP_CODE: ${{ secrets.E2E_ADMIN_SETUP_CODE }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_ADMIN_RECOVERY_CODE: ${{ secrets.E2E_ADMIN_RECOVERY_CODE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Refuse production target
+        shell: bash
+        run: |
+          if [[ "$E2E_BASE_URL" == "https://www.quisqueyatech.com" || "$E2E_BASE_URL" == "https://quisqueyatech.com" ]]; then
+            echo "The destructive E2E suite cannot target production."
+            exit 1
+          fi
+      - run: npm run test:e2e

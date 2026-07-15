@@ -52,6 +52,7 @@ export const assessmentReportSchema = z.object({ subject: z.string().trim().min(
 
 export const assessmentReviewSchema = z.object({
   assessmentId: z.string().uuid(),
+  expectedRevision: z.number().int().min(0),
   action: z.enum(["save", "approve-and-send"]),
   report: assessmentReportSchema,
 });

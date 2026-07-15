@@ -28,10 +28,10 @@ import {
   CalendarCheck2,
   Check,
   Loader2,
-  Lock,
+  Phone,
   X,
 } from "lucide-react";
-import { AnimatePresence, m } from "framer-motion";
+import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { TurnstileField } from "@/components/security/turnstile-field";
 import {
   COUNTRIES,
@@ -179,16 +179,28 @@ interface ScheduleModalImplProps {
   onClose: () => void;
 }
 
+type WizardStep = 1 | 2 | 3 | 4;
+
+type StepValidation =
+  | { valid: true }
+  | { valid: false; message: string; target: string };
+
 function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImplProps) {
   const es = locale === "es";
   const dialogRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const submitInFlightRef = useRef(false);
+  const stepRef = useRef<WizardStep>(1);
+  const availabilityRequestRef = useRef(0);
+  const reduceMotion = useReducedMotion();
   const titleId = useId();
   const descId = useId();
   useFocusTrap(dialogRef, isOpen);
   useBodyScrollLock(isOpen);
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<WizardStep>(1);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -211,11 +223,16 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [invalidTarget, setInvalidTarget] = useState<string | null>(null);
   const [bookingResult, setBookingResult] = useState<{
     confirmed: boolean;
     bookingId: string;
   } | null>(null);
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   const timezone = useMemo(() => {
     if (typeof Intl === "undefined") return "America/Santo_Domingo";
@@ -262,6 +279,8 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
 
   // Reset full state on close (after the user has seen the success state).
   const reset = useCallback(() => {
+    stepRef.current = 1;
+    availabilityRequestRef.current += 1;
     setStep(1);
     setFirstName("");
     setLastName("");
@@ -279,8 +298,10 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     setAvailabilityConfigured(true);
     setError(null);
     setStepError(null);
+    setInvalidTarget(null);
     setBookingResult(null);
     setSubmitting(false);
+    submitInFlightRef.current = false;
     clearDraft();
   }, []);
 
@@ -297,6 +318,16 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     // during the close animation.
     window.setTimeout(reset, 250);
   }, [submitting, locale, step, source, onClose, reset]);
+
+  // Reset the scroll region and announce the new step after navigation.
+  useEffect(() => {
+    if (!isOpen) return;
+    contentRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    const frame = window.requestAnimationFrame(() => {
+      titleRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, step]);
 
   // Open analytics
   useEffect(() => {
@@ -322,10 +353,12 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   useEffect(() => {
     if (!isOpen || !selectedDate) return;
     const controller = new AbortController();
+    const requestId = ++availabilityRequestRef.current;
     setLoadingAvailability(true);
     setStepError(null);
     fetchAvailability(selectedDate, timezone, { signal: controller.signal })
       .then((data) => {
+        if (controller.signal.aborted || requestId !== availabilityRequestRef.current) return;
         setSlots(data.slots);
         setAvailabilityConfigured(data.configured);
         if (data.configured && data.slots.length === 0) {
@@ -334,86 +367,113 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
               ? "No hay espacios disponibles para esta fecha. Prueba otro día."
               : "No slots are available on this date. Try another day.",
           );
+          return;
+        }
+        if (stepRef.current === 2) {
+          trackSchedule({ name: "schedule_step_advanced", locale, step: 2, source });
+          setStepError(null);
+          setInvalidTarget(null);
+          stepRef.current = 3;
+          startTransition(() => setStep(3));
         }
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        if (requestId !== availabilityRequestRef.current) return;
         setSlots([]);
         setAvailabilityConfigured(false);
       })
-      .finally(() => setLoadingAvailability(false));
+      .finally(() => {
+        if (!controller.signal.aborted && requestId === availabilityRequestRef.current) {
+          setLoadingAvailability(false);
+        }
+      });
     return () => controller.abort();
-  }, [isOpen, selectedDate, timezone, es]);
+  }, [isOpen, selectedDate, timezone, es, locale, source]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Validation
-  const validateStep = useCallback((): boolean => {
-    if (step === 1) {
+  // Pure validation keeps rendering side-effect free. Errors are only exposed
+  // after the user attempts to navigate or confirm.
+  const getStepValidation = useCallback((targetStep: WizardStep): StepValidation => {
+    if (targetStep === 1) {
       if (!firstName.trim() || firstName.trim().length < 2) {
-        setStepError(
-          es ? "Por favor escribe tu nombre." : "Please enter your first name.",
-        );
-        return false;
+        return {
+          valid: false,
+          message: es ? "Por favor escribe tu nombre." : "Please enter your first name.",
+          target: "firstName",
+        };
       }
       if (!lastName.trim() || lastName.trim().length < 2) {
-        setStepError(
-          es ? "Por favor escribe tu apellido." : "Please enter your last name.",
-        );
-        return false;
+        return {
+          valid: false,
+          message: es ? "Por favor escribe tu apellido." : "Please enter your last name.",
+          target: "lastName",
+        };
       }
       if (!country) {
-        setStepError(
-          es ? "Selecciona tu país." : "Please select your country.",
-        );
-        return false;
+        return {
+          valid: false,
+          message: es ? "Selecciona tu país." : "Please select your country.",
+          target: "country",
+        };
       }
       if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ""))) {
-        setStepError(
-          es
+        return {
+          valid: false,
+          message: es
             ? "Revisa el número. Usa formato internacional, por ejemplo +18095551234."
             : "Check the number. Use international format, e.g. +18095551234.",
-        );
-        return false;
+          target: "phone",
+        };
       }
       if (!consentProcessing) {
-        setStepError(
-          es
+        return {
+          valid: false,
+          message: es
             ? "Necesitamos tu consentimiento para procesar tus datos."
             : "We need your consent to process your data.",
-        );
-        return false;
+          target: "processingConsent",
+        };
       }
-      return true;
+      return { valid: true };
     }
-    if (step === 2) {
+    if (targetStep === 2) {
       if (!selectedDate) {
-        setStepError(
-          es ? "Selecciona una fecha disponible." : "Please select an available date.",
-        );
-        return false;
+        return {
+          valid: false,
+          message: es ? "Selecciona una fecha disponible." : "Please select an available date.",
+          target: "calendar",
+        };
+      }
+      if (loadingAvailability) {
+        return {
+          valid: false,
+          message: es
+            ? "Espera mientras verificamos los horarios."
+            : "Wait while we check the available times.",
+          target: "calendar",
+        };
       }
       if (availabilityConfigured && slots.length === 0) {
-        setStepError(
-          es
+        return {
+          valid: false,
+          message: es
             ? "No hay horarios disponibles para esta fecha."
             : "No slots are available for this date.",
-        );
-        return false;
+          target: "calendar",
+        };
       }
-      return true;
+      return { valid: true };
     }
-    if (step === 3) {
-      if (!selectedTime) {
-        setStepError(
-          es ? "Selecciona una hora." : "Please select a time.",
-        );
-        return false;
-      }
-      return true;
+    if (targetStep === 3 && !selectedTime) {
+      return {
+        valid: false,
+        message: es ? "Selecciona una hora." : "Please select a time.",
+        target: "timeGrid",
+      };
     }
-    return true;
+    return { valid: true };
   }, [
-    step,
     firstName,
     lastName,
     country,
@@ -422,12 +482,38 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     selectedDate,
     selectedTime,
     availabilityConfigured,
+    loadingAvailability,
     slots.length,
     es,
   ]);
 
+  const focusInvalidTarget = useCallback((target: string) => {
+    window.requestAnimationFrame(() => {
+      const element = dialogRef.current?.querySelector<HTMLElement>(
+        `[data-schedule-target="${target}"]`,
+      );
+      element?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+      element?.focus({ preventScroll: true });
+    });
+  }, [reduceMotion]);
+
+  const validateCurrentStep = useCallback((): boolean => {
+    const result = getStepValidation(step);
+    if (result.valid) {
+      setStepError(null);
+      setInvalidTarget(null);
+      return true;
+    }
+    setStepError(result.message);
+    setInvalidTarget(result.target);
+    focusInvalidTarget(result.target);
+    return false;
+  }, [focusInvalidTarget, getStepValidation, step]);
+
   const submitAll = useCallback(async () => {
     if (!selectedDate || !selectedTime) return;
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setSubmitting(true);
     setError(null);
     const controller = new AbortController();
@@ -469,6 +555,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     );
 
     setSubmitting(false);
+    submitInFlightRef.current = false;
 
     if (result.ok) {
       setBookingResult({ confirmed: result.confirmed, bookingId: result.bookingId });
@@ -478,6 +565,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
         confirmed: result.confirmed,
         source,
       });
+      stepRef.current = 4;
       setStep(4);
       clearDraft();
     } else {
@@ -488,6 +576,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
           date: selectedDate,
           source,
         });
+        stepRef.current = 2;
         setStep(2);
         setSelectedTime(null);
         setStepError(
@@ -524,21 +613,67 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   ]);
 
   const goNext = useCallback(async () => {
-    if (!validateStep()) return;
+    if (!validateCurrentStep()) return;
     if (step === 3) {
       await submitAll();
       return;
     }
     trackSchedule({ name: "schedule_step_advanced", locale, step, source });
     setStepError(null);
+    stepRef.current = (step + 1) as WizardStep;
     startTransition(() => setStep((s) => (s < 4 ? ((s + 1) as 1 | 2 | 3 | 4) : s)));
-  }, [validateStep, step, locale, source, submitAll]);
+  }, [validateCurrentStep, step, locale, source, submitAll]);
 
   const goBack = useCallback(() => {
     trackSchedule({ name: "schedule_step_regressed", locale, step, source });
     setStepError(null);
-    setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3 | 4) : s));
+    setInvalidTarget(null);
+    const target = (step > 1 ? step - 1 : step) as WizardStep;
+    stepRef.current = target;
+    setStep(target);
   }, [step, locale, source]);
+
+  // Wizard step navigation via step pills or side arrows.
+  // Rules:
+  //  - Can always go BACK to a previous step (to edit).
+  //  - Can attempt the immediately-next step; validation runs on interaction.
+  //  - Cannot skip steps.
+  //  - Cannot navigate to the success step (4) directly.
+  const canNavigateToStep = useCallback(
+    (target: WizardStep): boolean => {
+      if (step === 4) return false;
+      if (target === step) return false;
+      if (target === 4) return false; // success is reached only via submit
+      if (target < step) return true; // any previous step
+      if (target === step + 1) return true;
+      return false; // skipping steps not allowed
+    },
+    [step],
+  );
+
+  const onStepClick = useCallback(
+    (target: WizardStep) => {
+      if (step === 4) return;
+      if (target === step) return;
+      if (target < step) {
+        trackSchedule({ name: "schedule_step_regressed", locale, step: target, source });
+        setStepError(null);
+        setInvalidTarget(null);
+        stepRef.current = target;
+        setStep(target);
+        return;
+      }
+      if (target === step + 1) {
+        if (!validateCurrentStep()) return;
+        trackSchedule({ name: "schedule_step_advanced", locale, step, source });
+        setStepError(null);
+        setInvalidTarget(null);
+        stepRef.current = target;
+        setStep(target);
+      }
+    },
+    [step, locale, source, validateCurrentStep],
+  );
 
   // Phone helper: when country changes, prepend dial code if empty.
   const onCountryChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -558,7 +693,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.18 }}
+          transition={{ duration: reduceMotion ? 0.01 : 0.18 }}
           className="fixed inset-0 z-[1000] flex items-end justify-center p-0 sm:items-center sm:p-4"
         >
           {/* Backdrop */}
@@ -580,22 +715,68 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
             initial={{ y: 30, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.28, ease: [0.2, 0.7, 0.3, 1] }}
-            className={cn(
-              "relative z-[1001] flex w-full max-w-[760px] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl",
-              "max-h-[95dvh]",
-            )}
+            transition={{ duration: reduceMotion ? 0.01 : 0.28, ease: [0.2, 0.7, 0.3, 1] }}
+            className="relative z-[1001] w-full max-w-[680px] overflow-visible"
           >
+            {/* Side navigation arrows only appear when the viewport leaves safe gutters. */}
+            {step > 1 && step < 4 ? (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={submitting}
+                  aria-label={es ? "Paso anterior" : "Previous step"}
+                  className={cn(
+                    "absolute -left-[124px] top-1/2 z-10 hidden h-11 min-w-[112px] -translate-y-1/2 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-white/80 bg-white px-3 text-[12.5px] font-bold text-primary shadow-xl transition-colors lg:flex",
+                    "hover:border-tech hover:text-tech focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+                  )}
+                >
+                  <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+                  <span>{step === 3 ? (es ? "Fecha" : "Date") : (es ? "Tus datos" : "Your details")}</span>
+                </button>
+            ) : null}
+            {step < 4 ? (
+                <button
+                  type="button"
+                  onClick={() => void goNext()}
+                  disabled={submitting || (loadingAvailability && step === 2) || (step === 3 && !selectedTime)}
+                  aria-label={step === 3 ? (es ? "Confirmar evaluación" : "Confirm assessment") : (es ? "Siguiente paso" : "Next step")}
+                  className={cn(
+                    "absolute -right-[124px] top-1/2 z-10 hidden h-11 min-w-[112px] -translate-y-1/2 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 text-[12.5px] font-bold text-white shadow-xl transition-colors lg:flex",
+                    step === 3 ? "border-amber bg-amber hover:border-amber-deep hover:bg-amber-deep" : "border-primary bg-primary hover:border-tech hover:bg-primary-2",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+                  )}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  <span>{step === 1 ? (es ? "Fecha" : "Date") : step === 2 ? (es ? "Hora" : "Time") : (es ? "Confirmar" : "Confirm")}</span>
+                  {!submitting ? (step === 3 ? <Check className="h-5 w-5" aria-hidden="true" /> : <ArrowRight className="h-5 w-5" aria-hidden="true" />) : null}
+                </button>
+            ) : null}
+
+            <div className="flex max-h-[95dvh] min-h-0 flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[92dvh] sm:rounded-2xl">
             <ScheduleModalHeader
               step={step}
+              titleRef={titleRef}
               closeRef={closeButtonRef}
               onClose={handleClose}
               titleId={titleId}
               descId={descId}
               locale={locale}
+              canNavigateToStep={canNavigateToStep}
+              onStepClick={onStepClick}
             />
 
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {step < 4 && (stepError || error) ? (
+                <div className="hidden px-6 pt-4 lg:block">
+                  <p
+                    role="alert"
+                    className="flex items-start gap-2 rounded-lg bg-rose-soft p-2.5 text-[13px] text-rose"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    {stepError || error}
+                  </p>
+                </div>
+              ) : null}
               {step === 1 ? (
                 <ContactStep
                   firstName={firstName}
@@ -614,6 +795,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                   onChannelChange={setChannel}
                   onConsentProcessingChange={setConsentProcessing}
                   onConsentRecordingChange={setConsentRecording}
+                  invalidTarget={invalidTarget}
                   locale={locale}
                 />
               ) : null}
@@ -623,24 +805,42 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                   setCalMonth={setCalMonth}
                   selectedDate={selectedDate}
                   onSelectDate={(d) => {
+                    if (d === selectedDate) return;
+                    setSlots([]);
+                    setLoadingAvailability(true);
                     setSelectedDate(d);
                     setSelectedTime(null);
+                    setStepError(null);
+                    setInvalidTarget(null);
                   }}
                   timezone={timezone}
+                  invalid={invalidTarget === "calendar"}
                   locale={locale}
                 />
               ) : null}
               {step === 3 && selectedDate ? (
-                <TimeStep
-                  date={selectedDate}
-                  selectedTime={selectedTime}
-                  onSelectTime={setSelectedTime}
-                  slots={slots}
-                  loading={loadingAvailability}
-                  configured={availabilityConfigured}
-                  timezone={timezone}
-                  locale={locale}
-                />
+                <>
+                  <TimeStep
+                    date={selectedDate}
+                    selectedTime={selectedTime}
+                    onSelectTime={(time) => {
+                      setSelectedTime(time);
+                      setStepError(null);
+                      setInvalidTarget(null);
+                    }}
+                    slots={slots}
+                    loading={loadingAvailability}
+                    configured={availabilityConfigured}
+                    timezone={timezone}
+                    invalid={invalidTarget === "timeGrid"}
+                    locale={locale}
+                  />
+                  {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                    <div className="px-5 pb-4 sm:px-7 lg:px-6">
+                      <TurnstileField onToken={setTurnstileToken} />
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               {step === 4 && bookingResult ? (
                 <SuccessStep
@@ -667,8 +867,8 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                 onBack={goBack}
                 onClose={handleClose}
                 onNext={goNext}
-                hasTurnstile={Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)}
-                onTurnstileToken={setTurnstileToken}
+                nextDisabled={(loadingAvailability && step === 2) || (step === 3 && !selectedTime)}
+                readyToConfirm={step === 3 && Boolean(selectedTime)}
                 locale={locale}
               />
             ) : (
@@ -677,6 +877,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                 locale={locale}
               />
             )}
+            </div>
           </m.div>
         </m.div>
       ) : null}
@@ -690,29 +891,35 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
 
 function ScheduleModalHeader({
   step,
+  titleRef,
   closeRef,
   onClose,
   titleId,
   descId,
   locale,
+  canNavigateToStep,
+  onStepClick,
 }: {
-  step: number;
+  step: WizardStep;
+  titleRef: React.RefObject<HTMLHeadingElement | null>;
   closeRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
   titleId: string;
   descId: string;
   locale: "es" | "en";
+  canNavigateToStep: (target: WizardStep) => boolean;
+  onStepClick: (target: WizardStep) => void;
 }) {
   const es = locale === "es";
   const labels = buildStepLabels(es)[step];
   return (
-    <div className="relative border-b border-line bg-gradient-to-b from-[#FFFAF0] to-white px-6 pb-4 pt-5 sm:px-7 sm:pt-6">
+    <div className="relative flex-none border-b border-line bg-gradient-to-b from-[#FFFAF0] to-white px-5 pb-3 pt-4 sm:px-7 sm:pb-4 sm:pt-5 lg:px-6 lg:pb-3 lg:pt-4">
       <button
         ref={closeRef}
         type="button"
         onClick={onClose}
         aria-label={es ? "Cerrar" : "Close"}
-        className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-white text-mute transition hover:bg-bg-2 hover:text-text focus:outline-none focus:ring-2 focus:ring-larimar-deep"
+        className="absolute right-3 top-3 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-mute transition-colors hover:bg-bg-2 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none sm:right-4 sm:top-4"
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -720,20 +927,40 @@ function ScheduleModalHeader({
         {labels.eyebrow}
       </p>
       <h2
+        ref={titleRef}
         id={titleId}
-        className="mt-1.5 font-display text-[22px] font-bold leading-tight text-primary sm:text-[24px]"
+        tabIndex={-1}
+        style={{ outline: "none" }}
+        className="mt-1.5 pr-12 font-display text-[21px] font-bold leading-tight text-primary outline-none sm:text-[24px] lg:text-[22px]"
       >
         {labels.title}
       </h2>
       <p id={descId} className="mt-1 text-sm text-text-2">
         {labels.sub}
       </p>
-      <Stepper step={step} locale={locale} />
+      {step < 4 ? (
+        <Stepper
+          step={step}
+          locale={locale}
+          canNavigateToStep={canNavigateToStep}
+          onStepClick={onStepClick}
+        />
+      ) : null}
     </div>
   );
 }
 
-function Stepper({ step, locale }: { step: number; locale: "es" | "en" }) {
+function Stepper({
+  step,
+  locale,
+  canNavigateToStep,
+  onStepClick,
+}: {
+  step: WizardStep;
+  locale: "es" | "en";
+  canNavigateToStep: (target: WizardStep) => boolean;
+  onStepClick: (target: WizardStep) => void;
+}) {
   const es = locale === "es";
   const labels = [
     es ? "Tus datos" : "Your details",
@@ -741,46 +968,60 @@ function Stepper({ step, locale }: { step: number; locale: "es" | "en" }) {
     es ? "Hora" : "Time",
   ];
   return (
-    <ol
-      className="mt-5 flex items-center gap-2"
-      aria-label={es ? "Progreso" : "Progress"}
-    >
+    <ol className="mx-auto mt-3 grid w-full max-w-[480px] grid-cols-3 gap-2 lg:hidden" aria-label={es ? "Progreso" : "Progress"}>
       {labels.map((label, i) => {
         const n = i + 1;
         const state = n < step ? "done" : n === step ? "active" : "pending";
+        const target = n as WizardStep;
+        const clickable = canNavigateToStep(target);
         return (
-          <li key={label} className="flex flex-1 items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-[12px] font-bold transition",
-                state === "active" && "bg-primary text-white",
-                state === "done" && "bg-success-soft text-success",
-                state === "pending" && "bg-bg-2 text-mute",
-              )}
-            >
-              {state === "done" ? (
-                <Check className="h-3.5 w-3.5" aria-hidden="true" />
-              ) : (
-                n
-              )}
-            </span>
-            <span
-              className={cn(
-                "hidden text-[12.5px] font-semibold sm:inline",
-                state === "active" ? "text-primary" : "text-mute",
-              )}
-            >
-              {label}
-            </span>
+          <li key={label} className="relative flex min-w-0 justify-center">
             {i < labels.length - 1 ? (
               <span
                 aria-hidden="true"
                 className={cn(
-                  "h-px flex-1",
+                  "absolute left-[calc(50%+22px)] right-[calc(-50%+30px)] top-5 h-0.5",
                   n < step ? "bg-success" : "bg-line",
                 )}
               />
             ) : null}
+            <button
+              type="button"
+              disabled={!clickable}
+              onClick={() => onStepClick(target)}
+              aria-label={es ? `Ir al paso ${n}: ${label}` : `Go to step ${n}: ${label}`}
+              aria-current={state === "active" ? "step" : undefined}
+              className={cn(
+                "group relative z-[1] inline-flex min-h-[52px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 text-center shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none",
+                state === "active" && "border-primary bg-primary text-white shadow-md",
+                state === "done" && "border-success/30 bg-success-soft text-success",
+                state === "pending" && clickable && "border-tech/50 bg-white text-primary hover:border-tech hover:bg-larimar-soft",
+                state === "pending" && !clickable && "border-line bg-bg-2 text-mute opacity-80",
+                clickable ? "cursor-pointer" : "cursor-default",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+          "inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[11.5px] font-bold transition-colors motion-reduce:transition-none",
+                  state === "active" && "border-white/30 bg-white/15 text-white",
+                  state === "done" && "border-success/20 bg-white/70 text-success",
+                  state === "pending" && clickable && "border-tech/30 bg-larimar-soft text-primary",
+                  state === "pending" && !clickable && "border-line bg-white text-mute",
+                )}
+              >
+                {state === "done" ? <Check className="h-3.5 w-3.5" /> : n}
+              </span>
+              <span
+                className={cn(
+                  "truncate text-[11.5px] font-bold sm:text-[12px]",
+                  state === "active" ? "text-white" : "text-current",
+                )}
+              >
+                {label}
+              </span>
+              <span className="sr-only">{state === "done" ? (es ? "Completado" : "Completed") : null}</span>
+            </button>
           </li>
         );
       })}
@@ -809,6 +1050,7 @@ interface ContactStepProps {
   onChannelChange: (v: ScheduleChannel) => void;
   onConsentProcessingChange: (v: boolean) => void;
   onConsentRecordingChange: (v: boolean) => void;
+  invalidTarget: string | null;
   locale: "es" | "en";
 }
 
@@ -816,11 +1058,11 @@ function ContactStep(props: ContactStepProps) {
   const es = props.locale === "es";
   return (
     <form
-      className="space-y-4 px-6 py-5 sm:px-7 sm:py-6"
+      className="space-y-3 px-5 py-4 sm:px-7 sm:py-5 lg:space-y-2.5 lg:px-6 lg:py-4"
       onSubmit={(e) => e.preventDefault()}
       noValidate
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label={es ? "Nombre" : "First name"} required>
           <input
             type="text"
@@ -828,6 +1070,8 @@ function ContactStep(props: ContactStepProps) {
             onChange={(e) => props.onFirstNameChange(e.target.value)}
             autoComplete="given-name"
             required
+            data-schedule-target="firstName"
+            aria-invalid={props.invalidTarget === "firstName"}
             className="qt-input"
             maxLength={60}
           />
@@ -839,12 +1083,14 @@ function ContactStep(props: ContactStepProps) {
             onChange={(e) => props.onLastNameChange(e.target.value)}
             autoComplete="family-name"
             required
+            data-schedule-target="lastName"
+            aria-invalid={props.invalidTarget === "lastName"}
             className="qt-input"
             maxLength={80}
           />
         </Field>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field
           label={es ? "Celular (con código de país)" : "Mobile (with country code)"}
           required
@@ -857,6 +1103,8 @@ function ContactStep(props: ContactStepProps) {
             autoComplete="tel"
             inputMode="tel"
             required
+            data-schedule-target="phone"
+            aria-invalid={props.invalidTarget === "phone"}
             placeholder="+1 809 555 1234"
             className="qt-input"
           />
@@ -867,6 +1115,8 @@ function ContactStep(props: ContactStepProps) {
             onChange={props.onCountryChange}
             className="qt-input"
             required
+            data-schedule-target="country"
+            aria-invalid={props.invalidTarget === "country"}
           >
             <option value="" disabled>
               {es ? "Selecciona tu país" : "Select your country"}
@@ -886,7 +1136,7 @@ function ContactStep(props: ContactStepProps) {
         <textarea
           value={props.notes}
           onChange={(e) => props.onNotesChange(e.target.value)}
-          rows={3}
+          rows={2}
           className="qt-input resize-y"
           placeholder={
             es
@@ -897,7 +1147,7 @@ function ContactStep(props: ContactStepProps) {
         />
       </Field>
       <div>
-        <p className="mb-2 text-[13px] font-semibold text-text">
+        <p className="mb-1.5 text-[13px] font-semibold text-text">
           {es ? "Canal preferido" : "Preferred channel"}
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -913,15 +1163,17 @@ function ContactStep(props: ContactStepProps) {
             onClick={() => props.onChannelChange("phone")}
             label={es ? "Llamada" : "Phone call"}
             sub={es ? "Te llamamos al celular" : "We call your mobile"}
-            icon={<Calendar className="h-4 w-4" aria-hidden="true" />}
+            icon={<Phone className="h-4 w-4" aria-hidden="true" />}
           />
         </div>
       </div>
-      <div className="space-y-2 rounded-xl border border-line bg-bg-2/50 p-4">
+      <div className="space-y-1.5 rounded-xl border border-line bg-bg-2/50 p-3 lg:p-2.5">
         <ConsentCheckbox
           checked={props.consentProcessing}
           onChange={props.onConsentProcessingChange}
           required
+          target="processingConsent"
+          invalid={props.invalidTarget === "processingConsent"}
           label={
             es
               ? "Acepto el procesamiento de mis datos para gestionar esta evaluación."
@@ -984,7 +1236,7 @@ function ChannelPill({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex flex-col items-start gap-0.5 rounded-xl border p-3 text-left transition",
+        "flex min-h-11 cursor-pointer flex-col items-start gap-0.5 rounded-xl border p-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none lg:p-2.5",
         active
           ? "border-tech bg-larimar-soft"
           : "border-line bg-white hover:border-tech",
@@ -1003,21 +1255,27 @@ function ConsentCheckbox({
   checked,
   onChange,
   required,
+  target,
+  invalid,
   label,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   required?: boolean;
+  target?: string;
+  invalid?: boolean;
   label: string;
 }) {
   const id = useId();
   return (
-    <label htmlFor={id} className="flex cursor-pointer items-start gap-2.5 text-[13px] text-text-2">
+    <label htmlFor={id} className="flex min-h-11 cursor-pointer items-start gap-2.5 text-[13px] text-text-2">
       <input
         id={id}
         type="checkbox"
         checked={checked}
         required={required}
+        data-schedule-target={target}
+        aria-invalid={invalid}
         onChange={(e) => onChange(e.target.checked)}
         className="mt-0.5 h-4 w-4 cursor-pointer rounded border-line text-tech focus:ring-tech"
       />
@@ -1039,6 +1297,7 @@ function CalendarStep({
   selectedDate,
   onSelectDate,
   timezone,
+  invalid,
   locale,
 }: {
   calMonth: Date;
@@ -1046,6 +1305,7 @@ function CalendarStep({
   selectedDate: string | null;
   onSelectDate: (d: string) => void;
   timezone: string;
+  invalid: boolean;
   locale: "es" | "en";
 }) {
   const es = locale === "es";
@@ -1087,14 +1347,19 @@ function CalendarStep({
   const goNext = () => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1));
 
   return (
-    <div className="px-6 py-5 sm:px-7 sm:py-6">
+    <div
+      data-schedule-target="calendar"
+      tabIndex={-1}
+      aria-invalid={invalid}
+      className="px-5 py-4 outline-none sm:px-7 sm:py-5 lg:px-6 lg:py-4"
+    >
       <div className="mb-3 flex items-center justify-between">
         <button
           type="button"
           onClick={goPrev}
           disabled={isPrevDisabled}
           aria-label={es ? "Mes anterior" : "Previous month"}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-white text-text-2 transition hover:bg-bg-2 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-line bg-white text-text-2 transition-colors hover:bg-bg-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -1105,7 +1370,7 @@ function CalendarStep({
           type="button"
           onClick={goNext}
           aria-label={es ? "Mes siguiente" : "Next month"}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-white text-text-2 transition hover:bg-bg-2"
+          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-line bg-white text-text-2 transition-colors hover:bg-bg-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none"
         >
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -1135,7 +1400,7 @@ function CalendarStep({
               onClick={() => onSelectDate(ds)}
               aria-pressed={isSelected}
               className={cn(
-                "relative aspect-square rounded-lg text-[13.5px] font-semibold transition focus:outline-none focus:ring-2 focus:ring-larimar-deep",
+                "relative aspect-square cursor-pointer rounded-lg text-[13.5px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none",
                 isPast && "cursor-not-allowed text-line-2",
                 !isPast && !isSelected && "bg-bg-2 text-text hover:border-tech hover:bg-white hover:ring-1 hover:ring-tech",
                 isToday && !isSelected && "ring-1 ring-inset ring-larimar text-amber-deep",
@@ -1194,6 +1459,7 @@ function TimeStep({
   loading,
   configured,
   timezone,
+  invalid,
   locale,
 }: {
   date: string;
@@ -1203,6 +1469,7 @@ function TimeStep({
   loading: boolean;
   configured: boolean;
   timezone: string;
+  invalid: boolean;
   locale: "es" | "en";
 }) {
   const es = locale === "es";
@@ -1235,7 +1502,12 @@ function TimeStep({
   }, [configured, slotByLabel]);
 
   return (
-    <div className="px-6 py-5 sm:px-7 sm:py-6">
+    <div
+      data-schedule-target="timeGrid"
+      tabIndex={-1}
+      aria-invalid={invalid}
+      className="px-5 py-4 outline-none sm:px-7 sm:py-5 lg:px-6 lg:py-4"
+    >
       <p className="mb-3 font-display text-[14.5px] font-semibold capitalize text-primary">
         {dateLabel}
       </p>
@@ -1253,7 +1525,7 @@ function TimeStep({
             : "The live calendar is offline. Your request will remain pending confirmation."}
         </div>
       ) : null}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="group" aria-label={es ? "Horarios disponibles" : "Available times"}>
         {allTimes.map((t) => {
           const isSelected = selectedTime === t.time;
           return (
@@ -1264,9 +1536,9 @@ function TimeStep({
               onClick={() => onSelectTime(t.time)}
               aria-pressed={isSelected}
               className={cn(
-                "min-h-11 rounded-lg border px-3 text-[13.5px] font-semibold transition",
+                "min-h-11 rounded-lg border px-3 text-[13.5px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none",
                 t.disabled && "cursor-not-allowed border-line bg-bg-2 text-mute line-through",
-                !t.disabled && !isSelected && "border-line bg-white text-text hover:border-tech",
+                !t.disabled && !isSelected && "cursor-pointer border-line bg-white text-text hover:border-tech",
                 isSelected && "border-tech bg-primary text-white",
               )}
             >
@@ -1325,7 +1597,7 @@ function SuccessStep({
     }
   }, [date, es]);
   return (
-    <div className="px-6 py-8 text-center sm:px-7 sm:py-10">
+    <div className="px-6 py-8 text-center sm:px-7 sm:py-10 lg:py-8">
       <div
         className={cn(
           "mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full",
@@ -1379,11 +1651,11 @@ function ScheduleModalFooter({
   onBack,
   onClose,
   onNext,
-  hasTurnstile,
-  onTurnstileToken,
+  nextDisabled,
+  readyToConfirm,
   locale,
 }: {
-  step: number;
+  step: WizardStep;
   submitting: boolean;
   stepError: string | null;
   error: string | null;
@@ -1391,24 +1663,18 @@ function ScheduleModalFooter({
   onBack: () => void;
   onClose: () => void;
   onNext: () => void;
-  hasTurnstile: boolean;
-  onTurnstileToken: (t: string) => void;
+  nextDisabled: boolean;
+  readyToConfirm: boolean;
   locale: "es" | "en";
 }) {
   const es = locale === "es";
-  const [turnstileKey, setTurnstileKey] = useState(0);
-  // re-mount the turnstile when the step changes so the token is per-step
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- force remount of captcha per step
-    setTurnstileKey((k) => k + 1);
-  }, [step]);
+  const nextLabel = step === 1
+    ? es ? "Continuar a fecha" : "Continue to date"
+    : step === 2
+      ? es ? "Continuar a hora" : "Continue to time"
+      : es ? "Confirmar evaluación" : "Confirm assessment";
   return (
-    <div className="border-t border-line bg-bg-2 px-6 py-4 sm:px-7">
-      {step === 3 && hasTurnstile ? (
-        <div className="mb-3">
-          <TurnstileField key={turnstileKey} onToken={onTurnstileToken} />
-        </div>
-      ) : null}
+    <div className="flex-none border-t border-line bg-bg-2 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-3 lg:hidden">
       {stepError ? (
         <p
           role="alert"
@@ -1432,7 +1698,7 @@ function ScheduleModalFooter({
           type="button"
           onClick={onBack}
           disabled={!canGoBack || submitting}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13.5px] font-semibold text-text-2 transition hover:border-text-2 disabled:cursor-not-allowed disabled:opacity-0"
+          className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-[13.5px] font-semibold text-text-2 transition-colors hover:border-text-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-0 motion-reduce:transition-none"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {es ? "Atrás" : "Back"}
@@ -1442,40 +1708,31 @@ function ScheduleModalFooter({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="inline-flex min-h-11 items-center rounded-lg px-3 text-[13.5px] font-semibold text-text-2 transition hover:bg-white disabled:opacity-50"
+            className="inline-flex min-h-11 cursor-pointer items-center rounded-lg px-2 text-[13.5px] font-semibold text-text-2 transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:px-3"
           >
             {es ? "Cancelar" : "Cancel"}
           </button>
           <button
             type="button"
             onClick={onNext}
-            disabled={submitting}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-amber px-5 text-[13.5px] font-semibold text-white shadow-sm transition hover:bg-amber-deep disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={submitting || nextDisabled}
+            className={cn(
+              "inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg bg-amber px-3 text-[13px] font-semibold text-white shadow-sm transition-colors hover:bg-amber-deep focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none sm:px-5 sm:text-[13.5px]",
+              readyToConfirm && "shadow-md ring-2 ring-amber/30 ring-offset-2",
+            )}
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : step === 3 ? (
               <Check className="h-4 w-4" aria-hidden="true" />
             ) : null}
-            {step === 3
-              ? es
-                ? "Confirmar evaluación"
-                : "Confirm assessment"
-              : es
-                ? "Continuar"
-                : "Continue"}
+            {nextLabel}
             {!submitting && step !== 3 ? (
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             ) : null}
           </button>
         </div>
       </div>
-      <p className="mt-3 flex items-center justify-center gap-1.5 text-[11.5px] text-mute">
-        <Lock className="h-3 w-3" aria-hidden="true" />
-        {es
-          ? "Tu información está cifrada y solo la usa QuisqueyaTech."
-          : "Your information is encrypted and only used by QuisqueyaTech."}
-      </p>
     </div>
   );
 }
@@ -1483,11 +1740,11 @@ function ScheduleModalFooter({
 function ScheduleModalSuccessFooter({ onClose, locale }: { onClose: () => void; locale: "es" | "en" }) {
   const es = locale === "es";
   return (
-    <div className="border-t border-line bg-bg-2 px-6 py-4 sm:px-7">
+    <div className="flex-none border-t border-line bg-bg-2 px-5 py-3 sm:px-7 lg:hidden">
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-5 text-[13.5px] font-semibold text-white transition hover:bg-primary-2"
+        className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-lg bg-primary px-5 text-[13.5px] font-semibold text-white transition-colors hover:bg-primary-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none"
       >
         {es ? "Cerrar" : "Close"}
       </button>
@@ -1516,7 +1773,17 @@ const _styles = `
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 .qt-input::placeholder { color: var(--c-mute, #64748B); }
-textarea.qt-input { min-height: 88px; resize: vertical; }
+textarea.qt-input { min-height: 76px; resize: vertical; }
+@media (min-width: 1024px) {
+  textarea.qt-input { min-height: 64px; }
+}
+.qt-input[aria-invalid="true"] {
+  border-color: var(--c-rose, #E11D48);
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12);
+}
+@media (prefers-reduced-motion: reduce) {
+  .qt-input { transition: none; }
+}
 `;
 
 // Inject the styles once on the client. We keep them inline (rather than

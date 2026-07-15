@@ -14,6 +14,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
+import { ScheduleModalTrigger } from "@/components/evaluation/schedule-modal-trigger";
 import { DawnSweep, KineticText, SystemFlow } from "@/components/ui/hero-motion";
 import {
   MotionCard,
@@ -137,7 +138,7 @@ export async function HomePageContent({ locale }: { locale: Locale }) {
         <p className="hero-support mx-auto mt-6 max-w-[65ch] text-[clamp(17px,1.6vw,20px)] leading-relaxed text-text-2 [--hero-delay:.6s]">{c.lede}</p>
         <div className="hero-support mt-8 flex flex-col justify-center gap-3 sm:flex-row [--hero-delay:.72s]">
             <ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink>
-            <ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" variant="outline"><Clock3 className="h-4 w-4" />{c.schedule}</ButtonLink>
+            <ScheduleModalTrigger source="hero-secondary" size="lg" variant="outline"><Clock3 className="h-4 w-4" />{c.schedule}</ScheduleModalTrigger>
         </div>
         <div className="hero-support mt-7 flex flex-col justify-center gap-2 text-sm text-text-2 sm:flex-row sm:flex-wrap sm:gap-x-6 [--hero-delay:.82s]">{c.notes.map((note) => <span key={note} className="inline-flex items-center justify-center gap-1.5"><Check className="h-4 w-4 text-success" />{note}</span>)}</div>
         <SystemFlow
@@ -163,7 +164,7 @@ export async function HomePageContent({ locale }: { locale: Locale }) {
 
     <Section className="overflow-hidden bg-primary text-white">
       <Container className="grid items-center gap-12 lg:grid-cols-[1.05fr_.95fr]">
-        <Reveal><div><Eyebrow tone="dark">{c.assessmentEyebrow}</Eyebrow><h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight">{c.assessmentTitle}</h2><p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-white/75">{c.assessmentBody}</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" className="border border-white/25 bg-white/10 text-white hover:bg-white/15"><Clock3 className="h-4 w-4" />{c.schedule}</ButtonLink></div></div></Reveal>
+        <Reveal><div><Eyebrow tone="dark">{c.assessmentEyebrow}</Eyebrow><h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight">{c.assessmentTitle}</h2><p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-white/75">{c.assessmentBody}</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg"><Mic2 className="h-4 w-4" />{c.now}</ButtonLink><ScheduleModalTrigger source="hero" size="lg" variant="on-dark-outline"><Clock3 className="h-4 w-4" />{c.schedule}</ScheduleModalTrigger></div></div></Reveal>
         <Reveal delay={0.08}><div className="rounded-2xl border border-white/15 bg-white/[.07] p-7 backdrop-blur"><div className="flex items-center gap-3"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-larimar/20"><Headphones className="h-6 w-6 text-larimar" /></span><div><p className="font-semibold">{locale === "es" ? "Evaluación guiada por voz" : "Voice-guided assessment"}</p><p className="text-sm text-white/60">12–15 min · ES / EN</p></div></div><div className="mt-6 space-y-3">{(locale === "es" ? ["Entiende tu proceso actual", "Detecta trabajo repetitivo", "Prioriza oportunidades", "Entrega un resumen inmediato"] : ["Understands your current process", "Finds repetitive work", "Prioritizes opportunities", "Delivers an immediate summary"]).map((item) => <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[.06] px-4 py-3 text-sm text-white/85"><Sparkles className="h-4 w-4 text-amber" />{item}</div>)}</div></div></Reveal>
       </Container>
     </Section>
@@ -182,6 +183,6 @@ export async function HomePageContent({ locale }: { locale: Locale }) {
       </Container>
     </Section>
 
-    <Section className="signature-cta bg-gradient-to-br from-primary to-primary-2 py-24 text-white"><Container className="max-w-[820px] text-center"><Reveal variant="mask"><h2 className="font-display text-[clamp(32px,4vw,50px)] font-bold">{c.finalTitle}</h2><p className="mx-auto mt-4 max-w-[55ch] text-lg text-white/75">{c.finalBody}</p><div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg">{c.now}</ButtonLink><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/agendar" : "assessment/schedule"}`} size="lg" className="border border-white/25 bg-white/10 text-white hover:bg-white/15">{c.schedule}</ButtonLink></div></Reveal></Container></Section>
+    <Section className="signature-cta bg-gradient-to-br from-primary to-primary-2 py-24 text-white"><Container className="max-w-[820px] text-center"><Reveal variant="mask"><h2 className="font-display text-[clamp(32px,4vw,50px)] font-bold">{c.finalTitle}</h2><p className="mx-auto mt-4 max-w-[55ch] text-lg text-white/75">{c.finalBody}</p><div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row"><ButtonLink href={`${base}/${locale === "es" ? "evaluacion/ahora" : "assessment/now"}`} size="lg">{c.now}</ButtonLink><ScheduleModalTrigger source="signature-cta" size="lg" variant="on-dark-outline"><Clock3 className="h-4 w-4" />{c.schedule}</ScheduleModalTrigger></div></Reveal></Container></Section>
   </>;
 }

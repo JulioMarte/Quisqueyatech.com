@@ -6,7 +6,7 @@ import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { AnimatePresence, m } from "framer-motion";
 import { useEffect, useId, useState } from "react";
 import { BrandLockup } from "@/components/brand/logo";
-import { ScheduleModalTrigger } from "@/components/evaluation/schedule-modal-trigger";
+import { ButtonLink } from "@/components/ui/button";
 import { Container } from "@/components/ui/section";
 import {
   alternatePath,
@@ -58,6 +58,7 @@ export function Navbar() {
     { href: locale === "es" ? "/nosotros" : "/en/about", label: copy.about },
   ];
   const solutionsHref = locale === "es" ? "/soluciones" : "/en/solutions";
+  const assessmentHref = locale === "es" ? "/evaluacion" : "/en/assessment";
   const isSolutionsActive = pathname === solutionsHref || pathname.startsWith(`${solutionsHref}/`);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const closeMobileMenu = () => {
@@ -120,7 +121,7 @@ export function Navbar() {
 
         <div className="hidden items-center justify-self-end gap-3 xl:flex">
           <LanguageSwitch locale={locale} alternateHref={alternatePath(pathname)} />
-          <ScheduleModalTrigger source="navbar">{copy.assessment}</ScheduleModalTrigger>
+          <ButtonLink href={assessmentHref}>{copy.assessment}</ButtonLink>
         </div>
 
         <button type="button" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center justify-self-end rounded-lg border border-line bg-white text-text transition-colors hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep xl:hidden" aria-expanded={open} aria-controls={mobileMenuId} aria-label={open ? copy.close : copy.menu} onClick={() => setOpen((value) => !value)}>
@@ -155,7 +156,7 @@ export function Navbar() {
               <span className="text-xs font-semibold uppercase tracking-wider text-mute">{locale === "es" ? "Idioma" : "Language"}</span>
               <LanguageSwitch locale={locale} alternateHref={alternatePath(pathname)} onNavigate={closeMobileMenu} />
             </div>
-            <ScheduleModalTrigger source="navbar" size="block" className="mt-4" onClick={closeMobileMenu}>{copy.assessment}</ScheduleModalTrigger>
+            <ButtonLink href={assessmentHref} className="mt-4 w-full" onClick={closeMobileMenu}>{copy.assessment}</ButtonLink>
           </div>
         </Container>
       </m.div> : null}

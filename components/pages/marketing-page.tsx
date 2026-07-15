@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AssessmentIntake } from "@/components/evaluation/assessment-intake";
 import { Scheduler } from "@/components/evaluation/scheduler";
+import { ScheduleModalTrigger } from "@/components/evaluation/schedule-modal-trigger";
 import { ButtonLink } from "@/components/ui/button";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/motion";
 import { Container, Eyebrow, Section, SectionHead } from "@/components/ui/section";
@@ -60,16 +61,29 @@ export async function MarketingPage({ kind, locale, postSlug }: { kind: PageKind
   const page = definitions[kind][locale];
   const base = locale === "es" ? "" : "/en";
   const nowPath = locale === "es" ? `${base}/evaluacion/ahora` : `${base}/assessment/now`;
-  const schedulePath = locale === "es" ? `${base}/evaluacion/agendar` : `${base}/assessment/schedule`;
   if (kind === "assessment") {
-    return <><PageHero page={page} /><Section className="pt-0"><Container><StaggerGroup className="grid gap-5 md:grid-cols-2"><StaggerItem><ChoiceCard icon={Mic2} title={locale === "es" ? "Hacerla ahora" : "Start now"} body={locale === "es" ? "Habla con el agente desde tu navegador y recibe el resumen al terminar." : "Speak with the agent in your browser and receive the summary when finished."} href={nowPath} action={locale === "es" ? "Comenzar evaluación" : "Start assessment"} /></StaggerItem><StaggerItem><ChoiceCard icon={CalendarClock} title={locale === "es" ? "Reservar un horario" : "Reserve a time"} body={locale === "es" ? "Elige navegador o llamada y realiza la misma evaluación cuando te convenga." : "Choose browser or phone and complete the same assessment when convenient."} href={schedulePath} action={locale === "es" ? "Ver disponibilidad" : "View availability"} /></StaggerItem></StaggerGroup></Container></Section></>;
+    return <><PageHero page={page} /><Section className="pt-0"><Container><StaggerGroup className="grid gap-5 md:grid-cols-2"><StaggerItem><ChoiceCard icon={Mic2} title={locale === "es" ? "Hacerla ahora" : "Start now"} body={locale === "es" ? "Habla con el agente desde tu navegador y recibe el resumen al terminar." : "Speak with the agent in your browser and receive the summary when finished."} href={nowPath} action={locale === "es" ? "Comenzar evaluación" : "Start assessment"} /></StaggerItem><StaggerItem><ScheduleChoiceCard icon={CalendarClock} title={locale === "es" ? "Reservar un horario" : "Reserve a time"} body={locale === "es" ? "Elige navegador o llamada y realiza la misma evaluación cuando te convenga." : "Choose browser or phone and complete the same assessment when convenient."} action={locale === "es" ? "Ver disponibilidad" : "View availability"} /></StaggerItem></StaggerGroup></Container></Section></>;
   }
-  return <><PageHero page={page} /><Section className="pt-0"><Container><StaggerGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{page.points.map(([title, body], index) => { const Icon = icons[index % icons.length]; return <StaggerItem key={title} index={index}><article className="interactive-card h-full rounded-xl border border-line bg-white p-7"><Icon className="h-10 w-10 rounded-lg bg-larimar-soft p-2 text-larimar-deep" /><h2 className="mt-5 font-display text-xl font-bold">{title}</h2><p className="mt-2 leading-relaxed text-text-2">{body}</p></article></StaggerItem>; })}</StaggerGroup><Reveal variant="mask"><div className="signature-cta mt-12 overflow-hidden rounded-2xl bg-primary p-8 text-white sm:p-10"><h2 className="font-display text-3xl font-bold">{locale === "es" ? "Empieza por entender qué conviene resolver primero." : "Start by understanding what is worth solving first."}</h2><div className="mt-6 flex flex-col gap-3 sm:flex-row"><ButtonLink href={nowPath}>{locale === "es" ? "Quiero mi evaluación ahora" : "Start my assessment"}</ButtonLink><ButtonLink href={schedulePath} className="border border-white/25 bg-white/10 text-white hover:bg-white/15">{locale === "es" ? "Agendar mi evaluación" : "Schedule my assessment"}</ButtonLink></div></div></Reveal></Container></Section></>;
+  return <><PageHero page={page} /><Section className="pt-0"><Container><StaggerGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{page.points.map(([title, body], index) => { const Icon = icons[index % icons.length]; return <StaggerItem key={title} index={index}><article className="interactive-card h-full rounded-xl border border-line bg-white p-7"><Icon className="h-10 w-10 rounded-lg bg-larimar-soft p-2 text-larimar-deep" /><h2 className="mt-5 font-display text-xl font-bold">{title}</h2><p className="mt-2 leading-relaxed text-text-2">{body}</p></article></StaggerItem>; })}</StaggerGroup><Reveal variant="mask"><div className="signature-cta mt-12 overflow-hidden rounded-2xl bg-primary p-8 text-white sm:p-10"><h2 className="font-display text-3xl font-bold">{locale === "es" ? "Empieza por entender qué conviene resolver primero." : "Start by understanding what is worth solving first."}</h2><div className="mt-6 flex flex-col gap-3 sm:flex-row"><ButtonLink href={nowPath}>{locale === "es" ? "Quiero mi evaluación ahora" : "Start my assessment"}</ButtonLink><ScheduleModalTrigger source="marketing-page" variant="on-dark-outline">{locale === "es" ? "Agendar mi evaluación" : "Schedule my assessment"}</ScheduleModalTrigger></div></div></Reveal></Container></Section></>;
 }
 
 function PageHero({ page }: { page: { eyebrow: string; title: string; lede: string } }) { return <Section className="overflow-hidden bg-bg-2 py-20"><Container className="max-w-[960px]"><StaggerGroup amount={0.05}><StaggerItem index={0}><Eyebrow>{page.eyebrow}</Eyebrow></StaggerItem><StaggerItem index={1}><div className="overflow-hidden pb-1"><h1 className="max-w-[20ch] font-display text-[clamp(38px,5vw,60px)] font-extrabold leading-tight tracking-[-.035em] text-primary">{page.title}</h1></div></StaggerItem><StaggerItem index={2}><p className="mt-5 max-w-[62ch] text-xl leading-relaxed text-text-2">{page.lede}</p></StaggerItem></StaggerGroup></Container></Section>; }
 
 function ChoiceCard({ icon: Icon, title, body, href, action }: { icon: typeof Mic2; title: string; body: string; href: string; action: string }) { return <article className="interactive-card h-full rounded-2xl border border-line bg-white p-8 shadow-sm"><Icon className="h-12 w-12 rounded-xl bg-primary p-2.5 text-white" /><h2 className="mt-6 font-display text-2xl font-bold">{title}</h2><p className="mt-3 leading-relaxed text-text-2">{body}</p><ButtonLink href={href} className="mt-6">{action}<ArrowRight className="motion-arrow h-4 w-4" /></ButtonLink></article>; }
+
+function ScheduleChoiceCard({ icon: Icon, title, body, action }: { icon: typeof CalendarClock; title: string; body: string; action: string }) {
+  return (
+    <article className="interactive-card h-full rounded-2xl border border-line bg-white p-8 shadow-sm">
+      <Icon className="h-12 w-12 rounded-xl bg-primary p-2.5 text-white" />
+      <h2 className="mt-6 font-display text-2xl font-bold">{title}</h2>
+      <p className="mt-3 leading-relaxed text-text-2">{body}</p>
+      <ScheduleModalTrigger source="how-we-work" className="mt-6">
+        {action}
+        <ArrowRight className="motion-arrow h-4 w-4" />
+      </ScheduleModalTrigger>
+    </article>
+  );
+}
 
 async function Resources({ locale, postSlug }: { locale: Locale; postSlug?: string }) {
   if (postSlug) {

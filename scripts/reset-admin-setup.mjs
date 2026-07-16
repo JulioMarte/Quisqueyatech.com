@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { fileURLToPath } from "node:url";
 
 function usage(message) {
   if (message) console.error(`Error: ${message}\n`);
@@ -41,9 +42,11 @@ const answer = await prompt.question(`Escribe exactamente \"${confirmation}\" pa
 prompt.close();
 if (answer !== confirmation) usage("confirmación incorrecta; no se modificó nada");
 
-const executable = process.platform === "win32" ? "npx.cmd" : "npx";
+// Invoke the installed JavaScript entrypoint through the current Node binary.
+// Spawning npx.cmd directly fails with EINVAL on some Windows Node versions.
+const convexCli = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
 function convex(args, { capture = false } = {}) {
-  const result = spawnSync(executable, ["convex", ...args, ...target.args], {
+  const result = spawnSync(process.execPath, [convexCli, ...args, ...target.args], {
     cwd: process.cwd(),
     encoding: "utf8",
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",

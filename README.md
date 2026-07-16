@@ -79,6 +79,27 @@ npx convex env remove ADMIN_SETUP_CODE
 npx convex env remove --prod ADMIN_SETUP_CODE
 ```
 
+### Resetear la instalación administrativa
+
+Si necesitas reemplazar completamente la única cuenta administrativa, despliega primero esta versión y ejecuta uno de estos comandos desde una terminal interactiva:
+
+```powershell
+# Deployment de desarrollo seleccionado
+npm run admin:reset-setup -- --deployment dev
+
+# Producción (exige escribir RESET PRODUCTION)
+npm run admin:reset-setup -- --prod
+```
+
+El comando nunca infiere el destino. Crea una autorización de reset aleatoria que caduca en cinco minutos, revoca sesiones, elimina la identidad Better Auth y los códigos de recuperación, y configura un `ADMIN_SETUP_CODE` nuevo que muestra una sola vez. Conserva contenido, evaluaciones, medios y credenciales de agentes. Si se interrumpe, se puede ejecutar de nuevo con seguridad.
+
+Abre `/setup`, crea la nueva cuenta, guarda los ocho códigos de recuperación y elimina inmediatamente el setup code:
+
+```powershell
+npx convex env remove ADMIN_SETUP_CODE --deployment dev
+npx convex env remove ADMIN_SETUP_CODE --prod
+```
+
 Si la página carga indefinidamente o devuelve 503, confirma que:
 
 - `NEXT_PUBLIC_CONVEX_URL` apunta al deployment de desarrollo correcto.

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
-import { api, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import schema from "./schema";
 import betterAuthSchema from "../node_modules/@convex-dev/better-auth/src/component/schema";
 
@@ -83,4 +83,61 @@ describe("recovery-code lease", () => {
     await t.mutation(internal.auth.consumeRecoveryCode, { codeHash: "b".repeat(64), claimedAt: 100, now: 102 });
     await expect(t.mutation(internal.auth.claimRecoveryCode, { codeHash: "b".repeat(64), now: 10_000_000 })).resolves.toBeNull();
   });
+});
+
+describe("admin setup reset", () => {
+  test("requires a live deployment-scoped reset token", async () => {
+    const t = authTest();
+    const previous = process.env.ADMIN_SETUP_RESET_TOKEN;
+    process.env.ADMIN_SETUP_RESET_TOKEN = `expected-token-${"x".repeat(32)}:${Date.now() + 60_000}`;
+    try {
+      await expect(t.action(api.adminReset.resetAdminSetup, {
+        resetToken: `wrong-token-${"y".repeat(32)}`,
+        confirmation: "RESET_ADMIN_SETUP",
+      })).rejects.toThrow(/unavailable|FORBIDDEN/i);
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_SETUP_RESET_TOKEN;
+      else process.env.ADMIN_SETUP_RESET_TOKEN = previous;
+    }
+  });
+
+  test("revokes Better Auth identity and returns the installation to uninitialized", async () => {
+    const t = authTest();
+    const now = Date.now();
+    const token = `reset-token-${"z".repeat(32)}`;
+    const previous = process.env.ADMIN_SETUP_RESET_TOKEN;
+    process.env.ADMIN_SETUP_RESET_TOKEN = `${token}:${now + 60_000}`;
+    try {
+      const user = await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "user", data: { name: "Admin", email: "admin@example.com", emailVerified: true, createdAt: now, updatedAt: now } },
+      });
+      await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "account", data: { accountId: String(user._id), providerId: "credential", userId: String(user._id), password: "hash", createdAt: now, updatedAt: now } },
+      });
+      await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "session", data: { expiresAt: now + 60_000, token: "session-token", createdAt: now, updatedAt: now, userId: String(user._id) } },
+      });
+      await t.run(async (ctx) => {
+        await ctx.db.insert("adminInstallation", { singleton: "admin", status: "configured", adminUserId: String(user._id), adminEmail: "admin@example.com", adminName: "Admin", configuredAt: now, updatedAt: now });
+        await ctx.db.insert("adminRecoveryCodes", { userId: String(user._id), codeHash: "c".repeat(64), createdAt: now });
+        await ctx.db.insert("authSecurityRateLimits", { key: "setup:fingerprint", count: 5, resetAt: now + 60_000 });
+        await ctx.db.insert("authSecurityRateLimits", { key: "login:fingerprint", count: 5, resetAt: now + 60_000 });
+      });
+
+      await expect(t.action(api.adminReset.resetAdminSetup, { resetToken: token, confirmation: "RESET_ADMIN_SETUP" }))
+        .resolves.toMatchObject({ status: "uninitialized", deleted: { users: 1, accounts: 1, sessions: 1, recoveryCodes: 1, setupRateLimits: 1 } });
+
+      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({ status: "uninitialized" });
+      await expect(t.query(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "email", value: "admin@example.com" }] })).resolves.toBeNull();
+      const remaining = await t.run(async (ctx) => ({
+        recovery: await ctx.db.query("adminRecoveryCodes").first(),
+        loginLimit: await ctx.db.query("authSecurityRateLimits").withIndex("by_key", q => q.eq("key", "login:fingerprint")).unique(),
+      }));
+      expect(remaining.recovery).toBeNull();
+      expect(remaining.loginLimit).not.toBeNull();
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_SETUP_RESET_TOKEN;
+      else process.env.ADMIN_SETUP_RESET_TOKEN = previous;
+    }
+  }, 20_000);
 });

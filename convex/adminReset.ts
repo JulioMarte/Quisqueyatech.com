@@ -37,15 +37,18 @@ function requireEphemeralResetToken(token: string) {
   }
 }
 
-async function deleteEveryPage(runPage: (cursor: string | null) => Promise<DeletePage>) {
-  let cursor: string | null = null;
+async function deleteEveryPage(runPage: () => Promise<DeletePage>) {
   let deleted = 0;
-  do {
-    const page = await runPage(cursor);
+  for (;;) {
+    // Always restart at the first page. Advancing a cursor after deleting its
+    // page can skip rows because the result set changed underneath the cursor.
+    const page = await runPage();
     deleted += page.count;
-    cursor = page.isDone ? null : page.continueCursor;
-  } while (cursor);
-  return deleted;
+    if (page.isDone) return deleted;
+    if (page.count === 0) {
+      throw new ConvexError({ code: "CONFLICT", message: "Better Auth cleanup made no progress" });
+    }
+  }
 }
 
 /**
@@ -65,10 +68,13 @@ export const resetAdminSetup = action({
     await ctx.runMutation(internal.adminReset.lockAdminSetup, { now: Date.now() });
 
     const remove = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user") =>
-      deleteEveryPage((cursor) => ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+      deleteEveryPage(() => ctx.runMutation(components.betterAuth.adapter.deleteMany, {
         input: { model },
-        paginationOpts: { numItems: 100, cursor },
+        paginationOpts: { numItems: 100, cursor: null },
       }) as Promise<DeletePage>);
+
+    const findRemaining = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user") =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, { model }) as Promise<unknown | null>;
 
     // Revoke access before removing credentials and the user record.
     const deleted = {
@@ -84,6 +90,13 @@ export const resetAdminSetup = action({
       recoveryCodes: 0,
       setupRateLimits: 0,
     };
+
+    const identityModels = ["session", "account", "twoFactor", "oauthAccessToken", "oauthConsent", "oauthApplication", "verification", "rateLimit", "user"] as const;
+    for (const model of identityModels) {
+      if (await findRemaining(model)) {
+        throw new ConvexError({ code: "CONFLICT", message: `Better Auth cleanup incomplete: ${model}` });
+      }
+    }
 
     let applicationPage: { recoveryCodes: number; setupRateLimits: number; isDone: boolean };
     do {

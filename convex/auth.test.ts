@@ -117,6 +117,11 @@ describe("admin setup reset", () => {
       await t.mutation(components.betterAuth.adapter.create, {
         input: { model: "session", data: { expiresAt: now + 60_000, token: "session-token", createdAt: now, updatedAt: now, userId: String(user._id) } },
       });
+      for (let index = 1; index <= 100; index += 1) {
+        await t.mutation(components.betterAuth.adapter.create, {
+          input: { model: "session", data: { expiresAt: now + 60_000, token: `session-token-${index}`, createdAt: now, updatedAt: now, userId: String(user._id) } },
+        });
+      }
       await t.run(async (ctx) => {
         await ctx.db.insert("adminInstallation", { singleton: "admin", status: "configured", adminUserId: String(user._id), adminEmail: "admin@example.com", adminName: "Admin", configuredAt: now, updatedAt: now });
         await ctx.db.insert("adminRecoveryCodes", { userId: String(user._id), codeHash: "c".repeat(64), createdAt: now });
@@ -125,7 +130,7 @@ describe("admin setup reset", () => {
       });
 
       await expect(t.action(api.adminReset.resetAdminSetup, { resetToken: token, confirmation: "RESET_ADMIN_SETUP" }))
-        .resolves.toMatchObject({ status: "uninitialized", deleted: { users: 1, accounts: 1, sessions: 1, recoveryCodes: 1, setupRateLimits: 1 } });
+        .resolves.toMatchObject({ status: "uninitialized", deleted: { users: 1, accounts: 1, sessions: 101, recoveryCodes: 1, setupRateLimits: 1 } });
 
       await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({ status: "uninitialized" });
       await expect(t.query(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "email", value: "admin@example.com" }] })).resolves.toBeNull();
@@ -139,5 +144,5 @@ describe("admin setup reset", () => {
       if (previous === undefined) delete process.env.ADMIN_SETUP_RESET_TOKEN;
       else process.env.ADMIN_SETUP_RESET_TOKEN = previous;
     }
-  }, 20_000);
+  }, 30_000);
 });

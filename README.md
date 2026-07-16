@@ -140,9 +140,9 @@ Dentro de `/admin`, abre la sección **Agentes** para crear, rotar o revocar cre
 
 LiveKit necesita además un worker de Agents conectado a Gemini Live. El sitio crea la sala y el token; el worker se despliega independientemente en LiveKit Cloud o Coolify.
 
-## Easy!Appointments
+## Agenda interna y compatibilidad con Easy!Appointments
 
-Easy!Appointments 1.6.0 vive como servicio independiente en el VPS. La UI pública nunca enlaza al frontend predeterminado: consulta disponibilidad y crea reservas mediante su API HTTPS desde el servidor. Este repositorio conserva únicamente la guía de interoperabilidad en `infra/easy-appointments/README.md`.
+La disponibilidad y las reservas nuevas usan la agenda transaccional interna de Convex. Easy!Appointments queda fuera del camino activo y se conserva temporalmente como referencia histórica y para diagnóstico de webhooks heredados; `externalId` no es la fuente de verdad de una cita nueva.
 
 Configura un webhook hacia:
 
@@ -166,6 +166,15 @@ Después de desplegar el esquema ampliado, clasifica los medios históricos por 
 npx convex run migrations:classifyExistingMedia '{"dryRun":true}' --prod
 npx convex run migrations:classifyExistingMedia --prod
 ```
+
+La agenda usa una migración widen–migrate–narrow para reemplazar fechas ISO almacenadas por timestamps numéricos. Después de desplegar la fase ampliada, ejecuta:
+
+```bash
+npx convex run migrations:backfillBookingTimestamps '{"dryRun":true}' --prod
+npx convex run migrations:backfillBookingTimestamps --prod
+```
+
+No elimines todavía `start`, `end` ni sus índices antiguos. Primero confirma desde el panel o con `agenda:adminTimestampMigrationStatus` que no quede ninguna cita sin `startAt` o `endAt`; el estrechamiento del esquema requiere un despliegue posterior y solo debe realizarse después de una verificación exitosa en producción.
 
 Las credenciales de agentes se preparan y se activan en dos pasos. Una clave pendiente no autentica y la clave anterior continúa activa hasta confirmar la activación. Si se pierde la respuesta, deja expirar la pendiente o revócala; no rote repetidamente.
 

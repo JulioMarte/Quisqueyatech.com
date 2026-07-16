@@ -3,8 +3,8 @@
 // ScheduleModal — the in-flow modal version of the evaluation scheduler.
 // Renders into a React Portal so it lives outside any stacking context.
 // Connects to the real /api/scheduling/availability and /api/scheduling/book
-// endpoints. Falls back to a "pending" submission if the calendar is
-// offline (same behavior as the legacy /evaluacion/agendar page).
+// endpoints. A reservation is only offered after live availability has been
+// verified; an outage never produces a misleading synthetic appointment.
 //
 // Design source: docs/modal-versions/v1-dawn.html (the "Dawn / Orquestación"
 // mock the brand owner approved).
@@ -42,6 +42,10 @@ import {
   type ScheduleSlot,
 } from "@/lib/scheduling/types";
 import { fetchAvailability, submitBooking } from "@/lib/scheduling/api-client";
+import {
+  detectBrowserTimeZone,
+  humanTimeZoneLabel,
+} from "@/lib/scheduling/timezone";
 import { trackSchedule } from "@/lib/scheduling/analytics";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -53,19 +57,8 @@ import { cn } from "@/lib/utils";
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = "qt:schedule:draft:v1";
-const STORAGE_VERSION = 1;
-
-const DEFAULT_TIMES: ReadonlyArray<{ time: string; hour: number; minute: number }> = [
-  { time: "9:00 AM", hour: 9, minute: 0 },
-  { time: "10:00 AM", hour: 10, minute: 0 },
-  { time: "11:00 AM", hour: 11, minute: 0 },
-  { time: "12:00 PM", hour: 12, minute: 0 },
-  { time: "2:00 PM", hour: 14, minute: 0 },
-  { time: "3:00 PM", hour: 15, minute: 0 },
-  { time: "4:00 PM", hour: 16, minute: 0 },
-  { time: "5:00 PM", hour: 17, minute: 0 },
-  { time: "6:00 PM", hour: 18, minute: 0 },
-];
+const STORAGE_VERSION = 2;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function buildStepLabels(es: boolean): Record<number, { eyebrow: string; title: string; sub: string }> {
   return {
@@ -106,6 +99,9 @@ interface Draft {
   v: number;
   firstName: string;
   lastName: string;
+  email: string;
+  company: string;
+  role: string;
   phone: string;
   country: string;
   notes: string;
@@ -194,6 +190,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const submitInFlightRef = useRef(false);
   const stepRef = useRef<WizardStep>(1);
   const availabilityRequestRef = useRef(0);
+  const previousTimezoneRef = useRef<string | null>(null);
   const reduceMotion = useReducedMotion();
   const titleId = useId();
   const descId = useId();
@@ -203,6 +200,9 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [step, setStep] = useState<WizardStep>(1);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
   const [phone, setPhone] = useState("");
   const [country, setCountry] = useState("DO");
   const [notes, setNotes] = useState("");
@@ -219,6 +219,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   });
   const [slots, setSlots] = useState<ScheduleSlot[]>([]);
   const [availabilityConfigured, setAvailabilityConfigured] = useState(true);
+  const [availabilityRefresh, setAvailabilityRefresh] = useState(0);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,21 +228,34 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [bookingResult, setBookingResult] = useState<{
     confirmed: boolean;
     bookingId: string;
+    start: string;
+    timezone: string;
   } | null>(null);
+  const [timezone, setTimezone] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
     stepRef.current = step;
   }, [step]);
 
-  const timezone = useMemo(() => {
-    if (typeof Intl === "undefined") return "America/Santo_Domingo";
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone;
-    } catch {
-      return "America/Santo_Domingo";
+  // Detect on every open so a device whose zone changed while travelling does
+  // not reuse an earlier value. Availability remains paused while this is null.
+  useEffect(() => {
+    if (!isOpen) return;
+    const frame = window.requestAnimationFrame(() => setTimezone(detectBrowserTimeZone()));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!timezone) return;
+    if (previousTimezoneRef.current && previousTimezoneRef.current !== timezone) {
+      availabilityRequestRef.current += 1;
+      setSlots([]);
+      setSelectedTime(null);
+      setStepError(null);
     }
-  }, []);
+    previousTimezoneRef.current = timezone;
+  }, [timezone]);
 
   // Hydrate from draft on first open. Keeps the user's work if they
   // accidentally closed the modal.
@@ -252,6 +266,9 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     if (draft) {
       setFirstName(draft.firstName);
       setLastName(draft.lastName);
+      setEmail(draft.email);
+      setCompany(draft.company);
+      setRole(draft.role);
       setPhone(draft.phone);
       setCountry(draft.country);
       setNotes(draft.notes);
@@ -269,13 +286,16 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
       v: STORAGE_VERSION,
       firstName,
       lastName,
+      email,
+      company,
+      role,
       phone,
       country,
       notes,
       date: selectedDate ?? undefined,
       time: selectedTime ?? undefined,
     });
-  }, [isOpen, step, firstName, lastName, phone, country, notes, selectedDate, selectedTime]);
+  }, [isOpen, step, firstName, lastName, email, company, role, phone, country, notes, selectedDate, selectedTime]);
 
   // Reset full state on close (after the user has seen the success state).
   const reset = useCallback(() => {
@@ -284,6 +304,9 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     setStep(1);
     setFirstName("");
     setLastName("");
+    setEmail("");
+    setCompany("");
+    setRole("");
     setPhone("");
     setCountry("DO");
     setNotes("");
@@ -293,9 +316,12 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     setTurnstileToken("");
     setSelectedDate(null);
     setSelectedTime(null);
+    setTimezone(null);
+    previousTimezoneRef.current = null;
     setCalMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setSlots([]);
     setAvailabilityConfigured(true);
+    setAvailabilityRefresh(0);
     setError(null);
     setStepError(null);
     setInvalidTarget(null);
@@ -351,12 +377,12 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   // Fetch availability when a date is selected
   /* eslint-disable react-hooks/set-state-in-effect -- availability request lifecycle */
   useEffect(() => {
-    if (!isOpen || !selectedDate) return;
+    if (!isOpen || !selectedDate || !timezone) return;
     const controller = new AbortController();
     const requestId = ++availabilityRequestRef.current;
     setLoadingAvailability(true);
     setStepError(null);
-    fetchAvailability(selectedDate, timezone, { signal: controller.signal })
+    fetchAvailability(selectedDate, timezone, locale, { signal: controller.signal })
       .then((data) => {
         if (controller.signal.aborted || requestId !== availabilityRequestRef.current) return;
         setSlots(data.slots);
@@ -382,6 +408,11 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
         if (requestId !== availabilityRequestRef.current) return;
         setSlots([]);
         setAvailabilityConfigured(false);
+        setStepError(
+          es
+            ? "No pudimos consultar la agenda en vivo. Reintenta antes de continuar."
+            : "We could not reach live scheduling. Retry before continuing.",
+        );
       })
       .finally(() => {
         if (!controller.signal.aborted && requestId === availabilityRequestRef.current) {
@@ -389,7 +420,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
         }
       });
     return () => controller.abort();
-  }, [isOpen, selectedDate, timezone, es, locale, source]);
+  }, [isOpen, selectedDate, timezone, es, locale, source, availabilityRefresh]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Pure validation keeps rendering side-effect free. Errors are only exposed
@@ -408,6 +439,13 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
           valid: false,
           message: es ? "Por favor escribe tu apellido." : "Please enter your last name.",
           target: "lastName",
+        };
+      }
+      if (!EMAIL_REGEX.test(email.trim())) {
+        return {
+          valid: false,
+          message: es ? "Escribe un correo electrónico válido." : "Enter a valid email address.",
+          target: "email",
         };
       }
       if (!country) {
@@ -438,6 +476,13 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
       return { valid: true };
     }
     if (targetStep === 2) {
+      if (!timezone) {
+        return {
+          valid: false,
+          message: es ? "Espera mientras detectamos tu zona horaria." : "Wait while we detect your timezone.",
+          target: "calendar",
+        };
+      }
       if (!selectedDate) {
         return {
           valid: false,
@@ -454,7 +499,16 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
           target: "calendar",
         };
       }
-      if (availabilityConfigured && slots.length === 0) {
+      if (!availabilityConfigured) {
+        return {
+          valid: false,
+          message: es
+            ? "La agenda en vivo no está disponible. Reintenta para continuar."
+            : "Live scheduling is unavailable. Retry to continue.",
+          target: "calendar",
+        };
+      }
+      if (slots.length === 0) {
         return {
           valid: false,
           message: es
@@ -476,6 +530,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   }, [
     firstName,
     lastName,
+    email,
     country,
     phone,
     consentProcessing,
@@ -484,6 +539,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     availabilityConfigured,
     loadingAvailability,
     slots.length,
+    timezone,
     es,
   ]);
 
@@ -511,7 +567,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   }, [focusInvalidTarget, getStepValidation, step]);
 
   const submitAll = useCallback(async () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedDate || !selectedTime || !timezone) return;
     if (submitInFlightRef.current) return;
     submitInFlightRef.current = true;
     setSubmitting(true);
@@ -519,26 +575,30 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     const controller = new AbortController();
     const bookingAttemptId = crypto.randomUUID();
 
-    // Build a real ISO datetime for the selected slot.
+    // A booking must always refer to a server-provided live slot.
     const slot = slots.find((s) => s.label === selectedTime);
-    let startIso: string;
-    if (slot) {
-      startIso = slot.start;
-    } else {
-      // Offline / pending: synthesize a "preferred time" datetime in the
-      // user's timezone.
-      const localDate = new Date(`${selectedDate}T12:00:00`);
-      const found = DEFAULT_TIMES.find((t) => t.time === selectedTime);
-      if (found) {
-        localDate.setHours(found.hour, found.minute, 0, 0);
-      }
-      startIso = localDate.toISOString();
+    if (!availabilityConfigured || !slot) {
+      setSubmitting(false);
+      submitInFlightRef.current = false;
+      setStepError(
+        es
+          ? "Ese horario ya no está verificado. Reintenta y elige un horario disponible."
+          : "That time is no longer verified. Retry and choose an available slot.",
+      );
+      stepRef.current = 2;
+      setStep(2);
+      setSelectedTime(null);
+      return;
     }
+    const startIso = slot.start;
 
     const result = await submitBooking(
       {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        email: email.trim().toLowerCase(),
+        company: company.trim() || undefined,
+        role: role.trim() || undefined,
         country,
         phone: phone.replace(/[\s\-()]/g, ""),
         notes: notes.trim() || undefined,
@@ -558,7 +618,12 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     submitInFlightRef.current = false;
 
     if (result.ok) {
-      setBookingResult({ confirmed: result.confirmed, bookingId: result.bookingId });
+      setBookingResult({
+        confirmed: result.confirmed,
+        bookingId: result.bookingId,
+        start: startIso,
+        timezone,
+      });
       trackSchedule({
         name: "schedule_booking_succeeded",
         locale,
@@ -569,6 +634,13 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
       setStep(4);
       clearDraft();
     } else {
+      if (result.code === "validation" && result.field) {
+        stepRef.current = 1;
+        setStep(1);
+        setInvalidTarget(result.field);
+        setStepError(result.message);
+        return;
+      }
       if (result.code === "slot_unavailable") {
         trackSchedule({
           name: "schedule_slot_unavailable",
@@ -600,6 +672,9 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     slots,
     firstName,
     lastName,
+    email,
+    company,
+    role,
     country,
     phone,
     notes,
@@ -781,6 +856,9 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                 <ContactStep
                   firstName={firstName}
                   lastName={lastName}
+                  email={email}
+                  company={company}
+                  role={role}
                   phone={phone}
                   country={country}
                   notes={notes}
@@ -789,6 +867,9 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                   consentRecording={consentRecording}
                   onFirstNameChange={setFirstName}
                   onLastNameChange={setLastName}
+                  onEmailChange={setEmail}
+                  onCompanyChange={setCompany}
+                  onRoleChange={setRole}
                   onPhoneChange={setPhone}
                   onCountryChange={onCountryChange}
                   onNotesChange={setNotes}
@@ -799,7 +880,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                   locale={locale}
                 />
               ) : null}
-              {step === 2 ? (
+              {step === 2 && timezone ? (
                 <CalendarStep
                   calMonth={calMonth}
                   setCalMonth={setCalMonth}
@@ -815,10 +896,24 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                   }}
                   timezone={timezone}
                   invalid={invalidTarget === "calendar"}
+                  unavailable={!availabilityConfigured}
+                  loading={loadingAvailability}
+                  onRetry={() => {
+                    setSlots([]);
+                    setSelectedTime(null);
+                    setStepError(null);
+                    setAvailabilityConfigured(true);
+                    setAvailabilityRefresh((value) => value + 1);
+                  }}
                   locale={locale}
                 />
+              ) : step === 2 ? (
+                <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-mute" role="status">
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                  {es ? "Detectando tu zona horaria..." : "Detecting your timezone..."}
+                </div>
               ) : null}
-              {step === 3 && selectedDate ? (
+              {step === 3 && selectedDate && timezone ? (
                 <>
                   <TimeStep
                     date={selectedDate}
@@ -847,9 +942,8 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                   firstName={firstName}
                   lastName={lastName}
                   country={country}
-                  date={selectedDate!}
-                  time={selectedTime!}
-                  timezone={timezone}
+                  start={bookingResult.start}
+                  timezone={bookingResult.timezone}
                   confirmed={bookingResult.confirmed}
                   bookingId={bookingResult.bookingId}
                   locale={locale}
@@ -867,7 +961,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                 onBack={goBack}
                 onClose={handleClose}
                 onNext={goNext}
-                nextDisabled={(loadingAvailability && step === 2) || (step === 3 && !selectedTime)}
+                nextDisabled={(step === 2 && (loadingAvailability || !availabilityConfigured)) || (step === 3 && (!selectedTime || !availabilityConfigured))}
                 readyToConfirm={step === 3 && Boolean(selectedTime)}
                 locale={locale}
               />
@@ -1036,6 +1130,9 @@ function Stepper({
 interface ContactStepProps {
   firstName: string;
   lastName: string;
+  email: string;
+  company: string;
+  role: string;
   phone: string;
   country: string;
   notes: string;
@@ -1044,6 +1141,9 @@ interface ContactStepProps {
   consentRecording: boolean;
   onFirstNameChange: (v: string) => void;
   onLastNameChange: (v: string) => void;
+  onEmailChange: (v: string) => void;
+  onCompanyChange: (v: string) => void;
+  onRoleChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
   onCountryChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   onNotesChange: (v: string) => void;
@@ -1088,6 +1188,28 @@ function ContactStep(props: ContactStepProps) {
             className="qt-input"
             maxLength={80}
           />
+        </Field>
+      </div>
+      <Field label={es ? "Correo electrónico" : "Email address"} required hint={es ? "Recibirás aquí la confirmación de la cita." : "Your appointment confirmation will be sent here."}>
+        <input
+          type="email"
+          value={props.email}
+          onChange={(e) => props.onEmailChange(e.target.value)}
+          autoComplete="email"
+          inputMode="email"
+          required
+          data-schedule-target="email"
+          aria-invalid={props.invalidTarget === "email"}
+          className="qt-input"
+          maxLength={160}
+        />
+      </Field>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label={es ? "Empresa" : "Company"} hint={es ? "Opcional" : "Optional"}>
+          <input type="text" value={props.company} onChange={(e) => props.onCompanyChange(e.target.value)} autoComplete="organization" className="qt-input" maxLength={120} />
+        </Field>
+        <Field label={es ? "Cargo" : "Role"} hint={es ? "Opcional" : "Optional"}>
+          <input type="text" value={props.role} onChange={(e) => props.onRoleChange(e.target.value)} autoComplete="organization-title" className="qt-input" maxLength={100} />
         </Field>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1298,6 +1420,9 @@ function CalendarStep({
   onSelectDate,
   timezone,
   invalid,
+  unavailable,
+  loading,
+  onRetry,
   locale,
 }: {
   calMonth: Date;
@@ -1306,6 +1431,9 @@ function CalendarStep({
   onSelectDate: (d: string) => void;
   timezone: string;
   invalid: boolean;
+  unavailable: boolean;
+  loading: boolean;
+  onRetry: () => void;
   locale: "es" | "en";
 }) {
   const es = locale === "es";
@@ -1353,6 +1481,15 @@ function CalendarStep({
       aria-invalid={invalid}
       className="px-5 py-4 outline-none sm:px-7 sm:py-5 lg:px-6 lg:py-4"
     >
+      {unavailable ? (
+        <div className="mb-4 rounded-xl border border-amber/30 bg-amber-soft p-4 text-sm text-amber-deep" role="alert">
+          <p>{es ? "No se pudo verificar la disponibilidad en vivo. No reservaremos un horario sin confirmarlo primero." : "Live availability could not be verified. We will not book a time before confirming it."}</p>
+          <button type="button" onClick={onRetry} disabled={loading} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-amber-deep/30 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-deep disabled:cursor-not-allowed disabled:opacity-60">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {es ? "Reintentar" : "Retry"}
+          </button>
+        </div>
+      ) : null}
       <div className="mb-3 flex items-center justify-between">
         <button
           type="button"
@@ -1408,27 +1545,19 @@ function CalendarStep({
               )}
             >
               {cell.day}
-              {!isPast ? (
-                <span
-                  className={cn(
-                    "absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full",
-                    isSelected ? "bg-white" : "bg-success",
-                  )}
-                  aria-hidden="true"
-                />
-              ) : null}
+              {isSelected ? <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white" aria-hidden="true" /> : null}
             </button>
           );
         })}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-mute">
-        <Legend dotClass="bg-success" label={es ? "Con disponibilidad" : "Available"} />
         <Legend dotClass="bg-amber-deep" label={es ? "Hoy" : "Today"} />
         <Legend dotClass="bg-primary" label={es ? "Seleccionado" : "Selected"} />
-        <Legend dotClass="bg-line-2" label={es ? "Sin disponibilidad" : "Unavailable"} />
+        <Legend dotClass="bg-line-2" label={es ? "Consulta al elegir" : "Checked when selected"} />
       </div>
       <p className="mt-4 text-[12px] text-mute">
-        {es ? "Zona horaria:" : "Timezone:"} <span className="font-mono text-text-2">{timezone}</span>
+        {es ? "Horarios en " : "Times in "}
+        <span className="font-medium text-text-2">{humanTimeZoneLabel(timezone, selectedDate ? `${selectedDate}T12:00:00Z` : calMonth, locale)}</span>
       </p>
     </div>
   );
@@ -1473,6 +1602,10 @@ function TimeStep({
   locale: "es" | "en";
 }) {
   const es = locale === "es";
+  const reduceMotion = useReducedMotion();
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmaticRef = useRef(false);
   const dateLabel = useMemo(() => {
     try {
       return new Intl.DateTimeFormat(es ? "es" : "en-US", {
@@ -1487,19 +1620,89 @@ function TimeStep({
 
   // Map server slots to a label->start map. If the server is offline,
   // show the default time grid (all enabled — submission will be pending).
-  const slotByLabel = useMemo(() => {
-    const m = new Map<string, ScheduleSlot>();
-    for (const s of slots) m.set(s.label, s);
-    return m;
-  }, [slots]);
-
   const allTimes = useMemo(() => {
-    if (!configured) return DEFAULT_TIMES.map((t) => ({ ...t, disabled: false }));
-    return DEFAULT_TIMES.map((t) => {
-      const found = slotByLabel.get(t.time);
-      return { ...t, disabled: Boolean(found === undefined) };
+    return slots.map((slot) => ({ time: slot.label, disabled: false }));
+  }, [slots]);
+  const timezoneInstant = slots.find((slot) => slot.label === selectedTime)?.start
+    ?? slots[0]?.start
+    ?? `${date}T12:00:00Z`;
+  const timezoneLabel = humanTimeZoneLabel(timezone, timezoneInstant, locale);
+
+  useEffect(() => () => {
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+  }, []);
+
+  const centerOption = useCallback((element: HTMLButtonElement, behavior: ScrollBehavior) => {
+    const wheel = wheelRef.current;
+    if (!wheel) return;
+    const wheelBox = wheel.getBoundingClientRect();
+    const optionBox = element.getBoundingClientRect();
+    const top = wheel.scrollTop + optionBox.top - wheelBox.top - (wheel.clientHeight - optionBox.height) / 2;
+    wheel.scrollTo({ top, behavior });
+  }, []);
+
+  const settleWheel = useCallback(() => {
+    if (programmaticRef.current) return;
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      const wheel = wheelRef.current;
+      if (!wheel) return;
+      const center = wheel.getBoundingClientRect().top + wheel.clientHeight / 2;
+      const options = Array.from(wheel.querySelectorAll<HTMLButtonElement>("button[data-time]"));
+      const nearest = options.reduce<HTMLButtonElement | null>((best, option) => {
+        if (!best) return option;
+        const optionCenter = option.getBoundingClientRect().top + option.offsetHeight / 2;
+        const bestCenter = best.getBoundingClientRect().top + best.offsetHeight / 2;
+        return Math.abs(optionCenter - center) < Math.abs(bestCenter - center) ? option : best;
+      }, null);
+      const value = nearest?.dataset.time;
+      if (!nearest || !value) return;
+      programmaticRef.current = true;
+      centerOption(nearest, "auto");
+      if (value !== selectedTime) onSelectTime(value);
+      window.setTimeout(() => { programmaticRef.current = false; }, 40);
+    }, 90);
+  }, [centerOption, onSelectTime, selectedTime]);
+
+  const chooseTime = useCallback((time: string, element: HTMLButtonElement) => {
+    programmaticRef.current = true;
+    onSelectTime(time);
+    centerOption(element, reduceMotion ? "auto" : "smooth");
+    window.setTimeout(() => { programmaticRef.current = false; }, reduceMotion ? 40 : 260);
+  }, [centerOption, onSelectTime, reduceMotion]);
+
+  useEffect(() => {
+    const wheel = wheelRef.current;
+    if (!wheel || !selectedTime) return;
+    const selected = Array.from(wheel.querySelectorAll<HTMLButtonElement>("button[data-time]")).find(option => option.dataset.time === selectedTime);
+    if (!selected) return;
+    if (programmaticRef.current) return;
+    programmaticRef.current = true;
+    const frame = requestAnimationFrame(() => {
+      centerOption(selected, "auto");
+      programmaticRef.current = false;
     });
-  }, [configured, slotByLabel]);
+    return () => cancelAnimationFrame(frame);
+  }, [centerOption, selectedTime, allTimes]);
+
+  const moveSelection = useCallback((direction: -1 | 1 | "first" | "last") => {
+    const wheel = wheelRef.current;
+    if (!wheel) return;
+    const options = Array.from(wheel.querySelectorAll<HTMLButtonElement>("button[data-time]:not(:disabled)"));
+    if (!options.length) return;
+    const current = Math.max(0, options.findIndex(option => option.dataset.time === selectedTime));
+    const next = direction === "first" ? 0 : direction === "last" ? options.length - 1 : Math.min(options.length - 1, Math.max(0, current + direction));
+    const option = options[next];
+    chooseTime(option.dataset.time!, option);
+    option.focus({ preventScroll: true });
+  }, [chooseTime, selectedTime]);
+
+  const onWheelKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowUp") { event.preventDefault(); moveSelection(-1); }
+    else if (event.key === "ArrowDown") { event.preventDefault(); moveSelection(1); }
+    else if (event.key === "Home") { event.preventDefault(); moveSelection("first"); }
+    else if (event.key === "End") { event.preventDefault(); moveSelection("last"); }
+  }, [moveSelection]);
 
   return (
     <div
@@ -1521,39 +1724,33 @@ function TimeStep({
       ) : !configured ? (
         <div className="mb-4 rounded-xl border border-amber/30 bg-amber-soft p-3 text-[13px] leading-relaxed text-amber-deep">
           {es
-            ? "La agenda en vivo no está respondiendo. Tu solicitud quedará pendiente de confirmación."
-            : "The live calendar is offline. Your request will remain pending confirmation."}
+            ? "La agenda en vivo no está respondiendo. Vuelve a la fecha y reintenta."
+            : "Live scheduling is offline. Return to the date and retry."}
         </div>
       ) : null}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4" role="group" aria-label={es ? "Horarios disponibles" : "Available times"}>
-        {allTimes.map((t) => {
-          const isSelected = selectedTime === t.time;
-          return (
-            <button
-              key={t.time}
-              type="button"
-              disabled={t.disabled}
-              onClick={() => onSelectTime(t.time)}
-              aria-pressed={isSelected}
-              className={cn(
-                "min-h-11 rounded-lg border px-3 text-[13.5px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none",
-                t.disabled && "cursor-not-allowed border-line bg-bg-2 text-mute line-through",
-                !t.disabled && !isSelected && "cursor-pointer border-line bg-white text-text hover:border-tech",
-                isSelected && "border-tech bg-primary text-white",
-              )}
-            >
-              {t.time}
-            </button>
-          );
-        })}
-      </div>
+      {!loading ? <div className="relative mx-auto max-w-sm" role="group" aria-label={es ? "Horarios disponibles" : "Available times"}>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-1/2 z-10 h-14 -translate-y-1/2 rounded-xl border border-tech/35 bg-larimar/10 shadow-[0_8px_24px_rgba(13,54,80,0.08)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-white via-white/80 to-transparent" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-white via-white/80 to-transparent" />
+        <div
+          ref={wheelRef}
+          data-testid="time-wheel"
+          onScroll={settleWheel}
+          onKeyDown={onWheelKeyDown}
+          tabIndex={0}
+          className="relative h-56 snap-y snap-mandatory overflow-y-auto overscroll-contain scroll-smooth px-2 py-[84px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="space-y-2">
+            {allTimes.map((t) => {
+              const isSelected = selectedTime === t.time;
+              return <button key={t.time} data-time={t.time} type="button" disabled={t.disabled} onClick={(event) => chooseTime(t.time, event.currentTarget)} aria-pressed={isSelected} className={cn("relative z-10 mx-auto flex min-h-14 w-full snap-center cursor-pointer items-center justify-center rounded-xl px-4 text-lg font-semibold transition-[color,opacity] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto motion-reduce:transition-none", isSelected ? "text-primary" : "text-mute opacity-65 hover:text-text hover:opacity-100", t.disabled && "cursor-not-allowed line-through opacity-35")}>{t.time}<span className="sr-only">{isSelected ? (es ? ", seleccionado" : ", selected") : ""}</span></button>;
+            })}
+          </div>
+        </div>
+        <p className="mt-1 text-center text-xs text-mute">{es ? "Desliza para elegir una hora" : "Scroll to choose a time"}</p>
+      </div> : null}
       <p className="mt-4 text-[12px] text-mute">
-        {es ? "Zona horaria:" : "Timezone:"} <span className="font-mono text-text-2">{timezone}</span>
-        {!configured ? (
-          <span className="ml-2">
-            · {es ? "Se enviará como solicitud pendiente" : "Submitted as a pending request"}
-          </span>
-        ) : null}
+        {es ? "Horarios en " : "Times in "}<span className="font-medium text-text-2">{timezoneLabel}</span>
       </p>
     </div>
   );
@@ -1567,8 +1764,7 @@ function SuccessStep({
   firstName,
   lastName,
   country,
-  date,
-  time,
+  start,
   timezone,
   confirmed,
   bookingId,
@@ -1577,25 +1773,28 @@ function SuccessStep({
   firstName: string;
   lastName: string;
   country: string;
-  date: string;
-  time: string;
+  start: string;
   timezone: string;
   confirmed: boolean;
   bookingId: string;
   locale: "es" | "en";
 }) {
   const es = locale === "es";
-  const dateLabel = useMemo(() => {
+  const appointmentLabel = useMemo(() => {
     try {
       return new Intl.DateTimeFormat(es ? "es" : "en-US", {
         weekday: "long",
         day: "numeric",
         month: "long",
-      }).format(new Date(`${date}T12:00:00`));
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: timezone,
+      }).format(new Date(start));
     } catch {
-      return date;
+      return start;
     }
-  }, [date, es]);
+  }, [es, start, timezone]);
+  const timezoneLabel = humanTimeZoneLabel(timezone, start, locale);
   return (
     <div className="px-6 py-8 text-center sm:px-7 sm:py-10 lg:py-8">
       <div
@@ -1616,8 +1815,8 @@ function SuccessStep({
       </h3>
       <div className="mx-auto mt-4 inline-flex flex-col gap-1 rounded-xl bg-bg-2 px-5 py-3 text-left text-[13.5px] text-text-2">
         <span><strong className="text-primary">{firstName} {lastName}</strong></span>
-        <span>{dateLabel} · {time}</span>
-        <span>{countryName(country, locale)} · {timezone}</span>
+        <span className="capitalize">{appointmentLabel}</span>
+        <span>{countryName(country, locale)} · {timezoneLabel}</span>
       </div>
       <div className="mx-auto mt-5 max-w-md space-y-2 text-[14.5px] leading-relaxed text-text-2">
         <p>

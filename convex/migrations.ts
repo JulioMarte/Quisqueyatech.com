@@ -22,4 +22,35 @@ export const classifyExistingMedia = migrations.define({
   },
 });
 
+// Widened-schema backfill for appointments created before the internal agenda.
+// externalId remains untouched as historical Easy!Appointments metadata.
+export const normalizeExistingBookings = migrations.define({
+  table: "bookings",
+  batchSize: 50,
+  migrateOne: async (_ctx, booking) => {
+    if (booking.end) return;
+    const start = Date.parse(booking.start);
+    if (!Number.isFinite(start)) return;
+    return { end: new Date(start + 15 * 60_000).toISOString() };
+  },
+});
+
+// Deploy after the widened schema. New writes already populate these fields,
+// so the online migration only needs to backfill historical appointments.
+export const backfillBookingTimestamps = migrations.define({
+  table: "bookings",
+  batchSize: 50,
+  migrateOne: async (_ctx, booking) => {
+    if (booking.startAt !== undefined && booking.endAt !== undefined) return;
+    const startAt = Date.parse(booking.start);
+    const endAt = booking.end ? Date.parse(booking.end) : startAt + 15 * 60_000;
+    if (!Number.isFinite(startAt) || !Number.isFinite(endAt)) {
+      throw new Error(`Invalid ISO date in booking ${booking.bookingId}`);
+    }
+    const previousStartAt = booking.previousStart ? Date.parse(booking.previousStart) : undefined;
+    if (booking.previousStart && !Number.isFinite(previousStartAt)) throw new Error(`Invalid previousStart in booking ${booking.bookingId}`);
+    return { startAt, endAt, previousStartAt };
+  },
+});
+
 export const run = migrations.runner();

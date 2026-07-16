@@ -15,6 +15,37 @@ import { crossedThresholds } from "../lib/assessment/scheduler";
 import type { AssessmentEvidence, AssessmentFieldKey } from "../lib/assessment/types";
 import { enforceAssessmentDataPolicy, redactSensitiveText } from "../lib/assessment/data-policy";
 import { normalizeVoiceStatus } from "../lib/voice/status";
+import {
+  DEFAULT_TIME_ZONE,
+  detectBrowserTimeZone,
+  humanTimeZoneLabel,
+  isValidTimeZone,
+} from "../lib/scheduling/timezone";
+
+test("browser timezone detection validates and falls back safely", () => {
+  assert.equal(detectBrowserTimeZone(() => "America/New_York"), "America/New_York");
+  assert.equal(detectBrowserTimeZone(() => "Not/A_Real_Zone"), DEFAULT_TIME_ZONE);
+  assert.equal(detectBrowserTimeZone(() => { throw new Error("Intl unavailable"); }), DEFAULT_TIME_ZONE);
+  assert.equal(isValidTimeZone("America/Santo_Domingo"), true);
+  assert.equal(isValidTimeZone("invalid"), false);
+});
+
+test("human timezone labels use the appointment instant", () => {
+  assert.equal(humanTimeZoneLabel("UTC", "2026-01-15T12:00:00.000Z"), "UTC");
+  assert.equal(
+    humanTimeZoneLabel("America/Santo_Domingo", "2026-07-16T14:00:00.000Z"),
+    "Santo Domingo (UTC−4)",
+  );
+  assert.equal(
+    humanTimeZoneLabel("America/New_York", "2026-01-15T15:00:00.000Z"),
+    "New York (UTC−5)",
+  );
+  assert.equal(
+    humanTimeZoneLabel("America/New_York", "2026-07-15T14:00:00.000Z"),
+    "New York (UTC−4)",
+  );
+  assert.equal(humanTimeZoneLabel("Not/A_Real_Zone", 0), "A Real Zone");
+});
 
 test("localized paths round-trip", () => {
   assert.equal(localeFromPath("/en/solutions"), "en");
@@ -60,6 +91,21 @@ test("assessment intake requires international mobile and both consents", () => 
     }).success,
     true,
   );
+  const bookingOnly = {
+    firstName: valid.firstName,
+    lastName: valid.lastName,
+    country: valid.country,
+    locale: valid.locale,
+    email: valid.email,
+    phone: valid.phone,
+    processingConsent: true,
+    recordingConsent: false,
+    start: new Date().toISOString(),
+    timezone: "America/Santo_Domingo",
+    channel: "web",
+  };
+  assert.equal(bookingSchema.safeParse(bookingOnly).success, true);
+  assert.equal(bookingSchema.safeParse({ ...bookingOnly, email: undefined }).success, false);
 });
 
 test("voice conference starts without requesting contact details", () => {

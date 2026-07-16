@@ -12,6 +12,7 @@ import { createAssessmentSnapshot } from "@/lib/assessment/engine";
 import { voiceProviderIds, type AssessmentSnapshot, type VoiceProviderId } from "@/lib/assessment/types";
 import { createVoiceSession, interviewFrameworkVersion } from "@/lib/server/voice";
 import { assessmentTokenHash, progressToken, resumeToken, verifyAssessmentToken } from "@/lib/server/assessment-tokens";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 export async function POST(request: Request) {
   try {
@@ -83,7 +84,8 @@ export async function POST(request: Request) {
     const resume = conferenceStart && body.resumeToken ? verifyAssessmentToken(body.resumeToken, "resume") : null;
     const assessmentId = resume?.assessmentId || crypto.randomUUID();
     const override = conferenceStart && body.providerOverrideToken ? verifyAssessmentToken(body.providerOverrideToken, "provider-override") : null;
-    const configuredDefault = await convexQuery("assessments:getDefaultProvider", {}) as VoiceProviderId | null;
+    const dynamicConfig = await runtimeConfig();
+    const configuredDefault = dynamicConfig.defaultProvider as VoiceProviderId | undefined;
     const candidateProvider = override?.provider || configuredDefault || process.env.VOICE_PROVIDER || "ultravox";
     const provider: VoiceProviderId = voiceProviderIds.includes(candidateProvider as VoiceProviderId) ? candidateProvider as VoiceProviderId : "ultravox";
     const previous = resume?.assessmentId ? await convexMutation("assessments:consumeResumeCredential", { assessmentId, tokenHash: assessmentTokenHash(body.resumeToken), now: Date.now() }) as { snapshot?: AssessmentSnapshot; lead?: { locale?: "es" | "en"; firstName?: string } } | null : null;
@@ -108,8 +110,8 @@ export async function POST(request: Request) {
     const sessionKey = crypto.randomUUID();
     const session = await createVoiceSession(provider, { assessmentId, sessionKey, locale: intake.locale, name: previous?.lead?.firstName || intake.firstName, progressToken: sessionProgressToken, resumeSummary });
     const providerSessionId = session.provider === "ultravox" ? session.callId : session.provider === "livekit" ? session.roomName : session.provider === "gemini-live" ? sessionKey : undefined;
-    const providerModel = session.provider === "gemini-live" ? session.model : provider === "livekit" ? process.env.GEMINI_LIVE_MODEL : process.env.ULTRAVOX_MODEL;
-    const providerVoice = provider === "ultravox" ? process.env.ULTRAVOX_VOICE : process.env.GEMINI_LIVE_VOICE;
+    const providerModel = session.provider === "gemini-live" ? session.model : provider === "livekit" ? dynamicConfig.geminiLiveModel : dynamicConfig.ultravoxModel;
+    const providerVoice = provider === "ultravox" ? dynamicConfig.ultravoxVoice : dynamicConfig.geminiLiveVoice;
     await convexMutation("assessments:setProviderSession", { assessmentId, sessionKey, provider: session.provider === "demo" ? provider : session.provider, providerSessionId, providerModel, providerVoice, frameworkVersion: interviewFrameworkVersion, startedAt: Date.now() });
     const nextResumeToken = resumeToken(assessmentId);
     await convexMutation("assessments:setResumeCredential", { assessmentId, tokenHash: assessmentTokenHash(nextResumeToken), expiresAt: Date.now() + 24 * 60 * 60_000 });

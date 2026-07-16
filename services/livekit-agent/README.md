@@ -4,7 +4,8 @@ This Node.js worker is intentionally deployed separately from the Next.js applic
 
 ## Required contract
 
-- Read `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `GEMINI_API_KEY` from the worker environment.
+- Keep `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `ASSESSMENT_WORKER_SECRET` in worker infrastructure.
+- Fetch the editable Gemini model, voice, temperature, and API key from the authenticated `/api/assessment/worker-config` endpoint at the start of every session.
 - Join rooms whose names start with `assessment-`.
 - Use the same discovery sequence documented in `Docs/README.md`: process, tools, volume, manual work, problem, impact, constraints, and desired outcome.
 - Publish final transcription segments so the browser can build the same transcript used by Ultravox.
@@ -20,4 +21,4 @@ npm install
 npm run dev
 ```
 
-Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `GEMINI_API_KEY`, `NEXT_PUBLIC_SITE_URL`, and `GEMINI_LIVE_MODEL`. The web app passes a short-lived assessment token as a participant attribute; the worker never receives an Ultravox or browser credential.
+Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET`, and `NEXT_PUBLIC_SITE_URL`. The worker retrieves session-time Gemini configuration through the authenticated server endpoint and never exposes it to the browser.

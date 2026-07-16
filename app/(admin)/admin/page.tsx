@@ -7,6 +7,6 @@ export const metadata = { title: "Administración", robots: { index: false, foll
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ area?: string }> }) {
   if (!(await currentAdmin())) redirect("/sign-in?returnTo=/admin");
   const requested = (await searchParams).area;
-  const initialArea: AdminArea = requested === "content" || requested === "agents" ? requested : "assessments";
+  const initialArea: AdminArea = requested === "content" || requested === "agents" || requested === "agenda" || requested === "configuration" ? requested : "agenda";
   return <AdminWorkspace initialArea={initialArea} />;
 }

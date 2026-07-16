@@ -17,9 +17,10 @@ export interface FetchAvailabilityOptions {
 export async function fetchAvailability(
   date: string,
   timezone: string,
+  locale: "es" | "en",
   options: FetchAvailabilityOptions = {},
 ): Promise<AvailabilityResponse> {
-  const params = new URLSearchParams({ date, timezone });
+  const params = new URLSearchParams({ date, timezone, locale });
   try {
     const response = await fetch(
       `/api/scheduling/availability?${params.toString()}`,
@@ -32,6 +33,7 @@ export async function fetchAvailability(
     return {
       configured: data.configured !== false,
       slots: Array.isArray(data.slots) ? data.slots : [],
+      horizonDays: typeof data.horizonDays === "number" ? data.horizonDays : undefined,
     };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -88,6 +90,7 @@ export async function submitBooking(
     return {
       ok: false,
       code,
+      field: typeof data.field === "string" ? data.field : undefined,
       message:
         typeof data.error === "string"
           ? data.error

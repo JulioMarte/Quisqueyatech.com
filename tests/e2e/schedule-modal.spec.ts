@@ -8,6 +8,7 @@ async function openScheduler(page: Page) {
 async function completeContactStep(page: Page) {
   await page.getByLabel("Nombre").fill("Ana");
   await page.getByLabel("Apellido").fill("Pérez");
+  await page.getByLabel(/Correo/).fill("ana@example.com");
   await page.getByLabel(/Celular/).fill("+18095551234");
   await page.getByLabel(/Acepto el procesamiento/).check();
 }
@@ -141,6 +142,95 @@ test("only the latest date response may auto-advance", async ({ page }) => {
   await expect(page.getByRole("button", { name: "10:00 AM" })).toBeEnabled();
   await page.waitForTimeout(450);
   await expect(page.getByRole("heading", { name: "Elige la hora" })).toBeVisible();
+});
+
+test("localized server labels remain selectable", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.unroute("**/api/scheduling/availability?**");
+  await page.route("**/api/scheduling/availability?**", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ configured: true, slots: [{ start: "2030-01-15T13:00:00.000Z", label: "9:00 a. m." }] }),
+  }));
+  await openScheduler(page);
+  const dialog = page.getByRole("dialog");
+  const dateStep = page.getByRole("button", { name: /Ir al paso 2: Fecha/ });
+  await completeContactStep(page);
+  await page.getByLabel(/Correo/).clear();
+  await dateStep.click();
+  await expect(dialog.getByRole("alert")).toContainText("correo electrónico válido");
+  await expect(page.getByLabel(/Correo/)).toBeFocused();
+  await page.getByLabel(/Correo/).fill("ana@example.com");
+  await page.getByRole("button", { name: "Continuar a fecha" }).click();
+  await page.getByRole("grid").locator("button:not([disabled])").first().click();
+  const localizedSlot = page.getByRole("button", { name: "9:00 a. m." });
+  await expect(localizedSlot).toBeEnabled();
+  await localizedSlot.click();
+  await expect(page.getByRole("button", { name: "Confirmar evaluación" })).toBeEnabled();
+});
+
+test("uses the browser IANA timezone in availability, booking, and human confirmation", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.addInitScript(() => {
+    const original = Intl.DateTimeFormat.prototype.resolvedOptions;
+    Intl.DateTimeFormat.prototype.resolvedOptions = function resolvedOptions() {
+      return { ...original.call(this), timeZone: "America/New_York" };
+    };
+  });
+  await page.unroute("**/api/scheduling/availability?**");
+  const availabilityZones: string[] = [];
+  await page.route("**/api/scheduling/availability?**", async (route) => {
+    availabilityZones.push(new URL(route.request().url()).searchParams.get("timezone") ?? "");
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ configured: true, slots: [
+        { start: "2030-07-15T14:00:00.000Z", label: "10:00 a. m." },
+      ] }),
+    });
+  });
+  let bookingTimezone = "";
+  await page.route("**/api/scheduling/book", async (route) => {
+    bookingTimezone = (route.request().postDataJSON() as { timezone: string }).timezone;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ bookingId: "timezone-e2e", configured: true, confirmed: true }),
+    });
+  });
+
+  await openScheduler(page);
+  await completeContactStep(page);
+  await page.getByRole("button", { name: "Continuar a fecha" }).click();
+  await page.getByRole("grid").locator("button:not([disabled])").first().click();
+  await expect(page.getByText("Horarios en New York (UTC−4)")).toBeVisible();
+  await page.getByRole("button", { name: "10:00 a. m." }).click();
+  await page.getByRole("button", { name: /Confirmar evaluaci/ }).click();
+  await expect(page.getByText(/New York \(UTC−4\)/)).toBeVisible();
+  expect(availabilityZones).toEqual(["America/New_York"]);
+  expect(bookingTimezone).toBe("America/New_York");
+});
+
+test("time wheel scrolls smoothly in both directions and keeps selection centered", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.unroute("**/api/scheduling/availability?**");
+  await page.route("**/api/scheduling/availability?**", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ configured: true, slots: [
+    { start: "2030-01-15T13:00:00.000Z", label: "9:00 a. m." },
+    { start: "2030-01-15T13:15:00.000Z", label: "9:15 a. m." },
+    { start: "2030-01-15T13:30:00.000Z", label: "9:30 a. m." },
+  ] }) }));
+  await openScheduler(page); await completeContactStep(page);
+  await page.getByRole("button", { name: "Continuar a fecha" }).click();
+  await page.getByRole("grid").locator("button:not([disabled])").first().click();
+  await page.getByRole("button", { name: "9:15 a. m." }).click();
+  const wheel = page.getByTestId("time-wheel");
+  await wheel.hover(); await page.mouse.wheel(0, -120);
+  await expect(page.getByRole("button", { name: /9:00 a\. m\./ })).toHaveAttribute("aria-pressed", "true");
+  await page.waitForTimeout(200); await page.mouse.wheel(0, 120);
+  const selected = page.getByRole("button", { name: /9:15 a\. m\./ });
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => {
+    const [wheelBox, selectedBox] = await Promise.all([wheel.boundingBox(), selected.boundingBox()]);
+    if (!wheelBox || !selectedBox) return Infinity;
+    return Math.abs((wheelBox.y + wheelBox.height / 2) - (selectedBox.y + selectedBox.height / 2));
+  }).toBeLessThan(3);
 });
 
 test("responsive layouts keep the modal inside the viewport and reserve side arrows for wide screens", async ({ page }) => {

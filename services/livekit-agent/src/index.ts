@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 type Metadata = { assessmentId: string; sessionKey: string; locale: "es" | "en"; frameworkVersion: string };
+type WorkerConfig = { geminiApiKey: string; model: string; voice: string; temperature: number };
 const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const workerSecret = process.env.ASSESSMENT_WORKER_SECRET || "";
 
@@ -15,6 +16,9 @@ const agent = defineAgent({
     const metadata = JSON.parse(participant.metadata || "{}") as Metadata;
     if (!metadata.assessmentId || !metadata.sessionKey) throw new Error("Assessment metadata is missing");
     const startedAt = Date.now();
+    const configResponse = await fetch(`${appUrl}/api/assessment/worker-config`, { headers: { Authorization: `Bearer ${workerSecret}` }, cache: "no-store" });
+    if (!configResponse.ok) throw new Error(`Worker configuration failed (${configResponse.status})`);
+    const runtime = await configResponse.json() as WorkerConfig;
     const promptResponse = await fetch(`${appUrl}/api/assessment/prompt?assessmentId=${encodeURIComponent(metadata.assessmentId)}`, { headers: { Authorization: `Bearer ${workerSecret}` } });
     if (!promptResponse.ok) throw new Error(`Assessment prompt failed (${promptResponse.status})`);
     const prompt = (await promptResponse.json()).prompt as string;
@@ -33,7 +37,7 @@ const agent = defineAgent({
       },
     });
 
-    const session = new voice.AgentSession({ llm: new google.realtime.RealtimeModel({ model: process.env.GEMINI_LIVE_MODEL || "gemini-2.5-flash-native-audio-preview-12-2025", voice: process.env.GEMINI_LIVE_VOICE || "Aoede", temperature: 0.3 }) });
+    const session = new voice.AgentSession({ llm: new google.realtime.RealtimeModel({ apiKey: runtime.geminiApiKey, model: runtime.model, voice: runtime.voice, temperature: runtime.temperature }) });
     const timers = [
       setTimeout(() => { session.currentAgent?.updateInstructions(`${prompt}\n\nPRIVATE GUIDANCE: Ensure one priority process is selected now.`); void recordThreshold("time-threshold"); }, 300_000),
       setTimeout(() => { session.currentAgent?.updateInstructions(`${prompt}\n\nPRIVATE GUIDANCE: Finish workflow, volume, and impact now; leave secondary details pending.`); void recordThreshold("time-threshold"); }, 600_000),

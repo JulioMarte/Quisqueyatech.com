@@ -17,6 +17,8 @@ export interface ScheduleSlot {
 export interface AvailabilityResponse {
   configured: boolean;
   slots: ScheduleSlot[];
+  /** Optional server policy. The client never invents availability beyond it. */
+  horizonDays?: number;
 }
 
 export interface BookingPayload {
@@ -25,7 +27,7 @@ export interface BookingPayload {
   company?: string;
   role?: string;
   country: string;
-  email?: string;
+  email: string;
   phone: string;
   notes?: string;
   locale: Locale;
@@ -59,6 +61,7 @@ export interface BookingFailure {
   ok: false;
   code: BookingFailureCode;
   message: string;
+  field?: string;
 }
 
 export type BookingResult = BookingSuccess | BookingFailure;

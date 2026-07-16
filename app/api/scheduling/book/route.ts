@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import { bookingSchema } from "@/lib/validations/assessment";
-import { convexMutation, convexQuery } from "@/lib/server/convex";
+import { convexMutation } from "@/lib/server/convex";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
-import {
-  EasyAppointmentsProvider,
-  SchedulingError,
-  easyAppointmentsConfigured,
-} from "@/lib/server/scheduling";
 
 export async function POST(request: Request) {
   try {
@@ -20,33 +15,38 @@ export async function POST(request: Request) {
         { status: 429 },
       );
     const parsed = bookingSchema.safeParse(await request.json());
-    if (!parsed.success)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: parsed.error.issues[0]?.message || "Invalid booking" },
+        { error: issue?.message || "Invalid booking", field: issue?.path[0] ? String(issue.path[0]) : undefined, code: "validation" },
         { status: 400 },
       );
+    }
     if (!(await verifyTurnstile(parsed.data.turnstileToken, ip)))
       return NextResponse.json(
         { error: "Human verification failed" },
         { status: 403 },
       );
-    const bookingId = parsed.data.bookingAttemptId || request.headers.get("idempotency-key")?.slice(0, 120) || crypto.randomUUID();
-    if (process.env.ADMIN_API_SECRET) {
-      const existing = await convexQuery("bookings:byBookingId", { secret: process.env.ADMIN_API_SECRET, bookingId }) as { externalId?: string; status: string } | null;
-      if (existing) return NextResponse.json({ ok: true, bookingId, configured: easyAppointmentsConfigured(), confirmed: existing.status === "confirmed", status: existing.status });
+    const serviceSecret = process.env.ADMIN_API_SECRET?.trim();
+    if (!serviceSecret) {
+      console.error("[scheduling:book] ADMIN_API_SECRET is not configured");
+      return NextResponse.json(
+        { error: "Booking is temporarily unavailable." },
+        { status: 503 },
+      );
     }
-    let externalId: string | undefined;
-    let status = "pending_confirmation";
-    if (easyAppointmentsConfigured()) {
-      try {
-        const external = await new EasyAppointmentsProvider().book(parsed.data);
-        externalId = external.externalId;
-        status = external.status;
-      } catch (reason) {
-        if (reason instanceof SchedulingError && !reason.retryable) return NextResponse.json({ error: reason.message, code: "slot_unavailable" }, { status: reason.status === 422 ? 409 : reason.status });
-        console.error("[scheduling:book:pending]", { bookingId, reason: reason instanceof Error ? reason.message : "unknown" });
-      }
-    }
+    const requestedIdempotencyKey = request.headers
+      .get("idempotency-key")
+      ?.trim();
+    const safeIdempotencyKey =
+      requestedIdempotencyKey &&
+      /^[A-Za-z0-9._:-]{1,120}$/.test(requestedIdempotencyKey)
+        ? requestedIdempotencyKey
+        : undefined;
+    const bookingId =
+      parsed.data.bookingAttemptId ||
+      safeIdempotencyKey ||
+      crypto.randomUUID();
     const {
       website: _website,
       turnstileToken: _turnstileToken,
@@ -56,28 +56,34 @@ export async function POST(request: Request) {
     void _website;
     void _turnstileToken;
     void _bookingAttemptId;
-    await convexMutation("bookings:upsert", {
+    const result = await convexMutation("agenda:create", {
+      serviceSecret,
       bookingId,
-      externalId,
-      ...booking,
-      status,
-      createdAt: Date.now(),
-    });
-    await convexMutation("funnel:track", {
-      sessionId: bookingId,
-      locale: parsed.data.locale,
-      name: "assessment_booked",
-      bookingId,
-      createdAt: Date.now(),
-    });
+      firstName: booking.firstName, lastName: booking.lastName, company: booking.company,
+      role: booking.role, country: booking.country, locale: booking.locale, email: booking.email,
+      phone: booking.phone, notes: booking.notes, recordingConsent: booking.recordingConsent,
+      start: booking.start, timezone: booking.timezone, channel: booking.channel,
+    }) as { confirmed: boolean; status: string };
+    try {
+      await convexMutation("funnel:track", {
+        sessionId: bookingId,
+        locale: parsed.data.locale,
+        name: "assessment_booked",
+        bookingId,
+        createdAt: Date.now(),
+      });
+    } catch (error) {
+      console.error("[scheduling:book:funnel]", error);
+    }
     return NextResponse.json({
       ok: true,
       bookingId,
-      configured: easyAppointmentsConfigured(),
-      confirmed: status === "confirmed",
-      status,
-    }, { status: status === "confirmed" ? 200 : 202 });
+      configured: true,
+      confirmed: result.confirmed,
+      status: result.status,
+    });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("SLOT_UNAVAILABLE")) return NextResponse.json({ error: "That time is no longer available", code: "slot_unavailable" }, { status: 409 });
     console.error("[scheduling:book]", error);
     return NextResponse.json(
       { error: "We could not save the appointment." },

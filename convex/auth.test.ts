@@ -117,6 +117,9 @@ describe("admin setup reset", () => {
       await t.mutation(components.betterAuth.adapter.create, {
         input: { model: "session", data: { expiresAt: now + 60_000, token: "session-token", createdAt: now, updatedAt: now, userId: String(user._id) } },
       });
+      await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "jwks", data: { publicKey: "public-key", privateKey: "encrypted-private-key", createdAt: now } },
+      });
       for (let index = 1; index <= 100; index += 1) {
         await t.mutation(components.betterAuth.adapter.create, {
           input: { model: "session", data: { expiresAt: now + 60_000, token: `session-token-${index}`, createdAt: now, updatedAt: now, userId: String(user._id) } },
@@ -130,7 +133,7 @@ describe("admin setup reset", () => {
       });
 
       await expect(t.action(api.adminReset.resetAdminSetup, { resetToken: token, confirmation: "RESET_ADMIN_SETUP" }))
-        .resolves.toMatchObject({ status: "uninitialized", deleted: { users: 1, accounts: 1, sessions: 101, recoveryCodes: 1, setupRateLimits: 1 } });
+        .resolves.toMatchObject({ status: "uninitialized", deleted: { users: 1, accounts: 1, sessions: 101, jwks: 1, recoveryCodes: 1, setupRateLimits: 1 } });
 
       await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({ status: "uninitialized" });
       await expect(t.query(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "email", value: "admin@example.com" }] })).resolves.toBeNull();
@@ -145,4 +148,59 @@ describe("admin setup reset", () => {
       else process.env.ADMIN_SETUP_RESET_TOKEN = previous;
     }
   }, 30_000);
+
+  test("repairs JWKS idempotently without deleting the administrator or sessions", async () => {
+    const t = authTest();
+    const now = Date.now();
+    const token = `repair-token-${"r".repeat(32)}`;
+    const previous = process.env.ADMIN_SETUP_RESET_TOKEN;
+    process.env.ADMIN_SETUP_RESET_TOKEN = `${token}:${now + 60_000}`;
+    try {
+      const user = await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "user", data: { name: "Admin", email: "admin@example.com", emailVerified: true, createdAt: now, updatedAt: now } },
+      });
+      await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "account", data: { accountId: String(user._id), providerId: "credential", userId: String(user._id), password: "hash", createdAt: now, updatedAt: now } },
+      });
+      await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "session", data: { expiresAt: now + 60_000, token: "session-token", createdAt: now, updatedAt: now, userId: String(user._id) } },
+      });
+      await t.mutation(components.betterAuth.adapter.create, {
+        input: { model: "jwks", data: { publicKey: "public-key", privateKey: "old-encrypted-key", createdAt: now } },
+      });
+      await t.run(async (ctx) => {
+        await ctx.db.insert("adminInstallation", { singleton: "admin", status: "configured", adminUserId: String(user._id), adminEmail: "admin@example.com", adminName: "Admin", configuredAt: now, updatedAt: now });
+        await ctx.db.insert("adminRecoveryCodes", { userId: String(user._id), codeHash: "d".repeat(64), createdAt: now });
+      });
+
+      await expect(t.action(api.adminReset.repairAdminJwks, { resetToken: token, confirmation: "REPAIR_ADMIN_JWKS" }))
+        .resolves.toEqual({ status: "ready_for_regeneration", deleted: 1 });
+      await expect(t.action(api.adminReset.repairAdminJwks, { resetToken: token, confirmation: "REPAIR_ADMIN_JWKS" }))
+        .resolves.toEqual({ status: "ready_for_regeneration", deleted: 0 });
+
+      await expect(t.query(components.betterAuth.adapter.findOne, { model: "jwks" })).resolves.toBeNull();
+      await expect(t.query(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "email", value: "admin@example.com" }] })).resolves.not.toBeNull();
+      await expect(t.query(components.betterAuth.adapter.findOne, { model: "session", where: [{ field: "token", value: "session-token" }] })).resolves.not.toBeNull();
+      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({ status: "configured" });
+      const recovery = await t.run(async (ctx) => ctx.db.query("adminRecoveryCodes").first());
+      expect(recovery).not.toBeNull();
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_SETUP_RESET_TOKEN;
+      else process.env.ADMIN_SETUP_RESET_TOKEN = previous;
+    }
+  });
+
+  test("rejects JWKS repair with an expired token", async () => {
+    const t = authTest();
+    const token = `expired-token-${"e".repeat(32)}`;
+    const previous = process.env.ADMIN_SETUP_RESET_TOKEN;
+    process.env.ADMIN_SETUP_RESET_TOKEN = `${token}:${Date.now() - 1}`;
+    try {
+      await expect(t.action(api.adminReset.repairAdminJwks, { resetToken: token, confirmation: "REPAIR_ADMIN_JWKS" }))
+        .rejects.toThrow(/unavailable|FORBIDDEN/i);
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_SETUP_RESET_TOKEN;
+      else process.env.ADMIN_SETUP_RESET_TOKEN = previous;
+    }
+  });
 });

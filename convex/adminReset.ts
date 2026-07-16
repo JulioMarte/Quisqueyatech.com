@@ -3,6 +3,7 @@ import { components, internal } from "./_generated/api";
 import { action, internalMutation } from "./_generated/server";
 
 const RESET_CONFIRMATION = "RESET_ADMIN_SETUP";
+const REPAIR_CONFIRMATION = "REPAIR_ADMIN_JWKS";
 const MAX_RESET_LEASE_MS = 10 * 60_000;
 
 type DeletePage = {
@@ -67,13 +68,13 @@ export const resetAdminSetup = action({
 
     await ctx.runMutation(internal.adminReset.lockAdminSetup, { now: Date.now() });
 
-    const remove = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user") =>
+    const remove = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user" | "jwks") =>
       deleteEveryPage(() => ctx.runMutation(components.betterAuth.adapter.deleteMany, {
         input: { model },
         paginationOpts: { numItems: 100, cursor: null },
       }) as Promise<DeletePage>);
 
-    const findRemaining = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user") =>
+    const findRemaining = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user" | "jwks") =>
       ctx.runQuery(components.betterAuth.adapter.findOne, { model }) as Promise<unknown | null>;
 
     // Revoke access before removing credentials and the user record.
@@ -87,11 +88,12 @@ export const resetAdminSetup = action({
       verifications: await remove("verification"),
       rateLimits: await remove("rateLimit"),
       users: await remove("user"),
+      jwks: await remove("jwks"),
       recoveryCodes: 0,
       setupRateLimits: 0,
     };
 
-    const identityModels = ["session", "account", "twoFactor", "oauthAccessToken", "oauthConsent", "oauthApplication", "verification", "rateLimit", "user"] as const;
+    const identityModels = ["session", "account", "twoFactor", "oauthAccessToken", "oauthConsent", "oauthApplication", "verification", "rateLimit", "user", "jwks"] as const;
     for (const model of identityModels) {
       if (await findRemaining(model)) {
         throw new ConvexError({ code: "CONFLICT", message: `Better Auth cleanup incomplete: ${model}` });
@@ -108,6 +110,32 @@ export const resetAdminSetup = action({
     await ctx.runMutation(internal.adminReset.finishAdminReset, {});
     console.info(JSON.stringify({ scope: "auth", operation: "reset-admin-setup", result: "success", deleted }));
     return { status: "uninitialized" as const, deleted };
+  },
+});
+
+/**
+ * Removes only JWT signing keys. Better Auth recreates them with the current
+ * BETTER_AUTH_SECRET on the next authenticated /convex/token request.
+ */
+export const repairAdminJwks = action({
+  args: { resetToken: v.string(), confirmation: v.string() },
+  handler: async (ctx, args) => {
+    requireEphemeralResetToken(args.resetToken);
+    if (args.confirmation !== REPAIR_CONFIRMATION) {
+      throw new ConvexError({ code: "VALIDATION_ERROR", message: "Invalid repair confirmation" });
+    }
+
+    const deleted = await deleteEveryPage(() => ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+      input: { model: "jwks" },
+      paginationOpts: { numItems: 100, cursor: null },
+    }) as Promise<DeletePage>);
+    const remaining = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "jwks" });
+    if (remaining) {
+      throw new ConvexError({ code: "CONFLICT", message: "JWKS cleanup is incomplete" });
+    }
+
+    console.info(JSON.stringify({ scope: "auth", operation: "repair-admin-jwks", result: "success", deleted }));
+    return { status: "ready_for_regeneration" as const, deleted };
   },
 });
 

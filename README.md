@@ -100,6 +100,16 @@ npx convex env remove ADMIN_SETUP_CODE --deployment dev
 npx convex env remove ADMIN_SETUP_CODE --prod
 ```
 
+Si el login crea sesiones pero `/api/auth/convex/token` falla porque cambió `BETTER_AUTH_SECRET`, regenera únicamente JWKS sin borrar la cuenta:
+
+```powershell
+npm run admin:repair-auth -- --deployment dev
+# Producción, solo si presenta el mismo error:
+npm run admin:repair-auth -- --prod
+```
+
+El comando conserva usuario, contraseña, sesiones y códigos de recuperación. Necesita al menos una sesión existente para validar la emisión JWT; si no existe, intenta iniciar sesión una vez y repite el comando. Mantén `BETTER_AUTH_SECRET` estable después de la reparación.
+
 Si la página carga indefinidamente o devuelve 503, confirma que:
 
 - `NEXT_PUBLIC_CONVEX_URL` apunta al deployment de desarrollo correcto.

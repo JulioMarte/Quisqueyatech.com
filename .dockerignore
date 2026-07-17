@@ -12,6 +12,8 @@ test-results
 Docs
 services
 tests
+.opencode
+
 *.md
 !README.md
 
@@ -24,7 +26,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-Dockerfile
-.dockerignore
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# Keep Dockerfile in context for some Coolify/buildkit setups.
+# .dockerignore itself is never copied as a source file needed by Next.

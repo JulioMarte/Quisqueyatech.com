@@ -1,9 +1,8 @@
 name: CI
 
+# PR validation only. Production image build + Coolify pull lives in deploy.yml.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -30,4 +29,3 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build

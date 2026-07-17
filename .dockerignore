@@ -1,7 +1,19 @@
 .git
+.github
+.agents
+.claude
+.convex
+.worktrees
 .next
 node_modules
+coverage
+playwright-report
+test-results
 Docs
+services
+tests
+*.md
+!README.md
 
 .env
 .env.*
@@ -14,4 +26,5 @@ pnpm-debug.log*
 
 Dockerfile
 .dockerignore
-README.md
+tsconfig.tsbuildinfo
+*.tsbuildinfo

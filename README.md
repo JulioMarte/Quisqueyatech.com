@@ -172,6 +172,8 @@ La agenda usa una migración widen–migrate–narrow para reemplazar fechas ISO
 ```bash
 npx convex run migrations:backfillBookingTimestamps '{"dryRun":true}' --prod
 npx convex run migrations:backfillBookingTimestamps --prod
+npx convex run migrations:backfillBookingSearchText '{"dryRun":true}' --prod
+npx convex run migrations:backfillBookingSearchText --prod
 ```
 
 No elimines todavía `start`, `end` ni sus índices antiguos. Primero confirma desde el panel o con `agenda:adminTimestampMigrationStatus` que no quede ninguna cita sin `startAt` o `endAt`; el estrechamiento del esquema requiere un despliegue posterior y solo debe realizarse después de una verificación exitosa en producción.

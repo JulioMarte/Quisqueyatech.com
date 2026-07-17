@@ -43,10 +43,20 @@ export async function PUT(request: Request) {
     const parsed = updateSchema.safeParse(await readAdminJson(request, 64_000));
     if (!parsed.success) return adminFailure(trace, parsed.error.issues[0]?.message || "Invalid configuration", 400);
     const config = { ...parsed.data.config };
-    for (const key of ["webhookUrl", "ultravoxApiUrl", "livekitUrl"] as const) {
+    for (const key of ["webhookUrl", "ultravoxApiUrl"] as const) {
       if (!config[key]) continue;
       try { config[key] = (await resolveSafeExternalUrl(config[key])).url; }
       catch { return adminFailure(trace, `${key} no apunta a un destino público permitido.`, 400); }
+    }
+    if (config.livekitUrl) {
+      try {
+        const livekit = new URL(config.livekitUrl);
+        if (!["wss:", "https:"].includes(livekit.protocol)) throw new Error("Invalid LiveKit protocol");
+        const probe = new URL(livekit);
+        probe.protocol = "https:";
+        await resolveSafeExternalUrl(probe.toString());
+        config.livekitUrl = livekit.toString();
+      } catch { return adminFailure(trace, "livekitUrl no apunta a un destino público WSS/HTTPS permitido.", 400); }
     }
     if (config.webhookEnabled && !config.webhookUrl) return adminFailure(trace, "La URL del webhook es obligatoria cuando las entregas están activas.", 400);
     const secrets = Object.entries(parsed.data.secrets)

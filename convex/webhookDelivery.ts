@@ -5,7 +5,7 @@ import { requireAdmin } from "./auth";
 import type { Doc } from "./_generated/dataModel";
 
 const MAX_ATTEMPTS = 8;
-const LEASE_MS = 30_000;
+const LEASE_MS = 60_000;
 const retryDelays = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000, 6 * 60 * 60_000, 6 * 60 * 60_000, 6 * 60 * 60_000];
 
 type ClaimedDelivery = { item: Doc<"webhookDeliveries">; attempt: number; manual: boolean; leaseId: string };
@@ -23,10 +23,31 @@ export const claimDue = internalMutation({
     const selected = [...manual, ...pending, ...expired].sort((a, b) => (a.nextAttemptAt ?? 0) - (b.nextAttemptAt ?? 0)).slice(0, 10);
     const claimed: ClaimedDelivery[] = [];
     for (const item of selected) {
+      if (item.status === "processing" && item.attempts > 0) {
+        const abandoned = await ctx.db.query("webhookDeliveryAttempts")
+          .withIndex("by_delivery_id_and_attempt", (q) => q.eq("deliveryId", item._id).eq("attempt", item.attempts)).unique();
+        if (abandoned && abandoned.completedAt === undefined) await ctx.db.patch(abandoned._id, {
+          completedAt: args.now,
+          success: false,
+          error: "LEASE_EXPIRED",
+          durationMs: Math.max(0, args.now - abandoned.requestedAt),
+        });
+        if (item.attempts >= MAX_ATTEMPTS) {
+          await ctx.db.patch(item._id, {
+            status: "failed",
+            nextAttemptAt: undefined,
+            leaseId: undefined,
+            leaseExpiresAt: undefined,
+            lastError: "LEASE_EXPIRED",
+          });
+          continue;
+        }
+      }
       const attempt = item.attempts + 1;
       const manualAttempt = item.status === "manual_pending";
       await ctx.db.patch(item._id, {
         status: "processing",
+        attempts: attempt,
         leaseId: args.leaseId,
         leaseExpiresAt: args.now + LEASE_MS,
         nextAttemptAt: args.now + LEASE_MS,

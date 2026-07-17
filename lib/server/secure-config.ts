@@ -1,4 +1,3 @@
-import "server-only";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { request as httpRequest } from "node:http";
@@ -116,30 +115,51 @@ export function signWebhookBody(secret: string, body: string) {
 
 export type WebhookPostResult = { success: boolean; statusCode?: number; error?: string; durationMs: number };
 
-/** Sends without redirects and pins the request to a DNS answer already checked for SSRF. */
-export async function postWebhookSafely(rawUrl: string, body: string, headers: Record<string, string>, timeoutMs = 10_000): Promise<WebhookPostResult> {
+export type SafeExternalRequestResult = WebhookPostResult & { body?: string };
+
+/** Performs a small outbound HTTP request without redirects and pins DNS to an address already checked for SSRF. */
+export async function requestExternalSafely(
+  rawUrl: string,
+  options: { method?: "GET" | "POST"; headers?: Record<string, string>; body?: string; timeoutMs?: number; maxResponseBytes?: number } = {},
+): Promise<SafeExternalRequestResult> {
   const startedAt = Date.now();
   try {
     const resolved = await resolveSafeExternalUrl(rawUrl);
     const url = new URL(resolved.url);
     const preferred = resolved.addresses.find((item) => item.family === 4) ?? resolved.addresses[0];
-    const pinnedLookup: LookupFunction = ((_hostname, _options, callback) => callback(null, preferred.address, preferred.family)) as LookupFunction;
-    const statusCode = await new Promise<number>((resolve, reject) => {
+    const pinnedLookup: LookupFunction = ((_hostname, _lookupOptions, callback) => callback(null, preferred.address, preferred.family)) as LookupFunction;
+    const response = await new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
       const send = url.protocol === "https:" ? httpsRequest : httpRequest;
-      const req = send(url, {
-        method: "POST",
-        headers: { ...headers, "Content-Length": Buffer.byteLength(body) },
-        lookup: pinnedLookup,
-        timeout: timeoutMs,
-      }, (response) => { response.resume(); resolve(response.statusCode ?? 0); });
+      const body = options.body;
+      const headers = { ...options.headers };
+      if (body !== undefined) headers["Content-Length"] = String(Buffer.byteLength(body));
+      const req = send(url, { method: options.method ?? "GET", headers, lookup: pinnedLookup, timeout: options.timeoutMs ?? 10_000 }, (incoming) => {
+        const chunks: Buffer[] = [];
+        let received = 0;
+        const maximum = options.maxResponseBytes ?? 32_768;
+        incoming.on("data", (chunk: Buffer) => {
+          received += chunk.length;
+          if (received > maximum) return incoming.destroy(new Error("RESPONSE_TOO_LARGE"));
+          chunks.push(chunk);
+        });
+        incoming.on("end", () => resolve({ statusCode: incoming.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") }));
+        incoming.on("error", reject);
+      });
       req.on("timeout", () => req.destroy(new Error("TIMEOUT")));
       req.on("error", reject);
       req.end(body);
     });
-    return { success: statusCode >= 200 && statusCode < 300, statusCode, error: statusCode >= 200 && statusCode < 300 ? undefined : `HTTP ${statusCode}`, durationMs: Date.now() - startedAt };
+    const success = response.statusCode >= 200 && response.statusCode < 300;
+    return { success, statusCode: response.statusCode, body: response.body, error: success ? undefined : `HTTP ${response.statusCode}`, durationMs: Date.now() - startedAt };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const sanitized = /private destinations/i.test(message) ? "DESTINATION_BLOCKED" : message === "TIMEOUT" ? "TIMEOUT" : /invalid external url|https/i.test(message) ? "INVALID_DESTINATION" : "NETWORK_ERROR";
+    const sanitized = /private destinations/i.test(message) ? "DESTINATION_BLOCKED" : message === "TIMEOUT" ? "TIMEOUT" : message === "RESPONSE_TOO_LARGE" ? "RESPONSE_TOO_LARGE" : /invalid external url|https/i.test(message) ? "INVALID_DESTINATION" : "NETWORK_ERROR";
     return { success: false, error: sanitized, durationMs: Date.now() - startedAt };
   }
+}
+
+/** Sends without redirects and pins the request to a DNS answer already checked for SSRF. */
+export async function postWebhookSafely(rawUrl: string, body: string, headers: Record<string, string>, timeoutMs = 10_000): Promise<WebhookPostResult> {
+  const result = await requestExternalSafely(rawUrl, { method: "POST", body, headers, timeoutMs, maxResponseBytes: 1_024 });
+  return { success: result.success, statusCode: result.statusCode, error: result.error, durationMs: result.durationMs };
 }

@@ -30,11 +30,13 @@ test("claim lease prevents concurrent workers from taking one delivery", async (
 test("expired leases are recoverable and stale workers cannot finish", async () => {
   const { t, deliveryId } = await deliveryFixture();
   await t.mutation(internal.webhookDelivery.claimDue, { now: 1_000, leaseId: "lease-a" });
-  const recovered = await t.mutation(internal.webhookDelivery.claimDue, { now: 31_001, leaseId: "lease-b" });
+  const recovered = await t.mutation(internal.webhookDelivery.claimDue, { now: 61_001, leaseId: "lease-b" });
   expect(recovered).toHaveLength(1);
-  expect(await t.mutation(internal.webhookDelivery.finish, { deliveryId, leaseId: "lease-a", attempt: 1, success: true, statusCode: 200, durationMs: 10, now: 31_002 })).toBe(false);
-  expect(await t.mutation(internal.webhookDelivery.finish, { deliveryId, leaseId: "lease-b", attempt: 1, success: true, statusCode: 204, durationMs: 12, now: 31_003 })).toBe(true);
-  expect(await t.run((ctx) => ctx.db.get(deliveryId))).toMatchObject({ status: "delivered", attempts: 1, lastStatusCode: 204 });
+  expect(await t.mutation(internal.webhookDelivery.finish, { deliveryId, leaseId: "lease-a", attempt: 1, success: true, statusCode: 200, durationMs: 10, now: 61_002 })).toBe(false);
+  expect(await t.mutation(internal.webhookDelivery.finish, { deliveryId, leaseId: "lease-b", attempt: 2, success: true, statusCode: 204, durationMs: 12, now: 61_003 })).toBe(true);
+  expect(await t.run((ctx) => ctx.db.get(deliveryId))).toMatchObject({ status: "delivered", attempts: 2, lastStatusCode: 204 });
+  const history = await t.run((ctx) => ctx.db.query("webhookDeliveryAttempts").withIndex("by_delivery_id_and_attempt", (q) => q.eq("deliveryId", deliveryId).eq("attempt", 1)).unique());
+  expect(history).toMatchObject({ success: false, error: "LEASE_EXPIRED", completedAt: 61_001 });
 });
 
 test("failed attempts persist sanitized history and prescribed retry delay", async () => {

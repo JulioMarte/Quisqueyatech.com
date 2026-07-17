@@ -91,7 +91,7 @@ test("availability loading blocks stale navigation and confirmation submits only
   expect(bookings).toBe(1);
 });
 
-test("a date without slots stays on the calendar and an offline calendar auto-advances", async ({ page }) => {
+test("a date without slots stays on the calendar and an offline calendar blocks booking with retry", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.unroute("**/api/scheduling/availability?**");
   let configured = true;
@@ -107,12 +107,13 @@ test("a date without slots stays on the calendar and an offline calendar auto-ad
   await page.getByRole("button", { name: "Continuar a fecha" }).click();
   await page.getByRole("grid").locator("button:not([disabled])").first().click();
   await expect(page.getByRole("heading", { name: "Elige un día disponible" })).toBeVisible();
-  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("No hay espacios disponibles");
+  await expect(page.getByRole("button", { name: "Continuar a hora" })).toBeDisabled();
 
   configured = false;
   await page.getByRole("grid").locator("button:not([disabled])").nth(1).click();
-  await expect(page.getByRole("heading", { name: "Elige la hora" })).toBeVisible();
-  await expect(page.getByText(/agenda en vivo no está respondiendo/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Elige un día/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reintentar" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continuar a hora" })).toBeDisabled();
 });
 
 test("only the latest date response may auto-advance", async ({ page }) => {
@@ -231,6 +232,11 @@ test("time wheel scrolls smoothly in both directions and keeps selection centere
     if (!wheelBox || !selectedBox) return Infinity;
     return Math.abs((wheelBox.y + wheelBox.height / 2) - (selectedBox.y + selectedBox.height / 2));
   }).toBeLessThan(3);
+  await wheel.focus();
+  await wheel.press("ArrowDown");
+  await expect(page.getByRole("button", { name: /9:30 a\. m\./ })).toHaveAttribute("aria-pressed", "true");
+  await wheel.press("ArrowUp");
+  await expect(page.getByRole("button", { name: /9:15 a\. m\./ })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("responsive layouts keep the modal inside the viewport and reserve side arrows for wide screens", async ({ page }) => {

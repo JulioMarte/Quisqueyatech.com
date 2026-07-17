@@ -53,4 +53,22 @@ export const backfillBookingTimestamps = migrations.define({
   },
 });
 
+export const backfillBookingSearchText = migrations.define({
+  table: "bookings",
+  batchSize: 50,
+  migrateOne: async (ctx, booking) => {
+    if (booking.searchText) return;
+    const lead = await ctx.db.get(booking.leadId);
+    const searchText = [
+      booking.bookingId,
+      lead?.firstName,
+      lead?.lastName,
+      lead?.company,
+      lead?.email,
+      lead?.phone,
+    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    return { searchText };
+  },
+});
+
 export const run = migrations.runner();

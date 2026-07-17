@@ -387,6 +387,14 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
         if (controller.signal.aborted || requestId !== availabilityRequestRef.current) return;
         setSlots(data.slots);
         setAvailabilityConfigured(data.configured);
+        if (!data.configured) {
+          setStepError(
+            es
+              ? "No pudimos consultar la agenda en vivo. Reintenta antes de continuar."
+              : "We could not reach live scheduling. Retry before continuing.",
+          );
+          return;
+        }
         if (data.configured && data.slots.length === 0) {
           setStepError(
             es
@@ -670,6 +678,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     selectedDate,
     selectedTime,
     slots,
+    availabilityConfigured,
     firstName,
     lastName,
     email,
@@ -961,7 +970,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                 onBack={goBack}
                 onClose={handleClose}
                 onNext={goNext}
-                nextDisabled={(step === 2 && (loadingAvailability || !availabilityConfigured)) || (step === 3 && (!selectedTime || !availabilityConfigured))}
+                nextDisabled={(step === 2 && (!selectedDate || loadingAvailability || !availabilityConfigured || slots.length === 0)) || (step === 3 && (!selectedTime || !availabilityConfigured))}
                 readyToConfirm={step === 3 && Boolean(selectedTime)}
                 locale={locale}
               />
@@ -1602,10 +1611,10 @@ function TimeStep({
   locale: "es" | "en";
 }) {
   const es = locale === "es";
-  const reduceMotion = useReducedMotion();
   const wheelRef = useRef<HTMLDivElement>(null);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const programmaticRef = useRef(false);
+  const wheelGestureRef = useRef<{ direction: -1 | 1; at: number } | null>(null);
+  const programmaticScrollUntilRef = useRef(0);
   const dateLabel = useMemo(() => {
     try {
       return new Intl.DateTimeFormat(es ? "es" : "en-US", {
@@ -1635,14 +1644,12 @@ function TimeStep({
   const centerOption = useCallback((element: HTMLButtonElement, behavior: ScrollBehavior) => {
     const wheel = wheelRef.current;
     if (!wheel) return;
-    const wheelBox = wheel.getBoundingClientRect();
-    const optionBox = element.getBoundingClientRect();
-    const top = wheel.scrollTop + optionBox.top - wheelBox.top - (wheel.clientHeight - optionBox.height) / 2;
-    wheel.scrollTo({ top, behavior });
+    const top = element.offsetTop + element.offsetHeight / 2 - wheel.clientHeight / 2;
+    wheel.scrollTo({ top: Math.max(0, top), behavior });
   }, []);
 
   const settleWheel = useCallback(() => {
-    if (programmaticRef.current) return;
+    if (performance.now() < programmaticScrollUntilRef.current) return;
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     scrollTimerRef.current = setTimeout(() => {
       const wheel = wheelRef.current;
@@ -1657,35 +1664,19 @@ function TimeStep({
       }, null);
       const value = nearest?.dataset.time;
       if (!nearest || !value) return;
-      programmaticRef.current = true;
+      programmaticScrollUntilRef.current = performance.now() + 400;
       centerOption(nearest, "auto");
       if (value !== selectedTime) onSelectTime(value);
-      window.setTimeout(() => { programmaticRef.current = false; }, 40);
     }, 90);
   }, [centerOption, onSelectTime, selectedTime]);
 
-  const chooseTime = useCallback((time: string, element: HTMLButtonElement) => {
-    programmaticRef.current = true;
+  const chooseTime = useCallback((time: string, element: HTMLButtonElement, behavior: ScrollBehavior = "auto") => {
+    programmaticScrollUntilRef.current = performance.now() + 400;
     onSelectTime(time);
-    centerOption(element, reduceMotion ? "auto" : "smooth");
-    window.setTimeout(() => { programmaticRef.current = false; }, reduceMotion ? 40 : 260);
-  }, [centerOption, onSelectTime, reduceMotion]);
+    centerOption(element, behavior);
+  }, [centerOption, onSelectTime]);
 
-  useEffect(() => {
-    const wheel = wheelRef.current;
-    if (!wheel || !selectedTime) return;
-    const selected = Array.from(wheel.querySelectorAll<HTMLButtonElement>("button[data-time]")).find(option => option.dataset.time === selectedTime);
-    if (!selected) return;
-    if (programmaticRef.current) return;
-    programmaticRef.current = true;
-    const frame = requestAnimationFrame(() => {
-      centerOption(selected, "auto");
-      programmaticRef.current = false;
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [centerOption, selectedTime, allTimes]);
-
-  const moveSelection = useCallback((direction: -1 | 1 | "first" | "last") => {
+  const moveSelection = useCallback((direction: -1 | 1 | "first" | "last", behavior: ScrollBehavior = "auto") => {
     const wheel = wheelRef.current;
     if (!wheel) return;
     const options = Array.from(wheel.querySelectorAll<HTMLButtonElement>("button[data-time]:not(:disabled)"));
@@ -1693,9 +1684,22 @@ function TimeStep({
     const current = Math.max(0, options.findIndex(option => option.dataset.time === selectedTime));
     const next = direction === "first" ? 0 : direction === "last" ? options.length - 1 : Math.min(options.length - 1, Math.max(0, current + direction));
     const option = options[next];
-    chooseTime(option.dataset.time!, option);
+    chooseTime(option.dataset.time!, option, behavior);
     option.focus({ preventScroll: true });
   }, [chooseTime, selectedTime]);
+
+  const onWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) < Math.abs(event.deltaX) || event.deltaY === 0) return;
+    event.preventDefault();
+    const direction: -1 | 1 = event.deltaY < 0 ? -1 : 1;
+    const now = performance.now();
+    const previous = wheelGestureRef.current;
+    // Trackpads emit several wheel events for one gesture. Collapse events in
+    // the same direction, but never lock an immediate reversal.
+    if (previous?.direction === direction && now - previous.at < 140) return;
+    wheelGestureRef.current = { direction, at: now };
+    moveSelection(direction, "smooth");
+  }, [moveSelection]);
 
   const onWheelKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowUp") { event.preventDefault(); moveSelection(-1); }
@@ -1735,15 +1739,16 @@ function TimeStep({
         <div
           ref={wheelRef}
           data-testid="time-wheel"
+          onWheel={onWheel}
           onScroll={settleWheel}
           onKeyDown={onWheelKeyDown}
           tabIndex={0}
-          className="relative h-56 snap-y snap-mandatory overflow-y-auto overscroll-contain scroll-smooth px-2 py-[84px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="relative h-56 overflow-y-auto overscroll-contain scroll-smooth px-2 py-[84px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <div className="space-y-2">
             {allTimes.map((t) => {
               const isSelected = selectedTime === t.time;
-              return <button key={t.time} data-time={t.time} type="button" disabled={t.disabled} onClick={(event) => chooseTime(t.time, event.currentTarget)} aria-pressed={isSelected} className={cn("relative z-10 mx-auto flex min-h-14 w-full snap-center cursor-pointer items-center justify-center rounded-xl px-4 text-lg font-semibold transition-[color,opacity] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto motion-reduce:transition-none", isSelected ? "text-primary" : "text-mute opacity-65 hover:text-text hover:opacity-100", t.disabled && "cursor-not-allowed line-through opacity-35")}>{t.time}<span className="sr-only">{isSelected ? (es ? ", seleccionado" : ", selected") : ""}</span></button>;
+              return <button key={t.time} data-time={t.time} type="button" disabled={t.disabled} onClick={(event) => chooseTime(t.time, event.currentTarget)} aria-pressed={isSelected} className={cn("relative z-10 mx-auto flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl px-4 text-lg font-semibold transition-[color,opacity] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto motion-reduce:transition-none", isSelected ? "text-primary" : "text-mute opacity-65 hover:text-text hover:opacity-100", t.disabled && "cursor-not-allowed line-through opacity-35")}>{t.time}<span className="sr-only">{isSelected ? (es ? ", seleccionado" : ", selected") : ""}</span></button>;
             })}
           </div>
         </div>

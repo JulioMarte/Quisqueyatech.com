@@ -5,7 +5,6 @@ import {
   type AssessmentIntake,
 } from "@/lib/validations/assessment";
 import { convexMutation } from "@/lib/server/convex";
-import { convexQuery } from "@/lib/server/convex";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
 import { createAssessmentSnapshot } from "@/lib/assessment/engine";

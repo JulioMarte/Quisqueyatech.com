@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Loader2, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
@@ -21,13 +21,14 @@ export function AgendaAdmin() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
-  const [cursor, setCursor] = useState("");
   const [isDone, setIsDone] = useState(true);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const selectedBookingId = selected?.bookingId;
+  const cursorRef = useRef("");
+  const selectedBookingIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => { selectedBookingIdRef.current = selected?.bookingId; }, [selected?.bookingId]);
 
   const detail = useCallback(async (id: string) => {
     const value = await adminRequest<Detail>(`/api/admin/v1/agenda?bookingId=${encodeURIComponent(id)}`, { cache: "no-store" });
@@ -37,20 +38,26 @@ export function AgendaAdmin() {
   const load = useCallback(async (append = false) => {
     setLoading(true); setError("");
     try {
-      const params = new URLSearchParams({ limit: "30", scope });
+      const params = new URLSearchParams({ limit: "30" });
       if (status) params.set("status", status);
       if (channel) params.set("channel", channel);
       if (search.trim()) params.set("search", search.trim());
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      if (append && cursor) params.set("cursor", cursor);
+      let fromAt = from ? new Date(`${from}T00:00:00`).getTime() : undefined;
+      let toAt = to ? new Date(`${to}T23:59:59.999`).getTime() : undefined;
+      const now = Date.now();
+      if (scope === "upcoming") fromAt = Math.max(fromAt ?? 0, now);
+      if (scope === "past") toAt = Math.min(toAt ?? Number.MAX_SAFE_INTEGER, now);
+      if (fromAt !== undefined) params.set("fromAt", String(fromAt));
+      if (toAt !== undefined) params.set("toAt", String(toAt));
+      if (append && cursorRef.current) params.set("cursor", cursorRef.current);
       const page = await adminRequest<AdminPage<Item>>(`/api/admin/v1/agenda?${params}`, { cache: "no-store" });
       setItems((current) => append ? [...current, ...page.items] : page.items);
-      setCursor(page.continueCursor || ""); setIsDone(page.isDone);
-      if (selectedBookingId) await detail(selectedBookingId);
+      const nextCursor = page.continueCursor || "";
+      cursorRef.current = nextCursor; setIsDone(page.isDone);
+      if (selectedBookingIdRef.current) await detail(selectedBookingIdRef.current);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "No se pudo cargar la agenda."); }
     finally { setLoading(false); }
-  }, [channel, cursor, detail, from, scope, search, selectedBookingId, status, to]);
+  }, [channel, detail, from, scope, search, status, to]);
 
   useEffect(() => {
     const run = () => void load(false);

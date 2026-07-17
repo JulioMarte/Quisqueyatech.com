@@ -57,6 +57,7 @@ test("server-authorized agenda stores canonical timestamps and optional profile 
   expect(booking?.endAt).toBe(Date.parse(start) + 15 * 60_000);
   expect(booking?.start).toBe(start);
   expect(booking?.timezone).toBe("America/Santo_Domingo");
+  expect(booking?.searchText).toContain("ana@example.com");
   expect(booking?.createdAt).toBe(Date.now());
   expect(lead?.email).toBe("ana@example.com");
   expect(lead?.notes).toBe("Llamar por WhatsApp");
@@ -74,6 +75,29 @@ test("appointment creation rejects callers without the server secret", async () 
     }),
   ).rejects.toThrow("UNAUTHORIZED");
   expect(await t.run((ctx) => ctx.db.query("bookings").first())).toBeNull();
+});
+
+test("legacy webhook mutations reject direct Convex callers", async () => {
+  const t = convexTest(schema, modules);
+  await expect(
+    t.mutation(api.bookings.fromWebhook, {
+      secret: "public-client",
+      eventId: "event-1",
+      event: "save",
+      payload: "{}",
+      receivedAt: 1,
+    }),
+  ).rejects.toThrow("UNAUTHORIZED");
+  await expect(
+    t.mutation(api.bookings.updateCall, {
+      secret: "public-client",
+      callSid: "CA-test",
+      status: "completed",
+      payload: "{}",
+      receivedAt: 1,
+    }),
+  ).rejects.toThrow("UNAUTHORIZED");
+  expect(await t.run((ctx) => ctx.db.query("webhookEvents").first())).toBeNull();
 });
 
 test("public availability rejects invalid IANA timezones and civil dates", async () => {

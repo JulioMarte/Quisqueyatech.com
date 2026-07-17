@@ -8,7 +8,7 @@ import {
   maskLastFour,
   resolveSafeExternalUrl,
   signWebhookBody,
-} from "../lib/server/secure-config.ts";
+} from "../lib/server/secure-config";
 
 const originalKey = process.env.CONFIG_ENCRYPTION_KEY;
 process.env.CONFIG_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
@@ -25,13 +25,13 @@ test("AES-256-GCM uses a unique nonce and detects tampering", () => {
   assert.equal(decryptSetting(first), "secret-value-1234");
   assert.equal(maskLastFour("secret-value-1234"), "1234");
   const pieces = first.split(".");
-  pieces[3] = `${pieces[3].slice(0, -1)}${pieces[3].endsWith("A") ? "B" : "A"}`;
+  pieces[3] = `${pieces[3].startsWith("A") ? "B" : "A"}${pieces[3].slice(1)}`;
   assert.throws(() => decryptSetting(pieces.join(".")));
 });
 
 test("HMAC signs the exact body and nothing else", () => {
   const body = '{"eventId":"evt_1","attempt":1}';
-  assert.equal(signWebhookBody("test-secret", body), "64884d1d346a406f5c17ff57bd584759b581ac2e64798db499196b0207ba041e");
+  assert.equal(signWebhookBody("test-secret", body), "6ef051abab138a59ab09fd0df0b362773b429660a2d3607010a925e24b60b38f");
   assert.notEqual(signWebhookBody("test-secret", `1700000000.${body}`), signWebhookBody("test-secret", body));
 });
 

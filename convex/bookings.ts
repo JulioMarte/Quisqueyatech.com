@@ -29,6 +29,14 @@ function assertTimeZone(timezone: string) {
   }
 }
 
+function appointmentSearchText(values: Array<string | undefined>) {
+  return values
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLocaleLowerCase();
+}
+
 export const byBookingId = query({
   args: { secret: v.string(), bookingId: v.string() },
   handler: async (ctx, args) => {
@@ -104,6 +112,16 @@ export const upsert = mutation({
       bookingId: args.bookingId,
       externalId: args.externalId,
       leadId,
+      searchText: appointmentSearchText([
+        args.bookingId,
+        args.externalId,
+        args.firstName,
+        args.lastName,
+        args.email,
+        args.phone,
+        args.company,
+        args.role,
+      ]),
       start: new Date(startAt).toISOString(),
       end: new Date(startAt + 15 * 60_000).toISOString(),
       startAt,

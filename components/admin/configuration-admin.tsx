@@ -30,7 +30,7 @@ export function ConfigurationAdmin(){
     catch(reason){setError(reason instanceof Error?reason.message:"No se pudo cargar la configuración.");}
     finally{setBusy(false);}
   }
-  useEffect(()=>{void load();},[]);
+  useEffect(()=>{queueMicrotask(()=>void load());},[]);
 
   const validation=useMemo(()=>validate(rules,config),[rules,config]);
   async function save(){
@@ -39,7 +39,7 @@ export function ConfigurationAdmin(){
     if(changed&&!window.confirm("Las credenciales escritas reemplazarán las existentes. ¿Continuar?"))return;
     setBusy(true);setError("");setMessage("");
     try{
-      const {exceptions: _exceptions,...rulePayload}=rules;
+      const rulePayload={timezone:rules.timezone,durationMinutes:rules.durationMinutes,bufferMinutes:rules.bufferMinutes,minimumNoticeHours:rules.minimumNoticeHours,horizonDays:rules.horizonDays,weekly:rules.weekly};
       await Promise.all([adminRequest("/api/admin/v1/agenda/rules",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(rulePayload)}),adminRequest("/api/admin/v1/configuration",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config,secrets})})]);
       setSecrets({});setMessage("Configuración guardada de forma segura.");await load();
     }catch(reason){setError(reason instanceof Error?reason.message:"No se pudo guardar.");}finally{setBusy(false);}

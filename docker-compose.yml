@@ -1,0 +1,79 @@
+# Local production-like run (Method A image or local Dockerfile build).
+#
+# Build + run from Dockerfile:
+#   docker compose --profile build up --build
+#
+# Run a pre-pulled GHCR image (Method A):
+#   docker compose --profile pull up
+#
+# Runtime secrets go in .env (never commit). Public Convex URLs should match
+# the values baked into the image at build time for Method A, or the compose
+# build.args below for a local rebuild.
+
+services:
+  web:
+    profiles: ["build"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://www.quisqueyatech.com}
+        NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-info@quisqueyatech.com}
+        NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-}
+        NEXT_PUBLIC_CONVEX_SITE_URL: ${NEXT_PUBLIC_CONVEX_SITE_URL:-}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
+    image: quisqueyatech-web:local
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      ADMIN_API_SECRET: ${ADMIN_API_SECRET:-}
+      ASSESSMENT_STORAGE_SECRET: ${ASSESSMENT_STORAGE_SECRET:-}
+      ASSESSMENT_TOKEN_SECRET: ${ASSESSMENT_TOKEN_SECRET:-}
+      AUTH_IP_HASH_SECRET: ${AUTH_IP_HASH_SECRET:-}
+      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped
+
+  web-ghcr:
+    profiles: ["pull"]
+    image: ghcr.io/juliomarte/quisqueyatech.com:${IMAGE_TAG:-latest}
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      ADMIN_API_SECRET: ${ADMIN_API_SECRET:-}
+      ASSESSMENT_STORAGE_SECRET: ${ASSESSMENT_STORAGE_SECRET:-}
+      ASSESSMENT_TOKEN_SECRET: ${ASSESSMENT_TOKEN_SECRET:-}
+      AUTH_IP_HASH_SECRET: ${AUTH_IP_HASH_SECRET:-}
+      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped

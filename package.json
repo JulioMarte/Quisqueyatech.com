@@ -20,7 +20,10 @@
     "admin:repair-auth": "node scripts/repair-admin-auth.mjs",
     "og": "node scripts/generate-og.mjs",
     "agent:dev": "npm --prefix services/livekit-agent run dev",
-    "agent:start": "npm --prefix services/livekit-agent run start"
+    "agent:start": "npm --prefix services/livekit-agent run start",
+    "docker:build": "docker compose --profile build build",
+    "docker:up": "docker compose --profile build up --build",
+    "docker:pull": "docker compose --profile pull up"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.5",

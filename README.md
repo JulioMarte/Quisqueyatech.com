@@ -156,51 +156,93 @@ y usa `X-EA-Token` con el mismo valor de `EASY_APPOINTMENTS_WEBHOOK_TOKEN`.
 
 ## Producción
 
-### Flujo recomendado (GHCR + Coolify pull)
+Hay **dos métodos** de despliegue de la app Next.js. El mismo `Dockerfile` sirve para ambos.
+
+| Método | Quién construye | Coolify hace | Uso |
+|--------|-----------------|--------------|-----|
+| **A — GHCR (recomendado)** | GitHub Actions | Solo `docker pull` + restart | Producción |
+| **B — Dockerfile en Coolify** | Coolify en el servidor | `docker build` + run | Fallback / staging / si GHCR falla |
+
+Nunca actives **los dos a la vez** sobre la misma app (doble deploy). Usa una app Coolify por método, o cambia el source de la app cuando cambies de método.
+
+### Método A — GHCR + Coolify pull (recomendado)
 
 El workflow `.github/workflows/deploy.yml` en `main`:
 
 1. Valida lint / format / typecheck / tests.
 2. Despliega Convex (`CONVEX_DEPLOY_KEY`).
-3. Construye la imagen Docker en GitHub Actions y la publica en **GHCR**:
+3. Construye la imagen con el `Dockerfile` y la publica en **GHCR**:
    - `ghcr.io/juliomarte/quisqueyatech.com:latest`
    - `ghcr.io/juliomarte/quisqueyatech.com:sha-<corto>`
    - `ghcr.io/juliomarte/quisqueyatech.com:<commit-sha>`
-4. Llama al webhook de Coolify para que **solo haga pull** de la imagen y reinicie (sin `docker build` en el servidor).
+4. Llama al webhook de Coolify para pull + restart (**sin** build en el servidor).
 
-Desactiva el autodeploy por git de Coolify para evitar dos pipelines en paralelo.
+**Coolify (app producción):**
 
-#### Configurar Coolify (una vez)
-
-1. Crea o edita la app como **Docker Image** (no Dockerfile / no Nixpacks).
-2. Imagen: `ghcr.io/juliomarte/quisqueyatech.com`
-3. Tag: `latest` (o el tag `sha-…` si prefieres deploys inmutables).
-4. Puerto: `3000`.
-5. Variables **runtime** (secretos): `ADMIN_API_SECRET`, `ASSESSMENT_*`, `AUTH_IP_HASH_SECRET`, `CONFIG_ENCRYPTION_KEY`, `TRUST_PROXY_HEADERS=true`, Resend, Twilio, etc. **No** pongas `BETTER_AUTH_SECRET` en Coolify (vive en Convex).
-6. En **Webhooks / Deploy**, copia la URL de deploy → secret de GitHub `COOLIFY_WEBHOOK_URL`. Si tu instancia exige token, usa `COOLIFY_TOKEN`.
-7. Si el paquete GHCR es **privado**, en el servidor Coolify:
+1. Source: **Docker Image** (no Dockerfile / no Nixpacks).
+2. Image: `ghcr.io/juliomarte/quisqueyatech.com`
+3. Tag: `latest`
+4. Port: `3000`
+5. Autodeploy por git: **OFF**
+6. Runtime env: secretos (`ADMIN_API_SECRET`, `ASSESSMENT_*`, `AUTH_IP_HASH_SECRET`, `CONFIG_ENCRYPTION_KEY`, `TRUST_PROXY_HEADERS=true`, Resend, Twilio…). **No** copies `BETTER_AUTH_SECRET` a Coolify.
+7. Webhook de deploy → secret GitHub `COOLIFY_WEBHOOK_URL` (y `COOLIFY_TOKEN` si hace falta).
+8. Si GHCR es privado, en el servidor:
 
 ```bash
-# PAT de GitHub con read:packages (y SSO autorizado si aplica)
 echo TU_PAT | docker login ghcr.io -u JulioMarte --password-stdin
+# PAT con read:packages
 ```
 
-#### Secrets de GitHub Actions (Settings → Secrets and variables → Actions)
+Los `NEXT_PUBLIC_*` se **hornean en el build de GitHub** (build-args del workflow). Coolify no reconstruye Next.
 
-| Secret | Dónde obtenerlo |
-|--------|------------------|
-| `CONVEX_DEPLOY_KEY` | Convex Dashboard → Production → Settings → Deploy key |
-| `NEXT_PUBLIC_CONVEX_URL` | Convex Dashboard → URL del deployment prod (`.convex.cloud`) |
-| `NEXT_PUBLIC_CONVEX_SITE_URL` | Misma instalación, host `.convex.site` |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile (opcional en build) |
-| `COOLIFY_WEBHOOK_URL` | Coolify → App → Webhooks → Deploy webhook URL |
-| `COOLIFY_TOKEN` | Coolify → Keys & Tokens / API token con permiso `deploy` (solo si el webhook lo exige) |
+### Método B — Coolify construye el Dockerfile
 
-`GITHUB_TOKEN` se inyecta solo (permiso `packages:write` en el workflow) para publicar en GHCR. No hace falta un PAT extra para el push desde Actions del mismo repo.
+Úsalo como respaldo o en un environment de staging.
 
-#### Build args (ya van en el workflow, no en Coolify)
+1. Source: **Dockerfile** (base directory `/`, Dockerfile `Dockerfile`).
+2. Autodeploy por git: **ON** (o webhook de git).
+3. **Build arguments** en Coolify (públicos):
 
-`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_CONVEX_*` y Turnstile se hornean en la imagen durante el build de GitHub. Coolify **no** debe reconstruir Next.
+| Build arg | Valor |
+|-----------|--------|
+| `NEXT_PUBLIC_SITE_URL` | `https://www.quisqueyatech.com` |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | `info@quisqueyatech.com` |
+| `NEXT_PUBLIC_CONVEX_URL` | URL prod `.convex.cloud` |
+| `NEXT_PUBLIC_CONVEX_SITE_URL` | URL prod `.convex.site` |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | (opcional) |
+
+4. Runtime env: los mismos secretos que el método A.
+5. Port: `3000`
+6. Si usas método B en la app de prod, **no** configures `COOLIFY_WEBHOOK_URL` en GitHub (o el workflow solo subirá imagen a GHCR y no reiniciará Coolify). Convex sigue desplegándose desde Actions.
+
+### Secrets de GitHub Actions
+
+| Secret | Dónde obtenerlo | Método |
+|--------|-----------------|--------|
+| `CONVEX_DEPLOY_KEY` | Convex → Production → Deploy key | A y B |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex → `.convex.cloud` | A (build) |
+| `NEXT_PUBLIC_CONVEX_SITE_URL` | Convex → `.convex.site` | A (build) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile | A (opcional) |
+| `COOLIFY_WEBHOOK_URL` | Coolify → Webhooks → Deploy | Solo A |
+| `COOLIFY_TOKEN` | Coolify → API token `deploy` | Solo A si el webhook lo exige |
+
+`GITHUB_TOKEN` publica en GHCR solo (permiso `packages:write`).
+
+### Probar el Dockerfile en local
+
+Con Docker Desktop instalado y variables en `.env` / entorno:
+
+```bash
+# Build local (método B local)
+npm run docker:build
+npm run docker:up
+
+# O pull de la imagen de GHCR (método A local)
+# docker login ghcr.io
+npm run docker:pull
+```
+
+Health: `http://localhost:3000/api/health` debe responder `ok: true` si Convex URL pública está bien configurada en el build.
 
 `SITE_URL` en Convex debe ser exactamente `https://www.quisqueyatech.com`. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina `ADMIN_SETUP_CODE` del deployment de producción.
 
@@ -229,9 +271,9 @@ Las credenciales de agentes se preparan y se activan en dos pasos. Una clave pen
 ```bash
 npm test
 npm run lint
-npx tsc --noEmit
+npm run typecheck
 npm run build
-docker build -t quisqueyatech-coolify .
+npm run docker:build
 ```
 
 Las pruebas E2E anónimas no necesitan credenciales. La suite completa es destructiva (crea contenido y agentes, cambia la contraseña y consume un código), por lo que solo debe ejecutarse contra un deployment preview aislado. Si el preview está vacío usa `E2E_ADMIN_SETUP_CODE`; si ya está configurado proporciona además la cuenta y un código de recuperación:

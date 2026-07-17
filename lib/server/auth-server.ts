@@ -12,21 +12,36 @@ export class AuthConfigurationError extends Error {
 type AuthServer = ReturnType<typeof convexBetterAuthNextJs>;
 let authServer: AuthServer | undefined;
 
-function requiredUrl(name: "NEXT_PUBLIC_CONVEX_URL" | "NEXT_PUBLIC_CONVEX_SITE_URL") {
-  const value = process.env[name]?.trim();
-  if (!value) throw new AuthConfigurationError(`${name} is required`);
+function requiredConvexUrl() {
+  const value = process.env.CONVEX_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
+  if (!value) {
+    throw new AuthConfigurationError("CONVEX_URL or NEXT_PUBLIC_CONVEX_URL is required");
+  }
   try {
     return new URL(value).toString().replace(/\/$/, "");
   } catch {
-    throw new AuthConfigurationError(`${name} must be a valid URL`);
+    throw new AuthConfigurationError("CONVEX_URL must be a valid URL");
+  }
+}
+
+function requiredConvexSiteUrl() {
+  const value =
+    process.env.CONVEX_SITE_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim() || "";
+  if (!value) {
+    throw new AuthConfigurationError("CONVEX_SITE_URL or NEXT_PUBLIC_CONVEX_SITE_URL is required");
+  }
+  try {
+    return new URL(value).toString().replace(/\/$/, "");
+  } catch {
+    throw new AuthConfigurationError("CONVEX_SITE_URL must be a valid URL");
   }
 }
 
 function getAuthServer(): AuthServer {
   if (authServer) return authServer;
   authServer = convexBetterAuthNextJs({
-    convexUrl: requiredUrl("NEXT_PUBLIC_CONVEX_URL"),
-    convexSiteUrl: requiredUrl("NEXT_PUBLIC_CONVEX_SITE_URL"),
+    convexUrl: requiredConvexUrl(),
+    convexSiteUrl: requiredConvexSiteUrl(),
   });
   return authServer;
 }

@@ -17,32 +17,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
-import type { AssessmentEvidence, AssessmentSnapshot } from "@/lib/assessment/types";
-import { crossedThresholds, thresholdInstruction } from "@/lib/assessment/scheduler";
-import { normalizeVoiceStatus } from "@/lib/voice/status";
+import type { AssessmentEvidence } from "@/lib/assessment/types";
+import { crossedThresholds } from "@/lib/assessment/scheduler";
 
 type Session = {
-  provider: "ultravox" | "livekit" | "gemini-live" | "demo";
+  provider: "livekit";
   assessmentId: string;
-  contactEmail?: string;
-  locale: Locale;
-  joinUrl?: string;
-  callId?: string;
-  roomUrl?: string;
-  token?: string;
-  roomName?: string;
-  ephemeralToken?: string;
-  model?: string;
-  sessionConfig?: {
-    responseModalities: ["AUDIO"];
-    language: "es" | "en";
-    systemInstruction: string;
-  };
+  roomUrl: string;
+  token: string;
+  roomName: string;
   progressToken: string;
   resumeToken: string;
-  snapshot: AssessmentSnapshot;
   sessionKey: string;
-  notice?: string;
 };
 
 type TranscriptLine = { speaker: string; text: string };
@@ -52,7 +38,7 @@ const activeStatuses = new Set(["idle", "listening", "thinking", "speaking"]);
 
 export function VoiceSession({ locale, session }: { locale: Locale; session: Session }) {
   const es = locale === "es";
-  const [status, setStatus] = useState(session.provider === "demo" ? "demo" : "connecting");
+  const [status, setStatus] = useState("connecting");
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [muted, setMuted] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
@@ -65,7 +51,6 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     leave: () => Promise<void>;
     muteMic: (value: boolean) => void;
     muteSpeaker: (value: boolean) => void;
-    sendGuidance: (instruction: string) => void;
   } | null>(null);
   const lastThresholdSeconds = useRef(0);
   const finishing = useRef(false);
@@ -110,8 +95,6 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       const crossed = crossedThresholds(lastThresholdSeconds.current, current);
       lastThresholdSeconds.current = current;
       for (const threshold of crossed) {
-        const instruction = thresholdInstruction(threshold.key, locale);
-        controller.current?.sendGuidance(instruction);
         void saveProgress(threshold.key === "hard-stop" ? "close" : "time-threshold");
         if (threshold.key === "hard-stop") onHardStop();
       }
@@ -144,53 +127,37 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   }, [locale, session.assessmentId, session.progressToken, session.sessionKey]);
 
   useEffect(() => {
-    if (session.provider === "demo") return;
     let disposed = false;
+    let agentWaitTimer: number | undefined;
 
     async function connect() {
       try {
-        if (session.provider === "ultravox" && session.joinUrl) {
-          const { UltravoxSession } = await import("ultravox-client");
-          const voice = new UltravoxSession();
-          voice.registerToolImplementation("update_assessment_state", async (parameters) => {
-            const reason = ["answer", "correction", "interruption", "close"].includes(
-              String(parameters.reason),
-            )
-              ? (parameters.reason as "answer" | "correction" | "interruption" | "close")
-              : "answer";
-            const output = await saveProgress(
-              reason,
-              Array.isArray(parameters.updates) ? (parameters.updates as AssessmentEvidence[]) : [],
-            );
-            return { result: output.nextInstruction, responseType: "tool-response" };
-          });
-          voice.addEventListener("status", () => {
-            if (!disposed) setStatus(normalizeVoiceStatus(voice.status));
-          });
-          voice.addEventListener("transcripts", () => {
-            if (disposed) return;
-            setTranscript(
-              voice.transcripts
-                .filter((item) => item.isFinal)
-                .map((item) => ({ speaker: item.speaker, text: item.text })),
-            );
-          });
-          voice.joinCall(session.joinUrl, "quisqueyatech-web");
-          controller.current = {
-            leave: () => voice.leaveCall(),
-            muteMic: (value) => (value ? voice.muteMic() : voice.unmuteMic()),
-            muteSpeaker: (value) => (value ? voice.muteSpeaker() : voice.unmuteSpeaker()),
-            sendGuidance: (instruction) =>
-              voice.sendText(`<instruction>${instruction}</instruction>`, true),
-          };
-          return;
-        }
-
-        if (session.provider === "livekit" && session.roomUrl && session.token) {
+        if (session.roomUrl && session.token) {
           const { Room, RoomEvent } = await import("livekit-client");
           const room = new Room({ adaptiveStream: true, dynacast: true });
+          const audioElements = new Set<HTMLMediaElement>();
           room.on(RoomEvent.TrackSubscribed, (track) => {
-            if (track.kind === "audio") track.attach();
+            if (track.kind === "audio") {
+              const element = track.attach();
+              audioElements.add(element);
+              element.addEventListener("ended", () => audioElements.delete(element), {
+                once: true,
+              });
+            }
+          });
+          room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+            if (!disposed)
+              setStatus(
+                speakers.some((speaker) => speaker.isLocal)
+                  ? "listening"
+                  : speakers.length
+                    ? "speaking"
+                    : "listening",
+              );
+          });
+          room.on(RoomEvent.ParticipantConnected, () => {
+            if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
+            setStatus("listening");
           });
           room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
             const final = segments
@@ -210,46 +177,34 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
               void saveProgress("interruption");
             }
           });
+          setStatus("waiting-agent");
           await room.connect(session.roomUrl, session.token);
+          setStatus("requesting-microphone");
           await room.localParticipant.setMicrophoneEnabled(true);
-          setStatus("listening");
+          setStatus(room.remoteParticipants.size ? "listening" : "waiting-agent");
+          if (!room.remoteParticipants.size) {
+            agentWaitTimer = window.setTimeout(() => {
+              if (disposed || room.remoteParticipants.size) return;
+              setError(
+                es
+                  ? "El agente no pudo entrar a la sala. Puedes retomar con tu enlace seguro."
+                  : "The agent could not join the room. You can resume with your secure link.",
+              );
+              setResumeUrl(resumeLink(session.resumeToken));
+              setStatus("error");
+              room.disconnect();
+            }, 20_000);
+          }
           controller.current = {
             leave: async () => room.disconnect(),
             muteMic: (value) => {
               void room.localParticipant.setMicrophoneEnabled(!value);
             },
-            muteSpeaker: () => undefined,
-            sendGuidance: (instruction) => {
-              void room.localParticipant.publishData(new TextEncoder().encode(instruction), {
-                reliable: true,
-                topic: "assessment.guidance",
-              });
-            },
+            muteSpeaker: (value) =>
+              audioElements.forEach((element) => {
+                element.muted = value;
+              }),
           };
-          return;
-        }
-
-        if (
-          session.provider === "gemini-live" &&
-          session.ephemeralToken &&
-          session.model &&
-          session.sessionConfig
-        ) {
-          const { connectGeminiLive } = await import("@/lib/voice/gemini-live-client");
-          const gemini = await connectGeminiLive({
-            token: session.ephemeralToken,
-            model: session.model,
-            systemInstruction: session.sessionConfig.systemInstruction,
-            onStatus: (next) => {
-              if (!disposed) {
-                setStatus(next);
-                if (next === "error") setResumeUrl(resumeLink(session.resumeToken));
-              }
-            },
-            onTranscript: (line) => !disposed && setTranscript((current) => [...current, line]),
-            onProgress: saveProgress,
-          });
-          controller.current = gemini;
           return;
         }
         throw new Error(
@@ -268,6 +223,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     void connect();
     return () => {
       disposed = true;
+      if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
       void controller.current?.leave();
     };
   }, [es, saveProgress, session]);
@@ -283,24 +239,6 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       /* completion still attempts to preserve the transcript */
     }
     try {
-      const response = await fetch("/api/assessment/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.progressToken}`,
-        },
-        body: JSON.stringify({
-          assessmentId: session.assessmentId,
-          sessionKey: session.sessionKey,
-          email: session.contactEmail,
-          locale: session.locale,
-          transcript: transcript.map((line) => `${line.speaker}: ${line.text}`).join("\n"),
-          provider: session.provider,
-          durationSeconds: started.current ? Math.round((Date.now() - started.current) / 1000) : 0,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Could not complete assessment");
       setResult({ reviewPending: true });
       setStatus("complete");
     } catch (reason) {
@@ -316,6 +254,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const statusCopy: Record<string, string> = es
     ? {
         connecting: "Conectando…",
+        "requesting-microphone": "Solicitando micrófono…",
+        "waiting-agent": "Esperando al agente…",
         idle: "Preparando el agente",
         listening: "Te está escuchando",
         thinking: "Analizando tu respuesta",
@@ -330,6 +270,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       }
     : {
         connecting: "Connecting…",
+        "requesting-microphone": "Requesting microphone…",
+        "waiting-agent": "Waiting for the agent…",
         idle: "Preparing the agent",
         listening: "Listening to you",
         thinking: "Considering your answer",
@@ -381,13 +323,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-7">
               <div className="flex items-center gap-2 text-sm text-white/65">
                 <Radio className="h-4 w-4 text-success" aria-hidden="true" />
-                {session.provider === "ultravox"
-                  ? "Ultravox"
-                  : session.provider === "gemini-live"
-                    ? "Gemini Live"
-                    : session.provider === "demo"
-                      ? "Demo"
-                      : "LiveKit"}
+                LiveKit · Gemini 3.1 Live
               </div>
               <div className="flex items-center gap-2 text-xs text-white/50">
                 <ShieldCheck className="h-4 w-4 text-success" aria-hidden="true" />
@@ -417,16 +353,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 {es ? "Agente QuisqueyaTech" : "QuisqueyaTech agent"}
               </h2>
               <p className="mt-2 min-h-6 text-white/60" aria-live="polite">
-                {session.notice || statusCopy[status] || status}
+                {statusCopy[status] || status}
               </p>
 
-              {session.provider === "demo" ? (
-                <div className="mt-6 max-w-lg rounded-xl border border-amber/20 bg-amber/10 p-4 text-left text-sm leading-relaxed text-amber-100">
-                  {es
-                    ? "La sala está funcionando en modo demostración. Configura ULTRAVOX_API_KEY para activar la conversación de voz real."
-                    : "The room is running in demo mode. Configure ULTRAVOX_API_KEY to enable the live voice conversation."}
-                </div>
-              ) : null}
               {error ? (
                 <p
                   role="alert"

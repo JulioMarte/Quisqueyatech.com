@@ -28,7 +28,6 @@ export const assessmentConferenceStartSchema = z.object({
   processingConsent: z.literal(true),
   recordingConsent: z.literal(true),
   turnstileToken: z.string().optional(),
-  providerOverrideToken: z.string().optional(),
   resumeToken: z.string().optional(),
 });
 

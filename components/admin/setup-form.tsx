@@ -1,15 +1,40 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const field =
   "mt-2 min-h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-tech focus:ring-2 focus:ring-larimar";
-export function SetupForm() {
-  const [loading, setLoading] = useState(false),
-    [error, setError] = useState(""),
-    [codes, setCodes] = useState<string[]>([]),
-    [confirmed, setConfirmed] = useState(false);
+
+export function SetupForm({
+  initialSetupCodeRequired = false,
+}: {
+  initialSetupCodeRequired?: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [codes, setCodes] = useState<string[]>([]);
+  const [confirmed, setConfirmed] = useState(false);
+  const [setupCodeRequired, setSetupCodeRequired] = useState(initialSetupCodeRequired);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/auth/setup/status", { cache: "no-store" });
+        const body = await response.json().catch(() => ({}));
+        if (!cancelled && typeof body?.data?.setupCodeRequired === "boolean") {
+          setSetupCodeRequired(body.data.setupCodeRequired);
+        }
+      } catch {
+        /* keep initial prop */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -28,22 +53,24 @@ export function SetupForm() {
           name: data.get("name"),
           email: data.get("email"),
           password: data.get("password"),
-          setupCode: data.get("setupCode"),
+          setupCode: data.get("setupCode") || "",
         }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(body.message || body.error || "No se pudo crear el administrador.");
+        const detail = body.code ? ` (${body.code})` : "";
+        setError((body.message || body.error || "No se pudo crear el administrador.") + detail);
         return;
       }
       setCodes(body.data.recoveryCodes);
     } catch {
-      setError("No se pudo conectar con Convex Cloud.");
+      setError("No se pudo conectar con el servidor.");
     } finally {
       setLoading(false);
     }
   }
-  if (codes.length)
+
+  if (codes.length) {
     return (
       <section className="w-full rounded-2xl border border-line bg-white p-6 shadow-sm sm:p-8">
         <ShieldCheck className="h-10 w-10 text-tech" aria-hidden="true" />
@@ -83,6 +110,8 @@ export function SetupForm() {
         </Button>
       </section>
     );
+  }
+
   return (
     <form
       onSubmit={submit}
@@ -133,28 +162,38 @@ export function SetupForm() {
         minLength={14}
         required
       />
-      <label className="mt-4 block text-sm font-semibold" htmlFor="setupCode">
-        Código de instalación
-      </label>
-      <input
-        className={field}
-        id="setupCode"
-        name="setupCode"
-        type="password"
-        autoComplete="off"
-        minLength={24}
-        required
-      />
-      {error && (
+      {setupCodeRequired ? (
+        <>
+          <label className="mt-4 block text-sm font-semibold" htmlFor="setupCode">
+            Código de instalación
+          </label>
+          <input
+            className={field}
+            id="setupCode"
+            name="setupCode"
+            type="password"
+            autoComplete="off"
+            minLength={24}
+            required
+          />
+        </>
+      ) : (
+        <p className="mt-4 rounded-lg border border-line bg-bg-2 p-3 text-xs leading-5 text-text-2">
+          No hay código de instalación configurado: el primer administrador puede crearse
+          directamente. Después de crearlo, esta ruta se cierra.
+        </p>
+      )}
+      {error ? (
         <p
           role="alert"
           className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
         >
           {error}
         </p>
-      )}
+      ) : null}
       <Button variant="dark" className="mt-6 w-full" disabled={loading}>
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}Crear cuenta
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        Crear cuenta
       </Button>
     </form>
   );

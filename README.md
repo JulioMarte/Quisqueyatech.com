@@ -20,6 +20,8 @@ La aplicación funciona en modo demostración sin credenciales externas. Copia `
 
 El panel usa Better Auth dentro de Convex Cloud. No depende de Clerk, no permite registro público y admite exactamente un administrador. La primera cuenta se crea en `/setup`; después esa ruta queda cerrada.
 
+**Bootstrap de baja fricción:** si `ADMIN_SETUP_CODE` **no** está definido en Convex (o tiene menos de 24 caracteres), el primer admin se crea **sin código de instalación** (first-admin-wins). Si defines un `ADMIN_SETUP_CODE` ≥ 24 caracteres, el formulario lo exige. Tras crear la cuenta, elimina el código de Convex si lo usaste.
+
 ### 1. Generar secretos
 
 ```powershell
@@ -69,7 +71,9 @@ En Coolify configura como build arguments `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC
 npm run dev
 ```
 
-Abre [http://localhost:3000/setup](http://localhost:3000/setup), introduce el `ADMIN_SETUP_CODE` y crea la cuenta. Guarda los ocho códigos de recuperación: se muestran una sola vez. Luego entra por [http://localhost:3000/sign-in](http://localhost:3000/sign-in).
+Abre [http://localhost:3000/setup](http://localhost:3000/setup) (o `https://www.quisqueyatech.com/setup` en prod). Si hay `ADMIN_SETUP_CODE` en Convex, introdúcelo; si no, crea la cuenta directamente. Guarda los ocho códigos de recuperación: se muestran una sola vez. Luego entra por `/sign-in`.
+
+Si el setup devuelve 503 con un `code` (p. ej. `MISSING_ADMIN_API_SECRET`, `CONVEX_UNAUTHORIZED`), el mensaje indica qué variable falta o no coincide entre Coolify y Convex.
 
 Cuando confirmes el acceso, elimina el código temporal:
 

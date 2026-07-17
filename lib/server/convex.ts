@@ -17,6 +17,19 @@ function adminApiSecret() {
   return secret;
 }
 
+/** Runtime-first URLs so Coolify can set them without a rebuild (server only). */
+export function resolveConvexUrl() {
+  return process.env.CONVEX_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
+}
+
+export function resolveConvexSiteUrl() {
+  return (
+    process.env.CONVEX_SITE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim() ||
+    ""
+  ).replace(/\/$/, "");
+}
+
 /** Public Convex function prefixes that require ADMIN_API_SECRET. */
 const ADMIN_MACHINE_PREFIXES = [
   "auth:checkSecurityRateLimit",
@@ -40,8 +53,6 @@ function securedArgs(name: string, args: Record<string, unknown>) {
     return { ...args, serviceSecret: assessmentStorageSecret() };
   }
   if (isAdminMachineFunction(name)) {
-    // Prefer explicit arg from caller; otherwise inject server secret so routes
-    // cannot forget it. Secret still never ships to the browser.
     if (typeof args.serviceSecret === "string" || typeof args.secret === "string") {
       return args;
     }
@@ -59,8 +70,10 @@ function securedArgs(name: string, args: Record<string, unknown>) {
 
 export function getConvexServerClient() {
   if (client) return client;
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
-  if (!url) throw new AuthConfigurationError("NEXT_PUBLIC_CONVEX_URL is required");
+  const url = resolveConvexUrl();
+  if (!url) {
+    throw new AuthConfigurationError("CONVEX_URL or NEXT_PUBLIC_CONVEX_URL is required");
+  }
   client = new ConvexHttpClient(url);
   return client;
 }
@@ -97,14 +110,15 @@ export async function convexAction(
 
 /**
  * Call a Convex HTTP machine endpoint on *.convex.site with Bearer ADMIN_API_SECRET.
- * Prefer this for high-sensitivity data (e.g. encrypted runtime secrets).
  */
 export async function convexMachineFetch<T = unknown>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim()?.replace(/\/$/, "");
-  if (!siteUrl) throw new AuthConfigurationError("NEXT_PUBLIC_CONVEX_SITE_URL is required");
+  const siteUrl = resolveConvexSiteUrl();
+  if (!siteUrl) {
+    throw new AuthConfigurationError("CONVEX_SITE_URL or NEXT_PUBLIC_CONVEX_SITE_URL is required");
+  }
   const secret = adminApiSecret();
   const response = await fetch(`${siteUrl}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,

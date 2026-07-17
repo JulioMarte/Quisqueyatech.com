@@ -27,7 +27,9 @@ export async function runtimeConfig(): Promise<RuntimeConfig> {
     livekitApiSecret: process.env.LIVEKIT_API_SECRET,
     geminiApiKey: process.env.GEMINI_API_KEY,
   };
-  if (!process.env.ADMIN_API_SECRET || !process.env.NEXT_PUBLIC_CONVEX_SITE_URL) {
+  const siteUrl =
+    process.env.CONVEX_SITE_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim();
+  if (!process.env.ADMIN_API_SECRET || !siteUrl) {
     return fallback;
   }
   try {

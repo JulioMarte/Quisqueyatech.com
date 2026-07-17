@@ -58,7 +58,12 @@ export async function PUT(request: Request) {
     const parsed = updateSchema.safeParse(await readAdminJson(request, 64_000));
     if (!parsed.success)
       return adminFailure(trace, parsed.error.issues[0]?.message || "Invalid configuration", 400);
-    const config = { ...parsed.data.config };
+    const config = {
+      ...parsed.data.config,
+      defaultProvider: "livekit" as const,
+      geminiLiveModel: parsed.data.config.geminiLiveModel || "gemini-3.1-flash-live-preview",
+      geminiLiveVoice: parsed.data.config.geminiLiveVoice || "Aoede",
+    };
     for (const key of ["webhookUrl", "ultravoxApiUrl"] as const) {
       if (!config[key]) continue;
       try {

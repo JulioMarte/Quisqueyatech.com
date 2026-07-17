@@ -7,18 +7,12 @@ import {
   requestId,
 } from "@/lib/server/admin-content";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/server/auth-server";
-import { providerOverrideToken } from "@/lib/server/assessment-tokens";
-import { voiceProviderSchema } from "@/lib/validations/assessment";
 
 export async function GET(request: Request) {
   const trace = requestId(request);
   try {
     if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
-    const stored = await fetchAuthQuery(api.settings.adminGet, {});
-    const config = stored.config as Record<string, unknown>;
-    return adminJson(trace, {
-      defaultProvider: config.defaultProvider || process.env.VOICE_PROVIDER || "ultravox",
-    });
+    return adminJson(trace, { defaultProvider: "livekit" });
   } catch (error) {
     return adminException(trace, "voice-settings.get", error);
   }
@@ -27,16 +21,12 @@ export async function PATCH(request: Request) {
   const trace = requestId(request);
   try {
     if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
-    const parsed = voiceProviderSchema.safeParse(
-      (await request.json().catch(() => null))?.provider,
-    );
-    if (!parsed.success) return adminFailure(trace, "Invalid provider", 400);
     const stored = await fetchAuthQuery(api.settings.adminGet, {});
     await fetchAuthMutation(api.settings.adminSave, {
-      config: { ...(stored.config as Record<string, unknown>), defaultProvider: parsed.data },
+      config: { ...(stored.config as Record<string, unknown>), defaultProvider: "livekit" },
       secrets: [],
     });
-    return adminJson(trace, { defaultProvider: parsed.data });
+    return adminJson(trace, { defaultProvider: "livekit" });
   } catch (error) {
     return adminException(trace, "voice-settings.update", error);
   }
@@ -45,15 +35,8 @@ export async function POST(request: Request) {
   const trace = requestId(request);
   try {
     if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
-    const parsed = voiceProviderSchema.safeParse(
-      (await request.json().catch(() => null))?.provider,
-    );
-    if (!parsed.success) return adminFailure(trace, "Invalid provider", 400);
-    const token = providerOverrideToken(parsed.data);
     const base = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
-    return adminJson(trace, {
-      url: `${base}/evaluacion/ahora?provider=${encodeURIComponent(token)}`,
-    });
+    return adminJson(trace, { url: `${base}/evaluacion/ahora` });
   } catch (error) {
     return adminException(trace, "voice-settings.test-link", error);
   }

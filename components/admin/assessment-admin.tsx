@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Copy, Loader2, Mail, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
-import type { VoiceProviderId } from "@/lib/assessment/types";
 import { adminRequest, type AdminPage } from "@/lib/client/admin-response";
 
 type Report = {
@@ -51,14 +50,11 @@ type Detail = Summary & {
   sendError?: string;
   reportSendMessageId?: string;
 };
-const providers: VoiceProviderId[] = ["ultravox", "livekit", "gemini-live"];
-
 export function AssessmentAdmin() {
   const confirmRef = useRef<HTMLDialogElement>(null);
   const [items, setItems] = useState<Summary[]>([]),
     [selected, setSelected] = useState<Detail | null>(null),
     [report, setReport] = useState<Report | null>(null),
-    [provider, setProvider] = useState<VoiceProviderId>("ultravox"),
     [filter, setFilter] = useState(""),
     [cursor, setCursor] = useState<string | null>(null),
     [isDone, setIsDone] = useState(true),
@@ -96,14 +92,6 @@ export function AssessmentAdmin() {
   );
   useEffect(() => {
     queueMicrotask(() => void load());
-    void adminRequest<{ defaultProvider: VoiceProviderId }>("/api/admin/v1/voice-settings")
-      .then((data) => setProvider(data.defaultProvider))
-      .catch((error) =>
-        announce(
-          error instanceof Error ? error.message : "No se pudo cargar el proveedor.",
-          "error",
-        ),
-      );
   }, [load]);
 
   async function selectAssessment(item: Summary) {
@@ -130,36 +118,6 @@ export function AssessmentAdmin() {
     if (!selected) return;
     await selectAssessment(selected);
     await load();
-  }
-  async function setDefaultProvider(next: VoiceProviderId) {
-    const previous = provider;
-    setProvider(next);
-    try {
-      await adminRequest("/api/admin/v1/voice-settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: next }),
-      });
-    } catch (error) {
-      setProvider(previous);
-      announce(
-        error instanceof Error ? error.message : "No se pudo actualizar el proveedor.",
-        "error",
-      );
-    }
-  }
-  async function copyTestLink() {
-    try {
-      const data = await adminRequest<{ url: string }>("/api/admin/v1/voice-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      });
-      await navigator.clipboard.writeText(data.url);
-      announce("Enlace firmado copiado. Vence en 24 horas.");
-    } catch (error) {
-      announce(error instanceof Error ? error.message : "No se pudo copiar el enlace.", "error");
-    }
   }
   async function loadPreview() {
     if (!selected || !report) return;
@@ -239,22 +197,9 @@ export function AssessmentAdmin() {
                 <option value="sent">Enviado</option>
               </select>
             </label>
-            <label className="text-sm font-medium">
-              <span className="mb-1 block">Proveedor predeterminado</span>
-              <select
-                value={provider}
-                onChange={(event) => void setDefaultProvider(event.target.value as VoiceProviderId)}
-                className="min-h-11 rounded-lg border border-line bg-white px-3"
-              >
-                {providers.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-            <Button type="button" variant="outline" onClick={() => void copyTestLink()}>
-              <Copy className="h-4 w-4" />
-              Enlace de prueba
-            </Button>
+            <span className="inline-flex min-h-11 items-center rounded-lg border border-line bg-white px-3 text-sm font-medium">
+              LiveKit · Gemini 3.1 Live
+            </span>
             <Button type="button" variant="outline" disabled={loading} onClick={() => void load()}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

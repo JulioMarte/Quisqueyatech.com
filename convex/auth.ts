@@ -83,6 +83,11 @@ function constantTimeEqual(left: string, right: string) {
   return difference === 0;
 }
 
+function setupCodeRequired() {
+  const expected = process.env.ADMIN_SETUP_CODE?.trim() ?? "";
+  return expected.length >= 24;
+}
+
 export const setupStatus = query({
   args: {},
   handler: async (ctx) => {
@@ -90,18 +95,25 @@ export const setupStatus = query({
       .query("adminInstallation")
       .withIndex("by_singleton", (q) => q.eq("singleton", "admin"))
       .unique();
-    if (!row) return { status: "uninitialized" as const };
-    if (row.status === "provisioning" && (row.claimExpiresAt ?? 0) <= Date.now())
-      return { status: "uninitialized" as const };
-    return { status: row.status };
+    const codeRequired = setupCodeRequired();
+    if (!row) {
+      return { status: "uninitialized" as const, setupCodeRequired: codeRequired };
+    }
+    if (row.status === "provisioning" && (row.claimExpiresAt ?? 0) <= Date.now()) {
+      return { status: "uninitialized" as const, setupCodeRequired: codeRequired };
+    }
+    return { status: row.status, setupCodeRequired: codeRequired };
   },
 });
 
 export const claimSetup = internalMutation({
   args: { code: v.string(), now: v.number() },
   handler: async (ctx, args) => {
-    const expected = process.env.ADMIN_SETUP_CODE ?? "";
-    if (expected.length < 24 || !constantTimeEqual(args.code, expected)) return { ok: false };
+    const expected = process.env.ADMIN_SETUP_CODE?.trim() ?? "";
+    // First-admin-wins when ADMIN_SETUP_CODE is unset; otherwise require match.
+    if (expected.length >= 24) {
+      if (!constantTimeEqual(args.code, expected)) return { ok: false };
+    }
     const row = await ctx.db
       .query("adminInstallation")
       .withIndex("by_singleton", (q) => q.eq("singleton", "admin"))
@@ -109,8 +121,9 @@ export const claimSetup = internalMutation({
     if (
       row?.status === "configured" ||
       (row?.status === "provisioning" && (row.claimExpiresAt ?? 0) > args.now)
-    )
+    ) {
       return { ok: false };
+    }
     const value = {
       status: "provisioning" as const,
       claimExpiresAt: args.now + 2 * 60_000,

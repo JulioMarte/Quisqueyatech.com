@@ -27,8 +27,6 @@ type Rules = {
 type Masked = { configured: boolean; lastFour: string };
 const names = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const secretFields = [
-  ["ultravoxApiKey", "Ultravox API key"],
-  ["ultravoxWebhookSecret", "Ultravox webhook secret"],
   ["livekitApiKey", "LiveKit API key"],
   ["livekitApiSecret", "LiveKit API secret"],
   ["geminiApiKey", "Gemini API key"],
@@ -284,31 +282,9 @@ export function ConfigurationAdmin() {
           </Card>
           <div className="space-y-5">
             <Card icon={<KeyRound />} title="Voz e inteligencia">
-              <Select
-                label="Proveedor activo"
-                value={String(config.defaultProvider || "ultravox")}
-                onChange={(value) => setConfig({ ...config, defaultProvider: value })}
-                options={[
-                  ["ultravox", "Ultravox"],
-                  ["livekit", "LiveKit"],
-                  ["gemini-live", "Gemini Live"],
-                ]}
-              />
-              <Field
-                label="Ultravox API URL"
-                value={String(config.ultravoxApiUrl || "https://api.ultravox.ai/api/calls")}
-                onChange={(value) => setConfig({ ...config, ultravoxApiUrl: value })}
-              />
-              <Field
-                label="Modelo Ultravox"
-                value={String(config.ultravoxModel || "")}
-                onChange={(value) => setConfig({ ...config, ultravoxModel: value })}
-              />
-              <Field
-                label="Voz Ultravox"
-                value={String(config.ultravoxVoice || "")}
-                onChange={(value) => setConfig({ ...config, ultravoxVoice: value })}
-              />
+              <p className="mb-4 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-primary">
+                Proveedor fijo: LiveKit Cloud · Gemini 3.1 Live
+              </p>
               <Field
                 label="LiveKit URL"
                 value={String(config.livekitUrl || "")}
@@ -316,7 +292,7 @@ export function ConfigurationAdmin() {
               />
               <Field
                 label="Modelo Gemini Live"
-                value={String(config.geminiLiveModel || "")}
+                value={String(config.geminiLiveModel || "gemini-3.1-flash-live-preview")}
                 onChange={(value) => setConfig({ ...config, geminiLiveModel: value })}
               />
               <Field
@@ -324,7 +300,7 @@ export function ConfigurationAdmin() {
                 value={String(config.geminiLiveVoice || "")}
                 onChange={(value) => setConfig({ ...config, geminiLiveVoice: value })}
               />
-              {secretFields.slice(0, 5).map(([key, label]) => (
+              {secretFields.slice(0, 3).map(([key, label]) => (
                 <Secret
                   key={key}
                   label={label}
@@ -335,9 +311,8 @@ export function ConfigurationAdmin() {
               ))}
               <div className="mt-4 flex flex-wrap gap-2">
                 {[
-                  ["ultravox", "Ultravox"],
                   ["livekit", "LiveKit"],
-                  ["gemini-live", "Gemini"],
+                  ["gemini-live", "Gemini 3.1"],
                 ].map(([value, label]) => (
                   <Button
                     key={value}
@@ -548,34 +523,6 @@ function NumberField({
         onChange={(event) => onChange(Number(event.target.value))}
         className="mt-1 block min-h-11 w-full rounded-lg border border-line px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tech"
       />
-    </label>
-  );
-}
-function Select({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[][];
-}) {
-  return (
-    <label className="mb-4 block text-xs font-semibold text-text-2">
-      {label}
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-1 block min-h-11 w-full rounded-lg border border-line bg-white px-3 text-sm"
-      >
-        {options.map(([value, text]) => (
-          <option key={value} value={value}>
-            {text}
-          </option>
-        ))}
-      </select>
     </label>
   );
 }

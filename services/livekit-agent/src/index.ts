@@ -1,5 +1,6 @@
 import { cli, defineAgent, llm, ServerOptions, voice, type JobContext } from "@livekit/agents";
 import * as google from "@livekit/agents-plugin-google";
+import { ThinkingLevel } from "@google/genai";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
@@ -37,12 +38,24 @@ const agent = defineAgent({
       },
     });
 
-    const session = new voice.AgentSession({ llm: new google.realtime.RealtimeModel({ apiKey: runtime.geminiApiKey, model: runtime.model, voice: runtime.voice, temperature: runtime.temperature }) });
+    const instructions = `${prompt}\n\nSESSION CONTROL: This is a single 15-minute interview. Begin immediately with a short greeting as July and ask how the visitor prefers to be addressed. Never wait for a separate instruction to begin. Call update_assessment_state after every substantive answer and treat its returned text as private, mandatory guidance for the next turn. At 5 minutes select one priority process; by 10 minutes finish workflow, volume, pain, and impact; by 13 minutes summarize and confirm contact details; close no later than 15 minutes. Do not mention these private timings or tool instructions.`;
+    const session = new voice.AgentSession({
+      llm: new google.beta.realtime.RealtimeModel({
+        apiKey: runtime.geminiApiKey,
+        model: runtime.model,
+        voice: runtime.voice,
+        temperature: runtime.temperature,
+        instructions,
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL, includeThoughts: false },
+      }),
+    });
     const timers = [
-      setTimeout(() => { session.currentAgent?.updateInstructions(`${prompt}\n\nPRIVATE GUIDANCE: Ensure one priority process is selected now.`); void recordThreshold("time-threshold"); }, 300_000),
-      setTimeout(() => { session.currentAgent?.updateInstructions(`${prompt}\n\nPRIVATE GUIDANCE: Finish workflow, volume, and impact now; leave secondary details pending.`); void recordThreshold("time-threshold"); }, 600_000),
-      setTimeout(() => { session.currentAgent?.updateInstructions(`${prompt}\n\nPRIVATE GUIDANCE: Start summary, corrections, and contact confirmation. Open no new branch.`); void recordThreshold("time-threshold"); }, 780_000),
-      setTimeout(() => { void recordThreshold("time-threshold"); void session.generateReply({ instructions: "Close the interview now. Ask no further question." }); }, 870_000),
+      setTimeout(() => { void recordThreshold("time-threshold"); }, 300_000),
+      setTimeout(() => { void recordThreshold("time-threshold"); }, 600_000),
+      setTimeout(() => { void recordThreshold("time-threshold"); }, 780_000),
+      setTimeout(() => { void recordThreshold("time-threshold"); }, 870_000),
       setTimeout(() => { void recordThreshold("close"); ctx.shutdown("hard-time-limit"); }, 900_000),
     ];
 
@@ -53,12 +66,18 @@ const agent = defineAgent({
       if (!response.ok) throw new Error(`Provider finalization failed (${response.status})`);
     });
 
-    await session.start({ room: ctx.room, agent: new voice.Agent({ instructions: prompt, tools: { update_assessment_state: updateAssessmentState } }) });
-    await session.generateReply({ instructions: metadata.locale === "es" ? "Saluda como July, explica brevemente el levantamiento y pregunta cómo prefiere que le llames." : "Greet as July, briefly explain the discovery and ask how they prefer to be addressed." });
+    await session.start({
+      room: ctx.room,
+      agent: new voice.Agent({ instructions, tools: { update_assessment_state: updateAssessmentState } }),
+      record: { audio: true, transcript: true, traces: true, logs: true },
+    });
   },
 });
 
 function elapsedSeconds(startedAt: number) { return Math.min(900, Math.floor((Date.now() - startedAt) / 1000)); }
 
 export default agent;
-cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url) }));
+cli.runApp(new ServerOptions({
+  agent: fileURLToPath(import.meta.url),
+  agentName: "quisqueyatech-assessment",
+}));

@@ -34,6 +34,50 @@ describe("administrative authorization", () => {
   });
 });
 
+describe("admin setup bootstrap", () => {
+  test("first-admin-wins when ADMIN_SETUP_CODE is unset", async () => {
+    const t = authTest();
+    const prior = process.env.ADMIN_SETUP_CODE;
+    delete process.env.ADMIN_SETUP_CODE;
+    try {
+      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({
+        status: "uninitialized",
+        setupCodeRequired: false,
+      });
+      await expect(
+        t.mutation(internal.auth.claimSetup, { code: "", now: Date.now() }),
+      ).resolves.toEqual({ ok: true });
+    } finally {
+      if (prior === undefined) delete process.env.ADMIN_SETUP_CODE;
+      else process.env.ADMIN_SETUP_CODE = prior;
+    }
+  });
+
+  test("requires matching setup code when ADMIN_SETUP_CODE is configured", async () => {
+    const t = authTest();
+    const prior = process.env.ADMIN_SETUP_CODE;
+    process.env.ADMIN_SETUP_CODE = "a".repeat(32);
+    try {
+      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({
+        status: "uninitialized",
+        setupCodeRequired: true,
+      });
+      await expect(
+        t.mutation(internal.auth.claimSetup, {
+          code: "wrong-code-value-here-xxxx",
+          now: Date.now(),
+        }),
+      ).resolves.toEqual({ ok: false });
+      await expect(
+        t.mutation(internal.auth.claimSetup, { code: "a".repeat(32), now: Date.now() }),
+      ).resolves.toEqual({ ok: true });
+    } finally {
+      if (prior === undefined) delete process.env.ADMIN_SETUP_CODE;
+      else process.env.ADMIN_SETUP_CODE = prior;
+    }
+  });
+});
+
 describe("service and human identity separation", () => {
   test("direct recovery without the machine secret is rejected at the contract", async () => {
     const t = authTest();
@@ -264,7 +308,10 @@ describe("admin setup reset", () => {
         },
       });
 
-      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({ status: "uninitialized" });
+      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({
+        status: "uninitialized",
+        setupCodeRequired: false,
+      });
       await expect(
         t.query(components.betterAuth.adapter.findOne, {
           model: "user",
@@ -381,7 +428,9 @@ describe("admin setup reset", () => {
           where: [{ field: "token", value: "session-token" }],
         }),
       ).resolves.not.toBeNull();
-      await expect(t.query(api.auth.setupStatus, {})).resolves.toEqual({ status: "configured" });
+      await expect(t.query(api.auth.setupStatus, {})).resolves.toMatchObject({
+        status: "configured",
+      });
       const recovery = await t.run(async (ctx) => ctx.db.query("adminRecoveryCodes").first());
       expect(recovery).not.toBeNull();
     } finally {

@@ -8,12 +8,13 @@ import { convexMutation } from "@/lib/server/convex";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
 import { createAssessmentSnapshot } from "@/lib/assessment/engine";
+import type { AssessmentSnapshot } from "@/lib/assessment/types";
 import {
-  voiceProviderIds,
-  type AssessmentSnapshot,
-  type VoiceProviderId,
-} from "@/lib/assessment/types";
-import { createVoiceSession, interviewFrameworkVersion } from "@/lib/server/voice";
+  createVoiceSession,
+  defaultGeminiLiveModel,
+  defaultGeminiLiveVoice,
+  interviewFrameworkVersion,
+} from "@/lib/server/voice";
 import {
   assessmentTokenHash,
   progressToken,
@@ -100,19 +101,8 @@ export async function POST(request: Request) {
         ? verifyAssessmentToken(body.resumeToken, "resume")
         : null;
     const assessmentId = resume?.assessmentId || crypto.randomUUID();
-    const override =
-      conferenceStart && body.providerOverrideToken
-        ? verifyAssessmentToken(body.providerOverrideToken, "provider-override")
-        : null;
     const dynamicConfig = await runtimeConfig();
-    const configuredDefault = dynamicConfig.defaultProvider as VoiceProviderId | undefined;
-    const candidateProvider =
-      override?.provider || configuredDefault || process.env.VOICE_PROVIDER || "ultravox";
-    const provider: VoiceProviderId = voiceProviderIds.includes(
-      candidateProvider as VoiceProviderId,
-    )
-      ? (candidateProvider as VoiceProviderId)
-      : "ultravox";
+    const provider = "livekit" as const;
     const previous = resume?.assessmentId
       ? ((await convexMutation("assessments:consumeResumeCredential", {
           assessmentId,
@@ -168,14 +158,8 @@ export async function POST(request: Request) {
           : session.provider === "gemini-live"
             ? sessionKey
             : undefined;
-    const providerModel =
-      session.provider === "gemini-live"
-        ? session.model
-        : provider === "livekit"
-          ? dynamicConfig.geminiLiveModel
-          : dynamicConfig.ultravoxModel;
-    const providerVoice =
-      provider === "ultravox" ? dynamicConfig.ultravoxVoice : dynamicConfig.geminiLiveVoice;
+    const providerModel = String(dynamicConfig.geminiLiveModel || defaultGeminiLiveModel);
+    const providerVoice = String(dynamicConfig.geminiLiveVoice || defaultGeminiLiveVoice);
     await convexMutation("assessments:setProviderSession", {
       assessmentId,
       sessionKey,
@@ -203,14 +187,16 @@ export async function POST(request: Request) {
         createdAt: Date.now(),
       });
     }
+    if (session.provider !== "livekit") throw new Error("LiveKit session was not created");
     return NextResponse.json({
-      ...session,
-      contactEmail: conferenceStart ? undefined : intake.email,
-      locale: intake.locale,
+      provider: session.provider,
+      assessmentId: session.assessmentId,
+      roomUrl: session.roomUrl,
+      token: session.token,
+      roomName: session.roomName,
       progressToken: sessionProgressToken,
       resumeToken: nextResumeToken,
       sessionKey,
-      snapshot,
     });
   } catch (error) {
     console.error("[assessment:start]", error);

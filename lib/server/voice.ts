@@ -1,5 +1,6 @@
 import "server-only";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { AccessToken } from "livekit-server-sdk";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import type {
@@ -13,6 +14,9 @@ import type {
 } from "@/lib/assessment/types";
 
 export const interviewFrameworkVersion = "2026-07-v1";
+export const assessmentAgentName = "quisqueyatech-assessment";
+export const defaultGeminiLiveModel = "gemini-3.1-flash-live-preview";
+export const defaultGeminiLiveVoice = "Aoede";
 
 export function assessmentPrompt(locale: "es" | "en", name: string, resumeSummary?: string) {
   const resume = resumeSummary
@@ -169,7 +173,7 @@ class LiveKitAdapter extends BaseAdapter {
   readonly id = "livekit" as const;
   async createSession(context: AssessmentContext): Promise<ProviderSession> {
     const config = await runtimeConfig();
-    const roomName = `assessment-${context.assessmentId}`;
+    const roomName = `assessment-${context.assessmentId}-${context.sessionKey}`;
     const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret), {
       identity: `lead-${context.assessmentId}`,
       name: context.name,
@@ -187,6 +191,19 @@ class LiveKitAdapter extends BaseAdapter {
       canSubscribe: true,
       canPublishData: true,
     });
+    token.roomConfig = new RoomConfiguration({
+      agents: [
+        new RoomAgentDispatch({
+          agentName: assessmentAgentName,
+          metadata: JSON.stringify({
+            assessmentId: context.assessmentId,
+            sessionKey: context.sessionKey,
+            locale: context.locale,
+            frameworkVersion: interviewFrameworkVersion,
+          }),
+        }),
+      ],
+    });
     return {
       provider: "livekit",
       assessmentId: context.assessmentId,
@@ -201,7 +218,7 @@ class GeminiLiveAdapter extends BaseAdapter {
   readonly id = "gemini-live" as const;
   async createSession(context: AssessmentContext): Promise<ProviderSession> {
     const config = await runtimeConfig();
-    const model = String(config.geminiLiveModel || "gemini-2.5-flash-native-audio-preview-12-2025");
+    const model = String(config.geminiLiveModel || defaultGeminiLiveModel);
     const systemInstruction = assessmentPrompt(context.locale, context.name, context.resumeSummary);
     const ai = new GoogleGenAI({
       apiKey: String(config.geminiApiKey),
@@ -259,9 +276,10 @@ export function getVoiceProvider(provider: VoiceProviderId): VoiceProviderAdapte
 }
 
 export async function createVoiceSession(
-  provider: VoiceProviderId,
+  _provider: VoiceProviderId,
   context: AssessmentContext,
 ): Promise<VoiceStartSession> {
+  const provider: VoiceProviderId = "livekit";
   if (!(await providerConfigured(provider))) {
     if (process.env.NODE_ENV === "production")
       throw new Error(`${provider} is not fully configured`);

@@ -4,14 +4,29 @@ import { api } from "@/convex/_generated/api";
 import { isAgentToken, safeReturnTo, tokenHash } from "@/lib/auth-core";
 import { convexMutation } from "@/lib/server/convex";
 import { fetchAuthQuery } from "@/lib/server/auth-server";
+import { AuthConfigError } from "@/lib/server/auth-errors";
 
 export { safeReturnTo, tokenHash };
 export type AdminActor = { type: "admin"; id: string; label: string; email: string };
 
 export function adminSecret() {
   const value = process.env.ADMIN_API_SECRET?.trim();
-  if (!value) throw new Error("ADMIN_API_SECRET is required");
+  if (!value) {
+    throw new AuthConfigError("MISSING_ADMIN_API_SECRET", "ADMIN_API_SECRET is required");
+  }
   return value;
+}
+
+/** Prefer dedicated hash secret; fall back to machine secret to reduce Coolify friction. */
+export function authIpHashSecret() {
+  const dedicated = process.env.AUTH_IP_HASH_SECRET?.trim();
+  if (dedicated) return dedicated;
+  const fallback = process.env.ADMIN_API_SECRET?.trim();
+  if (fallback) return fallback;
+  throw new AuthConfigError(
+    "MISSING_AUTH_IP_HASH_SECRET",
+    "AUTH_IP_HASH_SECRET or ADMIN_API_SECRET is required",
+  );
 }
 
 export async function currentAdmin(): Promise<AdminActor | null> {
@@ -31,15 +46,13 @@ function requestIp(request: Request) {
 }
 
 export function loginFingerprints(request: Request, email: string) {
-  const secret = process.env.AUTH_IP_HASH_SECRET;
-  if (!secret) throw new Error("AUTH_IP_HASH_SECRET is required");
+  const secret = authIpHashSecret();
   const hmac = (value: string) => createHmac("sha256", secret).update(value).digest("hex");
   return [`email:${hmac(email.trim().toLowerCase())}`, `ip:${hmac(requestIp(request))}`];
 }
 
 export function requestFingerprint(request: Request, scope: string) {
-  const secret = process.env.AUTH_IP_HASH_SECRET;
-  if (!secret) throw new Error("AUTH_IP_HASH_SECRET is required");
+  const secret = authIpHashSecret();
   return `${scope}:${createHmac("sha256", secret).update(requestIp(request)).digest("hex")}`;
 }
 
@@ -56,12 +69,28 @@ export function validOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
   try {
-    return (
-      new URL(origin).origin === new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin
-    );
+    const site =
+      process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim() || request.url;
+    return new URL(origin).origin === new URL(site).origin;
   } catch {
     return false;
   }
+}
+
+export function authConfigProbe() {
+  return {
+    hasAdminApiSecret: Boolean(process.env.ADMIN_API_SECRET?.trim()),
+    hasAuthIpHashSecret: Boolean(
+      process.env.AUTH_IP_HASH_SECRET?.trim() || process.env.ADMIN_API_SECRET?.trim(),
+    ),
+    hasConvexUrl: Boolean(
+      process.env.CONVEX_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_URL?.trim(),
+    ),
+    hasConvexSiteUrl: Boolean(
+      process.env.CONVEX_SITE_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim(),
+    ),
+    hasSiteUrl: Boolean(process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim()),
+  };
 }
 
 export async function requireContentAgent(request: Request, operation = "request") {

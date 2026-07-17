@@ -7,30 +7,15 @@ import { TurnstileField } from "@/components/security/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
-import type { AssessmentSnapshot } from "@/lib/assessment/types";
-
 type SessionData = {
-  provider: "ultravox" | "livekit" | "gemini-live" | "demo";
+  provider: "livekit";
   assessmentId: string;
-  contactEmail?: string;
-  locale: Locale;
-  joinUrl?: string;
-  callId?: string;
-  roomUrl?: string;
-  roomName?: string;
-  token?: string;
-  ephemeralToken?: string;
-  model?: string;
-  sessionConfig?: {
-    responseModalities: ["AUDIO"];
-    language: "es" | "en";
-    systemInstruction: string;
-  };
+  roomUrl: string;
+  roomName: string;
+  token: string;
   progressToken: string;
   resumeToken: string;
-  snapshot: AssessmentSnapshot;
   sessionKey: string;
-  notice?: string;
 };
 
 export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
@@ -58,8 +43,6 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
           turnstileToken,
           processingConsent: true,
           recordingConsent: true,
-          providerOverrideToken:
-            new URLSearchParams(window.location.search).get("provider") || undefined,
           resumeToken:
             new URLSearchParams(window.location.hash.replace(/^#/, "")).get("resume") || undefined,
         }),
@@ -122,7 +105,7 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
                   <p className="text-sm font-semibold">
                     {es ? "Diagnóstico inicial" : "Initial discovery"}
                   </p>
-                  <p className="text-xs text-white/50">Ultravox · WebRTC</p>
+                  <p className="text-xs text-white/50">LiveKit · Gemini 3.1 Live</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-white/50">

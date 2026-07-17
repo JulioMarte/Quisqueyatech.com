@@ -12,9 +12,7 @@ import {
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { requestExternalSafely } from "@/lib/server/secure-config";
 
-const requestSchema = z
-  .object({ provider: z.enum(["ultravox", "livekit", "gemini-live"]) })
-  .strict();
+const requestSchema = z.object({ provider: z.enum(["livekit", "gemini-live"]) }).strict();
 
 export async function POST(request: Request) {
   const trace = requestId(request);
@@ -33,40 +31,12 @@ export async function POST(request: Request) {
           503,
           "CONFIGURATION_ERROR",
         );
-      const model = String(
-        config.geminiLiveModel || "gemini-2.5-flash-native-audio-preview-12-2025",
-      );
+      const model = String(config.geminiLiveModel || "gemini-3.1-flash-live-preview");
       await new GoogleGenAI({ apiKey: String(config.geminiApiKey) }).models.get({ model });
       return adminJson(trace, {
         provider: parsed.data.provider,
         success: true,
         durationMs: Date.now() - startedAt,
-      });
-    }
-
-    if (parsed.data.provider === "ultravox") {
-      if (!config.ultravoxApiKey || !config.ultravoxApiUrl)
-        return adminFailure(
-          trace,
-          "Ultravox no está configurado completamente.",
-          503,
-          "CONFIGURATION_ERROR",
-        );
-      const result = await requestExternalSafely(String(config.ultravoxApiUrl), {
-        headers: { "X-API-Key": String(config.ultravoxApiKey), Accept: "application/json" },
-      });
-      if (!result.success)
-        return adminFailure(
-          trace,
-          `Ultravox rechazó la prueba (${result.error || "UPSTREAM_ERROR"}).`,
-          502,
-          "UPSTREAM_ERROR",
-        );
-      return adminJson(trace, {
-        provider: parsed.data.provider,
-        success: true,
-        statusCode: result.statusCode,
-        durationMs: result.durationMs,
       });
     }
 

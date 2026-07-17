@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { runtimeConfig } from "@/lib/server/runtime-config";
+import { defaultGeminiLiveModel, defaultGeminiLiveVoice } from "@/lib/server/voice";
 
 export async function GET(request: Request) {
   const expected = process.env.ASSESSMENT_WORKER_SECRET || "";
@@ -15,8 +16,8 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       geminiApiKey: String(config.geminiApiKey),
-      model: String(config.geminiLiveModel || "gemini-2.5-flash-native-audio-preview-12-2025"),
-      voice: String(config.geminiLiveVoice || "Aoede"),
+      model: String(config.geminiLiveModel || defaultGeminiLiveModel),
+      voice: String(config.geminiLiveVoice || defaultGeminiLiveVoice),
       temperature:
         typeof config.geminiLiveTemperature === "number" ? config.geminiLiveTemperature : 0.3,
     },

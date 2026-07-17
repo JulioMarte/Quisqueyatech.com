@@ -24,6 +24,7 @@ jobs:
       NEXT_PUBLIC_CONTACT_EMAIL: info@quisqueyatech.com
       NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
       NEXT_PUBLIC_CONVEX_SITE_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_SITE_URL }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +32,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Validate required public configuration
+        run: test -n "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" || (echo "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required" && exit 1)
       - run: npm run lint
       - run: npm run format:check
       - run: npm run typecheck

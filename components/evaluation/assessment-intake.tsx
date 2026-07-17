@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { Check, Clock3, Headphones, Loader2, Mic2, Radio, ShieldCheck } from "lucide-react";
 import { VoiceSession } from "@/components/evaluation/voice-session";
-import { TurnstileField } from "@/components/security/turnstile-field";
+import { TurnstileField, type TurnstileStatus } from "@/components/security/turnstile-field";
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
@@ -23,6 +23,10 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [consent, setConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(
+    turnstileRequired ? "loading" : "verified",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const handleTurnstileToken = useCallback((token: string) => {
@@ -198,7 +202,27 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               </span>
             </label>
 
-            <TurnstileField onToken={handleTurnstileToken} />
+            <TurnstileField
+              locale={locale}
+              onToken={handleTurnstileToken}
+              onStatus={setTurnstileStatus}
+            />
+
+            {turnstileRequired && turnstileStatus !== "verified" ? (
+              <p className="mt-3 text-sm text-white/60" role="status">
+                {turnstileStatus === "error"
+                  ? es
+                    ? "No pudimos cargar la verificación. Recarga la página e inténtalo de nuevo."
+                    : "We could not load verification. Reload the page and try again."
+                  : turnstileStatus === "expired"
+                    ? es
+                      ? "La verificación expiró. Complétala nuevamente."
+                      : "Verification expired. Please complete it again."
+                    : es
+                      ? "Cargando verificación segura…"
+                      : "Loading secure verification…"}
+              </p>
+            ) : null}
 
             {error ? (
               <p role="alert" className="mt-4 rounded-xl bg-rose/15 p-3 text-sm text-rose-200">
@@ -209,7 +233,9 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
             <Button
               type="button"
               size="lg"
-              disabled={!consent || loading}
+              disabled={
+                !consent || loading || (turnstileRequired && turnstileStatus !== "verified")
+              }
               onClick={startConference}
               className="mt-6 w-full"
             >

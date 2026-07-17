@@ -52,15 +52,21 @@ RUN set -eux; \
     echo "In Coolify mark them Available at Buildtime, or pass docker build --build-arg."; \
     exit 1; \
   fi; \
+  if [ -z "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" ]; then \
+    echo "ERROR: NEXT_PUBLIC_TURNSTILE_SITE_KEY is required for production builds."; \
+    exit 1; \
+  fi; \
   npx next build --webpack
 
 FROM node:24-bookworm-slim AS runner
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -80,4 +86,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
   CMD curl -fsS "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "if [ -z \"$NEXT_PUBLIC_TURNSTILE_SITE_KEY\" ] || [ -z \"$TURNSTILE_SECRET_KEY\" ]; then echo 'ERROR: Both Turnstile site and secret keys are required.' >&2; exit 1; fi; exec node server.js"]

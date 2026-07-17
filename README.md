@@ -162,10 +162,10 @@ y usa `X-EA-Token` con el mismo valor de `EASY_APPOINTMENTS_WEBHOOK_TOKEN`.
 
 Hay **dos métodos** de despliegue de la app Next.js. El mismo `Dockerfile` sirve para ambos.
 
-| Método | Quién construye | Coolify hace | Uso |
-|--------|-----------------|--------------|-----|
-| **A — GHCR (recomendado)** | GitHub Actions | Solo `docker pull` + restart | Producción |
-| **B — Dockerfile en Coolify** | Coolify en el servidor | `docker build` + run | Fallback / staging / si GHCR falla |
+| Método                        | Quién construye        | Coolify hace                 | Uso                                |
+| ----------------------------- | ---------------------- | ---------------------------- | ---------------------------------- |
+| **A — GHCR (recomendado)**    | GitHub Actions         | Solo `docker pull` + restart | Producción                         |
+| **B — Dockerfile en Coolify** | Coolify en el servidor | `docker build` + run         | Fallback / staging / si GHCR falla |
 
 Nunca actives **los dos a la vez** sobre la misma app (doble deploy). Usa una app Coolify por método, o cambia el source de la app cuando cambies de método.
 
@@ -188,7 +188,7 @@ El workflow `.github/workflows/deploy.yml` en `main`:
 3. Tag: `latest`
 4. Port: `3000`
 5. Autodeploy por git: **OFF**
-6. Runtime env: secretos (`ADMIN_API_SECRET`, `ASSESSMENT_*`, `AUTH_IP_HASH_SECRET`, `CONFIG_ENCRYPTION_KEY`, `TRUST_PROXY_HEADERS=true`, Resend, Twilio…). **No** copies `BETTER_AUTH_SECRET` a Coolify.
+6. Runtime env: secretos (`ADMIN_API_SECRET`, `ASSESSMENT_*`, `AUTH_IP_HASH_SECRET`, `CONFIG_ENCRYPTION_KEY`, `TURNSTILE_SECRET_KEY`, `TRUST_PROXY_HEADERS=true`, Resend, Twilio…). **No** copies `BETTER_AUTH_SECRET` a Coolify.
 7. Webhook de deploy → secret GitHub `COOLIFY_WEBHOOK_URL` (y `COOLIFY_TOKEN` si hace falta).
 8. Si GHCR es privado, en el servidor:
 
@@ -207,13 +207,13 @@ Los `NEXT_PUBLIC_*` se **hornean en el build de GitHub** (build-args del workflo
 2. Autodeploy por git: **ON** (o webhook de git).
 3. **Build-time variables** (crítico): en cada variable `NEXT_PUBLIC_*` marca **Available at Buildtime** / Build Argument. Si no, el build deja Convex vacío y el sitio sale roto o falla el compile.
 
-| Variable / Build arg | Valor | Buildtime |
-|----------------------|--------|-----------|
-| `NEXT_PUBLIC_SITE_URL` | `https://www.quisqueyatech.com` | sí |
-| `NEXT_PUBLIC_CONTACT_EMAIL` | `info@quisqueyatech.com` | sí |
-| `NEXT_PUBLIC_CONVEX_URL` | URL prod `.convex.cloud` | sí |
-| `NEXT_PUBLIC_CONVEX_SITE_URL` | URL prod `.convex.site` | sí |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | (opcional) | sí |
+| Variable / Build arg             | Valor                                    | Buildtime |
+| -------------------------------- | ---------------------------------------- | --------- |
+| `NEXT_PUBLIC_SITE_URL`           | `https://www.quisqueyatech.com`          | sí        |
+| `NEXT_PUBLIC_CONTACT_EMAIL`      | `info@quisqueyatech.com`                 | sí        |
+| `NEXT_PUBLIC_CONVEX_URL`         | URL prod `.convex.cloud`                 | sí        |
+| `NEXT_PUBLIC_CONVEX_SITE_URL`    | URL prod `.convex.site`                  | sí        |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Site key del widget Cloudflare Turnstile | sí        |
 
 4. Runtime env: los mismos secretos que el método A (Available at Runtime).
 5. Port: `3000`
@@ -222,16 +222,24 @@ Los `NEXT_PUBLIC_*` se **hornean en el build de GitHub** (build-args del workflo
 
 ### Secrets de GitHub Actions
 
-| Secret | Dónde obtenerlo | Método |
-|--------|-----------------|--------|
-| `CONVEX_DEPLOY_KEY` | Convex → Production → Deploy key | A y B |
-| `NEXT_PUBLIC_CONVEX_URL` | Convex → `.convex.cloud` | A (build) |
-| `NEXT_PUBLIC_CONVEX_SITE_URL` | Convex → `.convex.site` | A (build) |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile | A (opcional) |
-| `COOLIFY_WEBHOOK_URL` | Coolify → Webhooks → Deploy | Solo A |
-| `COOLIFY_TOKEN` | Coolify → API token `deploy` | Solo A si el webhook lo exige |
+| Secret                           | Dónde obtenerlo                  | Método                        |
+| -------------------------------- | -------------------------------- | ----------------------------- |
+| `CONVEX_DEPLOY_KEY`              | Convex → Production → Deploy key | A y B                         |
+| `NEXT_PUBLIC_CONVEX_URL`         | Convex → `.convex.cloud`         | A (build)                     |
+| `NEXT_PUBLIC_CONVEX_SITE_URL`    | Convex → `.convex.site`          | A (build)                     |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile             | A (build obligatorio)         |
+| `COOLIFY_WEBHOOK_URL`            | Coolify → Webhooks → Deploy      | Solo A                        |
+| `COOLIFY_TOKEN`                  | Coolify → API token `deploy`     | Solo A si el webhook lo exige |
 
 `GITHUB_TOKEN` publica en GHCR solo (permiso `packages:write`).
+
+### Cloudflare Turnstile
+
+La evaluación pública requiere las dos claves del mismo widget de Turnstile. En
+Cloudflare autoriza `quisqueyatech.com` y `www.quisqueyatech.com`. Configura
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` durante el build y `TURNSTILE_SECRET_KEY`
+exclusivamente en runtime. Una imagen ya construida no incorpora una site key
+nueva al reiniciarse: debe reconstruirse y desplegarse nuevamente.
 
 ### Probar el Dockerfile en local
 

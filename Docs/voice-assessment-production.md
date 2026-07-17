@@ -23,7 +23,7 @@ en el panel, sin reactivar el cliente Gemini directo.
 
 ## Variables obligatorias
 
-Producción falla de forma cerrada si faltan `ASSESSMENT_TOKEN_SECRET`, `ASSESSMENT_STORAGE_SECRET` o las credenciales completas del proveedor elegido. LiveKit también requiere `ASSESSMENT_WORKER_SECRET`. Ultravox requiere `ULTRAVOX_WEBHOOK_SECRET` y Gemini directo requiere un `GEMINI_LIVE_MODEL` explícito.
+Producción falla de forma cerrada si faltan `ASSESSMENT_TOKEN_SECRET`, `ASSESSMENT_STORAGE_SECRET` o las credenciales completas del proveedor elegido. LiveKit también requiere `ASSESSMENT_WORKER_SECRET`. La evaluación web requiere `NEXT_PUBLIC_TURNSTILE_SITE_KEY` durante el build y `TURNSTILE_SECRET_KEY` en runtime, ambas pertenecientes al mismo widget autorizado para `quisqueyatech.com` y `www.quisqueyatech.com`. Ultravox requiere `ULTRAVOX_WEBHOOK_SECRET` y Gemini directo requiere un `GEMINI_LIVE_MODEL` explícito.
 
 Use secretos aleatorios distintos, de al menos 32 bytes. No reutilice `ADMIN_API_SECRET`. Configure las mismas variables de worker en Next y en el servicio LiveKit, y nunca use variables `NEXT_PUBLIC_*` para secretos.
 

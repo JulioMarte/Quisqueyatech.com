@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+export type TurnstileStatus = "loading" | "verified" | "expired" | "error";
+
 declare global {
   interface Window {
     turnstile?: {
@@ -11,20 +13,42 @@ declare global {
   }
 }
 
-export function TurnstileField({ onToken }: { onToken: (token: string) => void }) {
+export function TurnstileField({
+  onToken,
+  onStatus,
+  locale,
+}: {
+  onToken: (token: string) => void;
+  onStatus?: (status: TurnstileStatus) => void;
+  locale: "es" | "en";
+}) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!siteKey || !container.current) return;
+    onStatus?.("loading");
     let widgetId = "";
+    let settled = false;
     const render = () => {
       if (!container.current || !window.turnstile || widgetId) return;
       widgetId = window.turnstile.render(container.current, {
         sitekey: siteKey,
-        callback: onToken,
-        "expired-callback": () => onToken(""),
-        "error-callback": () => onToken(""),
+        callback: (token: string) => {
+          settled = true;
+          onToken(token);
+          onStatus?.("verified");
+        },
+        "expired-callback": () => {
+          settled = true;
+          onToken("");
+          onStatus?.("expired");
+        },
+        "error-callback": () => {
+          settled = true;
+          onToken("");
+          onStatus?.("error");
+        },
       });
     };
     const existing = document.querySelector<HTMLScriptElement>(
@@ -41,12 +65,22 @@ export function TurnstileField({ onToken }: { onToken: (token: string) => void }
       document.head.appendChild(script);
     }
     const poll = window.setInterval(render, 250);
+    const timeout = window.setTimeout(() => {
+      if (!settled && !widgetId) onStatus?.("error");
+    }, 10_000);
     return () => {
       window.clearInterval(poll);
+      window.clearTimeout(timeout);
       if (widgetId) window.turnstile?.remove(widgetId);
     };
-  }, [onToken, siteKey]);
+  }, [onStatus, onToken, siteKey]);
 
   if (!siteKey) return null;
-  return <div ref={container} className="mt-5 min-h-[65px]" aria-label="Human verification" />;
+  return (
+    <div
+      ref={container}
+      className="mt-5 min-h-[65px]"
+      aria-label={locale === "es" ? "Verificación humana" : "Human verification"}
+    />
+  );
 }

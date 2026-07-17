@@ -32,7 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
-import { TurnstileField } from "@/components/security/turnstile-field";
+import { TurnstileField, type TurnstileStatus } from "@/components/security/turnstile-field";
 import {
   COUNTRIES,
   PHONE_REGEX,
@@ -202,6 +202,10 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [consentProcessing, setConsentProcessing] = useState(false);
   const [consentRecording, setConsentRecording] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(
+    turnstileRequired ? "loading" : "verified",
+  );
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [calMonth, setCalMonth] = useState(() => {
@@ -991,7 +995,26 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                     />
                     {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
                       <div className="px-5 pb-4 sm:px-7 lg:px-6">
-                        <TurnstileField onToken={setTurnstileToken} />
+                        <TurnstileField
+                          locale={locale}
+                          onToken={setTurnstileToken}
+                          onStatus={setTurnstileStatus}
+                        />
+                        {turnstileStatus !== "verified" ? (
+                          <p className="mt-2 text-sm text-mute" role="status">
+                            {turnstileStatus === "error"
+                              ? es
+                                ? "No pudimos cargar la verificación. Recarga la página."
+                                : "We could not load verification. Reload the page."
+                              : turnstileStatus === "expired"
+                                ? es
+                                  ? "La verificación expiró. Complétala nuevamente."
+                                  : "Verification expired. Please complete it again."
+                                : es
+                                  ? "Cargando verificación segura…"
+                                  : "Loading secure verification…"}
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
                   </>
@@ -1026,7 +1049,10 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                         loadingAvailability ||
                         !availabilityConfigured ||
                         slots.length === 0)) ||
-                    (step === 3 && (!selectedTime || !availabilityConfigured))
+                    (step === 3 &&
+                      (!selectedTime ||
+                        !availabilityConfigured ||
+                        (turnstileRequired && turnstileStatus !== "verified")))
                   }
                   readyToConfirm={step === 3 && Boolean(selectedTime)}
                   locale={locale}

@@ -201,19 +201,20 @@ Los `NEXT_PUBLIC_*` se **hornean en el build de GitHub** (build-args del workflo
 
 1. Source: **Dockerfile** (base directory `/`, Dockerfile `Dockerfile`).
 2. Autodeploy por git: **ON** (o webhook de git).
-3. **Build arguments** en Coolify (públicos):
+3. **Build-time variables** (crítico): en cada variable `NEXT_PUBLIC_*` marca **Available at Buildtime** / Build Argument. Si no, el build deja Convex vacío y el sitio sale roto o falla el compile.
 
-| Build arg | Valor |
-|-----------|--------|
-| `NEXT_PUBLIC_SITE_URL` | `https://www.quisqueyatech.com` |
-| `NEXT_PUBLIC_CONTACT_EMAIL` | `info@quisqueyatech.com` |
-| `NEXT_PUBLIC_CONVEX_URL` | URL prod `.convex.cloud` |
-| `NEXT_PUBLIC_CONVEX_SITE_URL` | URL prod `.convex.site` |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | (opcional) |
+| Variable / Build arg | Valor | Buildtime |
+|----------------------|--------|-----------|
+| `NEXT_PUBLIC_SITE_URL` | `https://www.quisqueyatech.com` | sí |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | `info@quisqueyatech.com` | sí |
+| `NEXT_PUBLIC_CONVEX_URL` | URL prod `.convex.cloud` | sí |
+| `NEXT_PUBLIC_CONVEX_SITE_URL` | URL prod `.convex.site` | sí |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | (opcional) | sí |
 
-4. Runtime env: los mismos secretos que el método A.
+4. Runtime env: los mismos secretos que el método A (Available at Runtime).
 5. Port: `3000`
-6. Si usas método B en la app de prod, **no** configures `COOLIFY_WEBHOOK_URL` en GitHub (o el workflow solo subirá imagen a GHCR y no reiniciará Coolify). Convex sigue desplegándose desde Actions.
+6. **RAM del servidor**: el `next build` necesita ~3 GB libres. Si el VPS tiene 2 GB, el build muere con `exit 255` sin mensaje de Next (OOM). En ese caso usa **Método A** (build en GitHub) o sube la RAM.
+7. Si usas método B en prod, deja `COOLIFY_WEBHOOK_URL` vacío en GitHub para no reiniciar dos veces.
 
 ### Secrets de GitHub Actions
 

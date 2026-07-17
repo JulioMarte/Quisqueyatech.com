@@ -4,5 +4,43 @@ import { contentAgent } from "@/lib/server/content-agent";
 import { convexMutation, convexQuery } from "@/lib/server/convex";
 import { agentPostSchema } from "@/lib/validations/content-agent";
 type Context = { params: Promise<{ id: string }> };
-export async function GET(request: Request, context: Context) { const auth = await contentAgent(request); if (auth.response) return auth.response; const data = await convexQuery("posts:agentGet", { secret: adminSecret(), id: (await context.params).id }); return data ? NextResponse.json({ data }) : NextResponse.json({ error: "Not found" }, { status: 404 }); }
-export async function PATCH(request: Request, context: Context) { if (Number(request.headers.get("content-length") || 0) > 150_000) return NextResponse.json({ error: "Payload too large" }, { status: 413 }); const auth = await contentAgent(request, "update"); if (auth.response) return auth.response; const parsed = agentPostSchema.safeParse(await request.json().catch(() => null)); if (!parsed.success || !parsed.data.expectedUpdatedAt) return NextResponse.json({ error: parsed.success ? "expectedUpdatedAt is required" : parsed.error.issues[0]?.message }, { status: 400 }); try { const id = (await context.params).id; await convexMutation("posts:agentSave", { secret: adminSecret(), id, ...parsed.data, status: "draft", ...auth.actor }); return NextResponse.json({ data: { id } }); } catch (error) { const message = error instanceof Error ? error.message : "Could not update resource"; return NextResponse.json({ error: message }, { status: message.includes("Conflict") ? 409 : message.includes("Not found") ? 404 : 503 }); } }
+export async function GET(request: Request, context: Context) {
+  const auth = await contentAgent(request);
+  if (auth.response) return auth.response;
+  const data = await convexQuery("posts:agentGet", {
+    secret: adminSecret(),
+    id: (await context.params).id,
+  });
+  return data
+    ? NextResponse.json({ data })
+    : NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+export async function PATCH(request: Request, context: Context) {
+  if (Number(request.headers.get("content-length") || 0) > 150_000)
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  const auth = await contentAgent(request, "update");
+  if (auth.response) return auth.response;
+  const parsed = agentPostSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success || !parsed.data.expectedUpdatedAt)
+    return NextResponse.json(
+      { error: parsed.success ? "expectedUpdatedAt is required" : parsed.error.issues[0]?.message },
+      { status: 400 },
+    );
+  try {
+    const id = (await context.params).id;
+    await convexMutation("posts:agentSave", {
+      secret: adminSecret(),
+      id,
+      ...parsed.data,
+      status: "draft",
+      ...auth.actor,
+    });
+    return NextResponse.json({ data: { id } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not update resource";
+    return NextResponse.json(
+      { error: message },
+      { status: message.includes("Conflict") ? 409 : message.includes("Not found") ? 404 : 503 },
+    );
+  }
+}

@@ -2,8 +2,18 @@ import fs from "node:fs/promises";
 import sharp from "sharp";
 
 const cards = [
-  { file: "home.png", eyebrow: "AUTOMATIZACIÓN · IA · SOFTWARE", title: "La tecnología correcta, trabajando como un solo sistema.", body: "Evaluaciones e implementación para empresas dentro y fuera de República Dominicana." },
-  { file: "clinicas.png", eyebrow: "APLICACIÓN PARA CLÍNICAS", title: "Menos carga administrativa alrededor de cada paciente.", body: "Una aplicación posible de automatización, agentes de IA e integraciones." },
+  {
+    file: "home.png",
+    eyebrow: "AUTOMATIZACIÓN · IA · SOFTWARE",
+    title: "La tecnología correcta, trabajando como un solo sistema.",
+    body: "Evaluaciones e implementación para empresas dentro y fuera de República Dominicana.",
+  },
+  {
+    file: "clinicas.png",
+    eyebrow: "APLICACIÓN PARA CLÍNICAS",
+    title: "Menos carga administrativa alrededor de cada paciente.",
+    body: "Una aplicación posible de automatización, agentes de IA e integraciones.",
+  },
 ];
 
 await fs.mkdir("public/og", { recursive: true });

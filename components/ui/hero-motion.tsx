@@ -18,12 +18,20 @@ export function KineticText({
       <span className="kinetic-mask block" aria-hidden="true">
         <span className="kinetic-primary block">{titleA}</span>
       </span>
-      <span className="kinetic-secondary mt-1 flex flex-wrap justify-center gap-x-[.24em]" aria-hidden="true">
+      <span
+        className="kinetic-secondary mt-1 flex flex-wrap justify-center gap-x-[.24em]"
+        aria-hidden="true"
+      >
         {words.map((word, index) => (
           <span className="kinetic-mask inline-block" key={`${word}-${index}`}>
             <span
               className="kinetic-word inline-block bg-gradient-to-r from-amber-deep to-larimar-deep bg-clip-text text-transparent"
-              style={{ "--word-index": index, "--word-direction": index % 2 === 0 ? -1 : 1 } as CSSProperties}
+              style={
+                {
+                  "--word-index": index,
+                  "--word-direction": index % 2 === 0 ? -1 : 1,
+                } as CSSProperties
+              }
             >
               {word}
             </span>
@@ -61,19 +69,39 @@ export function SystemFlow({
         <path id="system-flow-b" d="M500 28 C500 68 500 88 500 124" />
         <path id="system-flow-c" d="M890 28 C840 95 640 84 500 124" />
         <circle className="flow-signal flow-signal-amber" r="5">
-          <animateMotion dur="5.8s" begin="1.25s" repeatCount="indefinite" path="M110 28 C160 95 360 84 500 124" />
+          <animateMotion
+            dur="5.8s"
+            begin="1.25s"
+            repeatCount="indefinite"
+            path="M110 28 C160 95 360 84 500 124"
+          />
         </circle>
         <circle className="flow-signal flow-signal-blue" r="5">
-          <animateMotion dur="5.8s" begin="2.7s" repeatCount="indefinite" path="M500 28 C500 68 500 88 500 124" />
+          <animateMotion
+            dur="5.8s"
+            begin="2.7s"
+            repeatCount="indefinite"
+            path="M500 28 C500 68 500 88 500 124"
+          />
         </circle>
         <circle className="flow-signal flow-signal-amber" r="5">
-          <animateMotion dur="5.8s" begin="4.1s" repeatCount="indefinite" path="M890 28 C840 95 640 84 500 124" />
+          <animateMotion
+            dur="5.8s"
+            begin="4.1s"
+            repeatCount="indefinite"
+            path="M890 28 C840 95 640 84 500 124"
+          />
         </circle>
       </svg>
       <div className="system-flow-sources">
         {labels.map((label, index) => {
           const Icon = icons[index];
-          return <span className="system-node system-node-source" key={label}><Icon aria-hidden="true" />{label}</span>;
+          return (
+            <span className="system-node system-node-source" key={label}>
+              <Icon aria-hidden="true" />
+              {label}
+            </span>
+          );
         })}
       </div>
       <span className="system-node system-node-output">{output}</span>

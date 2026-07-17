@@ -16,42 +16,212 @@ import type { Locale } from "@/lib/i18n";
 import { PrivacySections } from "@/components/pages/privacy-sections";
 import { ResourceGrid } from "@/components/resources/resource-grid";
 
-type PageKind = "solutions" | "automation" | "agents" | "software" | "clinics" | "method" | "assessment" | "assessmentNow" | "assessmentSchedule" | "resources" | "about" | "privacy";
+type PageKind =
+  | "solutions"
+  | "automation"
+  | "agents"
+  | "software"
+  | "clinics"
+  | "method"
+  | "assessment"
+  | "assessmentNow"
+  | "assessmentSchedule"
+  | "resources"
+  | "about"
+  | "privacy";
 
-const definitions: Record<Exclude<PageKind, "assessmentNow" | "assessmentSchedule" | "resources" | "about" | "privacy">, Record<Locale, { eyebrow: string; title: string; lede: string; points: readonly (readonly [string, string])[] }>> = {
+const definitions: Record<
+  Exclude<PageKind, "assessmentNow" | "assessmentSchedule" | "resources" | "about" | "privacy">,
+  Record<
+    Locale,
+    { eyebrow: string; title: string; lede: string; points: readonly (readonly [string, string])[] }
+  >
+> = {
   solutions: {
-    es: { eyebrow: "Soluciones", title: "Mejoramos la operación antes de añadir tecnología.", lede: "Cada solución comienza con un proceso, un responsable y un resultado que pueda comprobarse.", points: [["Automatización de procesos", "Reduce tareas repetidas, demoras y traspasos manuales."], ["Agentes de IA", "Recopila información y ejecuta tareas dentro de límites definidos."], ["Software e integraciones", "Une herramientas, datos y flujos que hoy operan por separado."]] },
-    en: { eyebrow: "Solutions", title: "We improve operations before adding technology.", lede: "Every solution starts with a process, an owner, and an outcome that can be verified.", points: [["Process automation", "Reduce repetitive tasks, delays, and manual handoffs."], ["AI agents", "Collect information and perform tasks within clear boundaries."], ["Software and integrations", "Connect tools, data, and workflows that currently operate separately."]] },
+    es: {
+      eyebrow: "Soluciones",
+      title: "Mejoramos la operación antes de añadir tecnología.",
+      lede: "Cada solución comienza con un proceso, un responsable y un resultado que pueda comprobarse.",
+      points: [
+        ["Automatización de procesos", "Reduce tareas repetidas, demoras y traspasos manuales."],
+        ["Agentes de IA", "Recopila información y ejecuta tareas dentro de límites definidos."],
+        [
+          "Software e integraciones",
+          "Une herramientas, datos y flujos que hoy operan por separado.",
+        ],
+      ],
+    },
+    en: {
+      eyebrow: "Solutions",
+      title: "We improve operations before adding technology.",
+      lede: "Every solution starts with a process, an owner, and an outcome that can be verified.",
+      points: [
+        ["Process automation", "Reduce repetitive tasks, delays, and manual handoffs."],
+        ["AI agents", "Collect information and perform tasks within clear boundaries."],
+        [
+          "Software and integrations",
+          "Connect tools, data, and workflows that currently operate separately.",
+        ],
+      ],
+    },
   },
   automation: {
-    es: { eyebrow: "Automatización de procesos", title: "Haz que el trabajo avance sin depender de recordatorios constantes.", lede: "Diseñamos flujos que mueven información, asignan tareas y mantienen al equipo al tanto sin añadir otra capa de desorden.", points: [["Entrada y clasificación", "Convierte formularios, correos y solicitudes en trabajo asignado."], ["Seguimiento", "Activa recordatorios y próximos pasos basados en estado y tiempo."], ["Reportes", "Actualiza métricas y resúmenes desde las fuentes correctas."]] },
-    en: { eyebrow: "Process automation", title: "Keep work moving without constant reminders.", lede: "We design workflows that move information, assign tasks, and keep teams informed without adding another layer of complexity.", points: [["Intake and routing", "Turn forms, email, and requests into assigned work."], ["Follow-up", "Trigger reminders and next steps based on status and time."], ["Reporting", "Update metrics and summaries from the correct sources."]] },
+    es: {
+      eyebrow: "Automatización de procesos",
+      title: "Haz que el trabajo avance sin depender de recordatorios constantes.",
+      lede: "Diseñamos flujos que mueven información, asignan tareas y mantienen al equipo al tanto sin añadir otra capa de desorden.",
+      points: [
+        [
+          "Entrada y clasificación",
+          "Convierte formularios, correos y solicitudes en trabajo asignado.",
+        ],
+        ["Seguimiento", "Activa recordatorios y próximos pasos basados en estado y tiempo."],
+        ["Reportes", "Actualiza métricas y resúmenes desde las fuentes correctas."],
+      ],
+    },
+    en: {
+      eyebrow: "Process automation",
+      title: "Keep work moving without constant reminders.",
+      lede: "We design workflows that move information, assign tasks, and keep teams informed without adding another layer of complexity.",
+      points: [
+        ["Intake and routing", "Turn forms, email, and requests into assigned work."],
+        ["Follow-up", "Trigger reminders and next steps based on status and time."],
+        ["Reporting", "Update metrics and summaries from the correct sources."],
+      ],
+    },
   },
   agents: {
-    es: { eyebrow: "Agentes de IA", title: "IA que conversa, recopila y actúa con límites claros.", lede: "Construimos agentes de voz y texto alrededor de un proceso verificable, con herramientas autorizadas y escalamiento a personas.", points: [["Levantamiento", "Recopila contexto de clientes o equipos de forma consistente."], ["Atención", "Responde solicitudes frecuentes y deriva excepciones."], ["Operaciones", "Consulta sistemas y ejecuta acciones permitidas con trazabilidad."]] },
-    en: { eyebrow: "AI agents", title: "AI that can converse, collect, and act within clear boundaries.", lede: "We build voice and text agents around verifiable workflows, approved tools, and human escalation.", points: [["Discovery", "Collect customer or team context consistently."], ["Service", "Handle common requests and escalate exceptions."], ["Operations", "Query systems and perform approved actions with traceability."]] },
+    es: {
+      eyebrow: "Agentes de IA",
+      title: "IA que conversa, recopila y actúa con límites claros.",
+      lede: "Construimos agentes de voz y texto alrededor de un proceso verificable, con herramientas autorizadas y escalamiento a personas.",
+      points: [
+        ["Levantamiento", "Recopila contexto de clientes o equipos de forma consistente."],
+        ["Atención", "Responde solicitudes frecuentes y deriva excepciones."],
+        ["Operaciones", "Consulta sistemas y ejecuta acciones permitidas con trazabilidad."],
+      ],
+    },
+    en: {
+      eyebrow: "AI agents",
+      title: "AI that can converse, collect, and act within clear boundaries.",
+      lede: "We build voice and text agents around verifiable workflows, approved tools, and human escalation.",
+      points: [
+        ["Discovery", "Collect customer or team context consistently."],
+        ["Service", "Handle common requests and escalate exceptions."],
+        ["Operations", "Query systems and perform approved actions with traceability."],
+      ],
+    },
   },
   software: {
-    es: { eyebrow: "Software e integraciones", title: "Conecta lo que ya funciona. Construye solo lo que hace falta.", lede: "Integramos herramientas existentes y desarrollamos interfaces específicas cuando una solución genérica no encaja.", points: [["Integraciones", "Sincroniza CRM, agenda, formularios, correo y sistemas internos."], ["Aplicaciones internas", "Crea flujos simples para tareas que hoy viven en hojas y mensajes."], ["Datos operativos", "Mantén una fuente clara y accesible para decisiones y seguimiento."]] },
-    en: { eyebrow: "Software and integrations", title: "Connect what already works. Build only what is missing.", lede: "We integrate existing tools and create focused interfaces when generic software does not fit the workflow.", points: [["Integrations", "Sync CRM, scheduling, forms, email, and internal systems."], ["Internal applications", "Create simple workflows for tasks currently managed in spreadsheets and messages."], ["Operational data", "Maintain a clear, accessible source for decisions and follow-up."]] },
+    es: {
+      eyebrow: "Software e integraciones",
+      title: "Conecta lo que ya funciona. Construye solo lo que hace falta.",
+      lede: "Integramos herramientas existentes y desarrollamos interfaces específicas cuando una solución genérica no encaja.",
+      points: [
+        ["Integraciones", "Sincroniza CRM, agenda, formularios, correo y sistemas internos."],
+        [
+          "Aplicaciones internas",
+          "Crea flujos simples para tareas que hoy viven en hojas y mensajes.",
+        ],
+        ["Datos operativos", "Mantén una fuente clara y accesible para decisiones y seguimiento."],
+      ],
+    },
+    en: {
+      eyebrow: "Software and integrations",
+      title: "Connect what already works. Build only what is missing.",
+      lede: "We integrate existing tools and create focused interfaces when generic software does not fit the workflow.",
+      points: [
+        ["Integrations", "Sync CRM, scheduling, forms, email, and internal systems."],
+        [
+          "Internal applications",
+          "Create simple workflows for tasks currently managed in spreadsheets and messages.",
+        ],
+        ["Operational data", "Maintain a clear, accessible source for decisions and follow-up."],
+      ],
+    },
   },
   clinics: {
-    es: { eyebrow: "Aplicación para clínicas", title: "Menos carga administrativa alrededor de cada paciente.", lede: "Esta es una aplicación posible de nuestras capacidades, no un caso de éxito. Evaluamos la operación particular de cada clínica antes de recomendar cambios.", points: [["Recepción", "Organiza solicitudes, datos iniciales y responsables."], ["Agenda", "Conecta disponibilidad, confirmaciones y cambios."], ["Seguimiento", "Mantiene próximos pasos después de la consulta sin depender de memoria."]] },
-    en: { eyebrow: "Application for clinics", title: "Less administrative work around every patient.", lede: "This is a potential application of our capabilities, not a customer case study. We assess each clinic before recommending changes.", points: [["Intake", "Organize requests, initial information, and ownership."], ["Scheduling", "Connect availability, confirmations, and changes."], ["Follow-up", "Maintain next steps after a visit without relying on memory."]] },
+    es: {
+      eyebrow: "Aplicación para clínicas",
+      title: "Menos carga administrativa alrededor de cada paciente.",
+      lede: "Esta es una aplicación posible de nuestras capacidades, no un caso de éxito. Evaluamos la operación particular de cada clínica antes de recomendar cambios.",
+      points: [
+        ["Recepción", "Organiza solicitudes, datos iniciales y responsables."],
+        ["Agenda", "Conecta disponibilidad, confirmaciones y cambios."],
+        ["Seguimiento", "Mantiene próximos pasos después de la consulta sin depender de memoria."],
+      ],
+    },
+    en: {
+      eyebrow: "Application for clinics",
+      title: "Less administrative work around every patient.",
+      lede: "This is a potential application of our capabilities, not a customer case study. We assess each clinic before recommending changes.",
+      points: [
+        ["Intake", "Organize requests, initial information, and ownership."],
+        ["Scheduling", "Connect availability, confirmations, and changes."],
+        ["Follow-up", "Maintain next steps after a visit without relying on memory."],
+      ],
+    },
   },
   method: {
-    es: { eyebrow: "Cómo trabajamos", title: "Una ruta clara desde el problema hasta un sistema en uso.", lede: "No comenzamos configurando herramientas. Primero entendemos cómo fluye el trabajo y qué resultado justificaría cambiarlo.", points: [["1. Evaluación", "Una conversación inicial identifica el proceso, la fricción y el impacto."], ["2. Diagnóstico", "Mapeamos el estado actual, prioridades, riesgos y propuesta por fases."], ["3. Implementación", "Construimos, integramos, probamos y capacitamos al equipo."], ["4. Mejora", "Medimos el uso real y corregimos lo que no produzca el resultado esperado."]] },
-    en: { eyebrow: "How we work", title: "A clear path from the problem to a system people use.", lede: "We do not start by configuring tools. We first understand how work moves and which outcome would justify changing it.", points: [["1. Assessment", "An initial conversation identifies the workflow, friction, and impact."], ["2. Diagnosis", "We map the current state, priorities, risks, and a phased proposal."], ["3. Implementation", "We build, integrate, test, and train the team."], ["4. Improvement", "We measure real usage and correct what does not produce the intended result."]] },
+    es: {
+      eyebrow: "Cómo trabajamos",
+      title: "Una ruta clara desde el problema hasta un sistema en uso.",
+      lede: "No comenzamos configurando herramientas. Primero entendemos cómo fluye el trabajo y qué resultado justificaría cambiarlo.",
+      points: [
+        [
+          "1. Evaluación",
+          "Una conversación inicial identifica el proceso, la fricción y el impacto.",
+        ],
+        [
+          "2. Diagnóstico",
+          "Mapeamos el estado actual, prioridades, riesgos y propuesta por fases.",
+        ],
+        ["3. Implementación", "Construimos, integramos, probamos y capacitamos al equipo."],
+        ["4. Mejora", "Medimos el uso real y corregimos lo que no produzca el resultado esperado."],
+      ],
+    },
+    en: {
+      eyebrow: "How we work",
+      title: "A clear path from the problem to a system people use.",
+      lede: "We do not start by configuring tools. We first understand how work moves and which outcome would justify changing it.",
+      points: [
+        ["1. Assessment", "An initial conversation identifies the workflow, friction, and impact."],
+        ["2. Diagnosis", "We map the current state, priorities, risks, and a phased proposal."],
+        ["3. Implementation", "We build, integrate, test, and train the team."],
+        [
+          "4. Improvement",
+          "We measure real usage and correct what does not produce the intended result.",
+        ],
+      ],
+    },
   },
   assessment: {
-    es: { eyebrow: "Evaluación inicial", title: "Elige cómo quieres comenzar.", lede: "La evaluación es una conversación estructurada de 12–15 minutos con nuestro agente de voz. Recibirás un resumen preliminar inmediato.", points: [] },
-    en: { eyebrow: "Initial assessment", title: "Choose how you want to begin.", lede: "The assessment is a structured 12–15 minute conversation with our voice agent. You receive an immediate preliminary summary.", points: [] },
+    es: {
+      eyebrow: "Evaluación inicial",
+      title: "Elige cómo quieres comenzar.",
+      lede: "La evaluación es una conversación estructurada de 12–15 minutos con nuestro agente de voz. Recibirás un resumen preliminar inmediato.",
+      points: [],
+    },
+    en: {
+      eyebrow: "Initial assessment",
+      title: "Choose how you want to begin.",
+      lede: "The assessment is a structured 12–15 minute conversation with our voice agent. You receive an immediate preliminary summary.",
+      points: [],
+    },
   },
 };
 
 const icons = [Workflow, Bot, Code2, HeartPulse];
 
-export async function MarketingPage({ kind, locale, postSlug }: { kind: PageKind; locale: Locale; postSlug?: string }) {
+export async function MarketingPage({
+  kind,
+  locale,
+  postSlug,
+}: {
+  kind: PageKind;
+  locale: Locale;
+  postSlug?: string;
+}) {
   if (kind === "assessmentNow") return <AssessmentIntake locale={locale} mode="now" />;
   if (kind === "assessmentSchedule") return <Scheduler locale={locale} />;
   if (kind === "resources") return <Resources locale={locale} postSlug={postSlug} />;
@@ -62,16 +232,146 @@ export async function MarketingPage({ kind, locale, postSlug }: { kind: PageKind
   const base = locale === "es" ? "" : "/en";
   const nowPath = locale === "es" ? `${base}/evaluacion/ahora` : `${base}/assessment/now`;
   if (kind === "assessment") {
-    return <><PageHero page={page} /><Section className="pt-0"><Container><StaggerGroup className="grid gap-5 md:grid-cols-2"><StaggerItem><ChoiceCard icon={Mic2} title={locale === "es" ? "Hacerla ahora" : "Start now"} body={locale === "es" ? "Habla con el agente desde tu navegador y recibe el resumen al terminar." : "Speak with the agent in your browser and receive the summary when finished."} href={nowPath} action={locale === "es" ? "Comenzar evaluación" : "Start assessment"} /></StaggerItem><StaggerItem><ScheduleChoiceCard icon={CalendarClock} title={locale === "es" ? "Reservar un horario" : "Reserve a time"} body={locale === "es" ? "Elige navegador o llamada y realiza la misma evaluación cuando te convenga." : "Choose browser or phone and complete the same assessment when convenient."} action={locale === "es" ? "Ver disponibilidad" : "View availability"} /></StaggerItem></StaggerGroup></Container></Section></>;
+    return (
+      <>
+        <PageHero page={page} />
+        <Section className="pt-0">
+          <Container>
+            <StaggerGroup className="grid gap-5 md:grid-cols-2">
+              <StaggerItem>
+                <ChoiceCard
+                  icon={Mic2}
+                  title={locale === "es" ? "Hacerla ahora" : "Start now"}
+                  body={
+                    locale === "es"
+                      ? "Habla con el agente desde tu navegador y recibe el resumen al terminar."
+                      : "Speak with the agent in your browser and receive the summary when finished."
+                  }
+                  href={nowPath}
+                  action={locale === "es" ? "Comenzar evaluación" : "Start assessment"}
+                />
+              </StaggerItem>
+              <StaggerItem>
+                <ScheduleChoiceCard
+                  icon={CalendarClock}
+                  title={locale === "es" ? "Reservar un horario" : "Reserve a time"}
+                  body={
+                    locale === "es"
+                      ? "Elige navegador o llamada y realiza la misma evaluación cuando te convenga."
+                      : "Choose browser or phone and complete the same assessment when convenient."
+                  }
+                  action={locale === "es" ? "Ver disponibilidad" : "View availability"}
+                />
+              </StaggerItem>
+            </StaggerGroup>
+          </Container>
+        </Section>
+      </>
+    );
   }
-  return <><PageHero page={page} /><Section className="pt-0"><Container><StaggerGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{page.points.map(([title, body], index) => { const Icon = icons[index % icons.length]; return <StaggerItem key={title} index={index}><article className="interactive-card h-full rounded-xl border border-line bg-white p-7"><Icon className="h-10 w-10 rounded-lg bg-larimar-soft p-2 text-larimar-deep" /><h2 className="mt-5 font-display text-xl font-bold">{title}</h2><p className="mt-2 leading-relaxed text-text-2">{body}</p></article></StaggerItem>; })}</StaggerGroup><Reveal variant="mask"><div className="signature-cta mt-12 overflow-hidden rounded-2xl bg-primary p-8 text-white sm:p-10"><h2 className="font-display text-3xl font-bold">{locale === "es" ? "Empieza por entender qué conviene resolver primero." : "Start by understanding what is worth solving first."}</h2><div className="mt-6 flex flex-col gap-3 sm:flex-row"><ButtonLink href={nowPath}>{locale === "es" ? "Quiero mi evaluación ahora" : "Start my assessment"}</ButtonLink><ScheduleModalTrigger source="marketing-page" variant="on-dark-outline">{locale === "es" ? "Agendar mi evaluación" : "Schedule my assessment"}</ScheduleModalTrigger></div></div></Reveal></Container></Section></>;
+  return (
+    <>
+      <PageHero page={page} />
+      <Section className="pt-0">
+        <Container>
+          <StaggerGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {page.points.map(([title, body], index) => {
+              const Icon = icons[index % icons.length];
+              return (
+                <StaggerItem key={title} index={index}>
+                  <article className="interactive-card h-full rounded-xl border border-line bg-white p-7">
+                    <Icon className="h-10 w-10 rounded-lg bg-larimar-soft p-2 text-larimar-deep" />
+                    <h2 className="mt-5 font-display text-xl font-bold">{title}</h2>
+                    <p className="mt-2 leading-relaxed text-text-2">{body}</p>
+                  </article>
+                </StaggerItem>
+              );
+            })}
+          </StaggerGroup>
+          <Reveal variant="mask">
+            <div className="signature-cta mt-12 overflow-hidden rounded-2xl bg-primary p-8 text-white sm:p-10">
+              <h2 className="font-display text-3xl font-bold">
+                {locale === "es"
+                  ? "Empieza por entender qué conviene resolver primero."
+                  : "Start by understanding what is worth solving first."}
+              </h2>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <ButtonLink href={nowPath}>
+                  {locale === "es" ? "Quiero mi evaluación ahora" : "Start my assessment"}
+                </ButtonLink>
+                <ScheduleModalTrigger source="marketing-page" variant="on-dark-outline">
+                  {locale === "es" ? "Agendar mi evaluación" : "Schedule my assessment"}
+                </ScheduleModalTrigger>
+              </div>
+            </div>
+          </Reveal>
+        </Container>
+      </Section>
+    </>
+  );
 }
 
-function PageHero({ page }: { page: { eyebrow: string; title: string; lede: string } }) { return <Section className="overflow-hidden bg-bg-2 py-20"><Container className="max-w-[960px]"><StaggerGroup amount={0.05}><StaggerItem index={0}><Eyebrow>{page.eyebrow}</Eyebrow></StaggerItem><StaggerItem index={1}><div className="overflow-hidden pb-1"><h1 className="max-w-[20ch] font-display text-[clamp(38px,5vw,60px)] font-extrabold leading-tight tracking-[-.035em] text-primary">{page.title}</h1></div></StaggerItem><StaggerItem index={2}><p className="mt-5 max-w-[62ch] text-xl leading-relaxed text-text-2">{page.lede}</p></StaggerItem></StaggerGroup></Container></Section>; }
+function PageHero({ page }: { page: { eyebrow: string; title: string; lede: string } }) {
+  return (
+    <Section className="overflow-hidden bg-bg-2 py-20">
+      <Container className="max-w-[960px]">
+        <StaggerGroup amount={0.05}>
+          <StaggerItem index={0}>
+            <Eyebrow>{page.eyebrow}</Eyebrow>
+          </StaggerItem>
+          <StaggerItem index={1}>
+            <div className="overflow-hidden pb-1">
+              <h1 className="max-w-[20ch] font-display text-[clamp(38px,5vw,60px)] font-extrabold leading-tight tracking-[-.035em] text-primary">
+                {page.title}
+              </h1>
+            </div>
+          </StaggerItem>
+          <StaggerItem index={2}>
+            <p className="mt-5 max-w-[62ch] text-xl leading-relaxed text-text-2">{page.lede}</p>
+          </StaggerItem>
+        </StaggerGroup>
+      </Container>
+    </Section>
+  );
+}
 
-function ChoiceCard({ icon: Icon, title, body, href, action }: { icon: typeof Mic2; title: string; body: string; href: string; action: string }) { return <article className="interactive-card h-full rounded-2xl border border-line bg-white p-8 shadow-sm"><Icon className="h-12 w-12 rounded-xl bg-primary p-2.5 text-white" /><h2 className="mt-6 font-display text-2xl font-bold">{title}</h2><p className="mt-3 leading-relaxed text-text-2">{body}</p><ButtonLink href={href} className="mt-6">{action}<ArrowRight className="motion-arrow h-4 w-4" /></ButtonLink></article>; }
+function ChoiceCard({
+  icon: Icon,
+  title,
+  body,
+  href,
+  action,
+}: {
+  icon: typeof Mic2;
+  title: string;
+  body: string;
+  href: string;
+  action: string;
+}) {
+  return (
+    <article className="interactive-card h-full rounded-2xl border border-line bg-white p-8 shadow-sm">
+      <Icon className="h-12 w-12 rounded-xl bg-primary p-2.5 text-white" />
+      <h2 className="mt-6 font-display text-2xl font-bold">{title}</h2>
+      <p className="mt-3 leading-relaxed text-text-2">{body}</p>
+      <ButtonLink href={href} className="mt-6">
+        {action}
+        <ArrowRight className="motion-arrow h-4 w-4" />
+      </ButtonLink>
+    </article>
+  );
+}
 
-function ScheduleChoiceCard({ icon: Icon, title, body, action }: { icon: typeof CalendarClock; title: string; body: string; action: string }) {
+function ScheduleChoiceCard({
+  icon: Icon,
+  title,
+  body,
+  action,
+}: {
+  icon: typeof CalendarClock;
+  title: string;
+  body: string;
+  action: string;
+}) {
   return (
     <article className="interactive-card h-full rounded-2xl border border-line bg-white p-8 shadow-sm">
       <Icon className="h-12 w-12 rounded-xl bg-primary p-2.5 text-white" />
@@ -89,15 +389,176 @@ async function Resources({ locale, postSlug }: { locale: Locale; postSlug?: stri
   if (postSlug) {
     const post = await getPublishedPost(locale, postSlug);
     if (!post) notFound();
-    const related = (await getPublishedPosts(locale)).filter((item) => item.slug !== post.slug && item.category === post.category).slice(0, 2);
+    const related = (await getPublishedPosts(locale))
+      .filter((item) => item.slug !== post.slug && item.category === post.category)
+      .slice(0, 2);
     const articleUrl = `${brand.siteUrl}${locale === "en" ? "/en" : ""}/recursos/${post.slug}`;
-    const jsonLd = { "@context": "https://schema.org", "@type": "Article", headline: post.title, description: post.excerpt, datePublished: post.publishedAt, inLanguage: locale, author: { "@type": "Person", name: brand.founder.name }, publisher: { "@type": "Organization", name: brand.name }, mainEntityOfPage: articleUrl, ...(post.imageUrl ? { image: post.imageUrl } : {}) };
-    return <><Section className="bg-bg-2 py-16"><Container className="max-w-4xl"><Link href={locale === "es" ? "/recursos" : "/en/recursos"} className="inline-flex min-h-11 items-center text-sm font-semibold text-tech">← {locale === "es" ? "Todos los recursos" : "All resources"}</Link><span className="mt-5 block text-xs font-semibold uppercase tracking-wider text-amber-deep">{post.category}</span><h1 className="mt-3 max-w-[22ch] font-display text-[clamp(34px,5vw,52px)] font-bold leading-tight text-primary">{post.title}</h1><p className="mt-5 max-w-3xl text-lg leading-relaxed text-text-2">{post.excerpt}</p><div className="mt-5 text-sm text-mute"><time dateTime={post.publishedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(post.publishedAt))}</time> · {post.readingMinutes} min</div></Container></Section>{post.imageUrl ? <Container className="-mt-8"><div className="relative aspect-[16/7] overflow-hidden rounded-2xl border border-line bg-bg-3"><Image src={post.imageUrl} alt={post.imageAlt || ""} fill unoptimized priority className="object-cover" /></div></Container> : null}<Section className="pt-12"><Container className="max-w-3xl"><article className="prose prose-slate max-w-none prose-headings:font-display prose-headings:text-primary prose-a:text-tech"><ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown></article></Container></Section>{related.length ? <Section className="bg-bg-2"><Container><h2 className="font-display text-2xl font-bold text-primary">{locale === "es" ? "Continúa explorando" : "Keep exploring"}</h2><ResourceGrid posts={related} locale={locale} /></Container></Section> : null}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} /></>;
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: post.title,
+      description: post.excerpt,
+      datePublished: post.publishedAt,
+      inLanguage: locale,
+      author: { "@type": "Person", name: brand.founder.name },
+      publisher: { "@type": "Organization", name: brand.name },
+      mainEntityOfPage: articleUrl,
+      ...(post.imageUrl ? { image: post.imageUrl } : {}),
+    };
+    return (
+      <>
+        <Section className="bg-bg-2 py-16">
+          <Container className="max-w-4xl">
+            <Link
+              href={locale === "es" ? "/recursos" : "/en/recursos"}
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-tech"
+            >
+              ← {locale === "es" ? "Todos los recursos" : "All resources"}
+            </Link>
+            <span className="mt-5 block text-xs font-semibold uppercase tracking-wider text-amber-deep">
+              {post.category}
+            </span>
+            <h1 className="mt-3 max-w-[22ch] font-display text-[clamp(34px,5vw,52px)] font-bold leading-tight text-primary">
+              {post.title}
+            </h1>
+            <p className="mt-5 max-w-3xl text-lg leading-relaxed text-text-2">{post.excerpt}</p>
+            <div className="mt-5 text-sm text-mute">
+              <time dateTime={post.publishedAt}>
+                {new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(
+                  new Date(post.publishedAt),
+                )}
+              </time>{" "}
+              · {post.readingMinutes} min
+            </div>
+          </Container>
+        </Section>
+        {post.imageUrl ? (
+          <Container className="-mt-8">
+            <div className="relative aspect-[16/7] overflow-hidden rounded-2xl border border-line bg-bg-3">
+              <Image
+                src={post.imageUrl}
+                alt={post.imageAlt || ""}
+                fill
+                unoptimized
+                priority
+                className="object-cover"
+              />
+            </div>
+          </Container>
+        ) : null}
+        <Section className="pt-12">
+          <Container className="max-w-3xl">
+            <article className="prose prose-slate max-w-none prose-headings:font-display prose-headings:text-primary prose-a:text-tech">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
+            </article>
+          </Container>
+        </Section>
+        {related.length ? (
+          <Section className="bg-bg-2">
+            <Container>
+              <h2 className="font-display text-2xl font-bold text-primary">
+                {locale === "es" ? "Continúa explorando" : "Keep exploring"}
+              </h2>
+              <ResourceGrid posts={related} locale={locale} />
+            </Container>
+          </Section>
+        ) : null}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+        />
+      </>
+    );
   }
   const posts = await getPublishedPosts(locale);
-  return <Section className="bg-bg-2"><Container><SectionHead eyebrow={locale === "es" ? "Recursos" : "Resources"} title={locale === "es" ? "Ideas prácticas para mejorar cómo opera tu empresa." : "Practical ideas to improve how your company operates."} lede={locale === "es" ? "Guías verificables sobre automatización, agentes de IA e integraciones, escritas para tomar mejores decisiones." : "Verifiable guides about automation, AI agents, and integrations, written for better decisions."} /><ResourceGrid posts={posts} locale={locale} /></Container></Section>;
+  return (
+    <Section className="bg-bg-2">
+      <Container>
+        <SectionHead
+          eyebrow={locale === "es" ? "Recursos" : "Resources"}
+          title={
+            locale === "es"
+              ? "Ideas prácticas para mejorar cómo opera tu empresa."
+              : "Practical ideas to improve how your company operates."
+          }
+          lede={
+            locale === "es"
+              ? "Guías verificables sobre automatización, agentes de IA e integraciones, escritas para tomar mejores decisiones."
+              : "Verifiable guides about automation, AI agents, and integrations, written for better decisions."
+          }
+        />
+        <ResourceGrid posts={posts} locale={locale} />
+      </Container>
+    </Section>
+  );
 }
 
-function About({ locale }: { locale: Locale }) { const es = locale === "es"; return <Section><Container className="grid items-start gap-12 lg:grid-cols-[340px_1fr]"><Reveal><div className="relative aspect-square overflow-hidden rounded-2xl shadow-xl"><Image src={brand.founder.image} alt={brand.founder.name} fill sizes="(min-width: 1024px) 340px, 100vw" className="object-cover" priority /></div></Reveal><Reveal delay={0.06}><div><Eyebrow>{es ? "Nosotros" : "About"}</Eyebrow><h1 className="mt-4 font-display text-[clamp(38px,5vw,58px)] font-bold leading-tight text-primary">{brand.founder.name}</h1><p className="mt-2 text-lg font-semibold text-amber-deep">{es ? brand.founder.role : "Founder and automation & AI consultant"}</p><p className="mt-6 max-w-[62ch] text-lg leading-relaxed text-text-2">{es ? "Julio dirige QuisqueyaTech y participa directamente en la evaluación, el diseño de soluciones y la relación con cada empresa. La firma trabaja desde Puerto Plata, República Dominicana, con una visión internacional y un principio sencillo: entender la operación antes de recomendar tecnología." : "Julio leads QuisqueyaTech and works directly on assessment, solution design, and every company relationship. The firm operates from Puerto Plata, Dominican Republic, with an international outlook and a simple principle: understand the operation before recommending technology."}</p><p className="mt-5 max-w-[62ch] leading-relaxed text-text-2">{es ? "Esta biografía es deliberadamente breve mientras se actualiza la información profesional pública. No presentamos experiencia, clientes ni credenciales que todavía no puedan verificarse." : "This biography is intentionally brief while public professional information is being updated. We do not present experience, customers, or credentials that cannot yet be verified."}</p><a href={brand.founder.linkedIn} target="_blank" rel="noopener noreferrer" className="interactive-link mt-6 inline-flex min-h-11 items-center font-semibold text-tech">LinkedIn <ArrowRight className="motion-arrow ml-2 h-4 w-4" /></a></div></Reveal></Container></Section>; }
+function About({ locale }: { locale: Locale }) {
+  const es = locale === "es";
+  return (
+    <Section>
+      <Container className="grid items-start gap-12 lg:grid-cols-[340px_1fr]">
+        <Reveal>
+          <div className="relative aspect-square overflow-hidden rounded-2xl shadow-xl">
+            <Image
+              src={brand.founder.image}
+              alt={brand.founder.name}
+              fill
+              sizes="(min-width: 1024px) 340px, 100vw"
+              className="object-cover"
+              priority
+            />
+          </div>
+        </Reveal>
+        <Reveal delay={0.06}>
+          <div>
+            <Eyebrow>{es ? "Nosotros" : "About"}</Eyebrow>
+            <h1 className="mt-4 font-display text-[clamp(38px,5vw,58px)] font-bold leading-tight text-primary">
+              {brand.founder.name}
+            </h1>
+            <p className="mt-2 text-lg font-semibold text-amber-deep">
+              {es ? brand.founder.role : "Founder and automation & AI consultant"}
+            </p>
+            <p className="mt-6 max-w-[62ch] text-lg leading-relaxed text-text-2">
+              {es
+                ? "Julio dirige QuisqueyaTech y participa directamente en la evaluación, el diseño de soluciones y la relación con cada empresa. La firma trabaja desde Puerto Plata, República Dominicana, con una visión internacional y un principio sencillo: entender la operación antes de recomendar tecnología."
+                : "Julio leads QuisqueyaTech and works directly on assessment, solution design, and every company relationship. The firm operates from Puerto Plata, Dominican Republic, with an international outlook and a simple principle: understand the operation before recommending technology."}
+            </p>
+            <p className="mt-5 max-w-[62ch] leading-relaxed text-text-2">
+              {es
+                ? "Esta biografía es deliberadamente breve mientras se actualiza la información profesional pública. No presentamos experiencia, clientes ni credenciales que todavía no puedan verificarse."
+                : "This biography is intentionally brief while public professional information is being updated. We do not present experience, customers, or credentials that cannot yet be verified."}
+            </p>
+            <a
+              href={brand.founder.linkedIn}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="interactive-link mt-6 inline-flex min-h-11 items-center font-semibold text-tech"
+            >
+              LinkedIn <ArrowRight className="motion-arrow ml-2 h-4 w-4" />
+            </a>
+          </div>
+        </Reveal>
+      </Container>
+    </Section>
+  );
+}
 
-function Privacy({ locale }: { locale: Locale }) { const es = locale === "es"; return <Section><Container className="max-w-3xl"><Reveal><h1 className="font-display text-4xl font-bold text-primary">{es ? "Política de privacidad" : "Privacy policy"}</h1><p className="mt-4 text-text-2">{es ? "Última actualización: julio de 2026." : "Last updated: July 2026."}</p><PrivacySections english={!es} /></Reveal></Container></Section>; }
+function Privacy({ locale }: { locale: Locale }) {
+  const es = locale === "es";
+  return (
+    <Section>
+      <Container className="max-w-3xl">
+        <Reveal>
+          <h1 className="font-display text-4xl font-bold text-primary">
+            {es ? "Política de privacidad" : "Privacy policy"}
+          </h1>
+          <p className="mt-4 text-text-2">
+            {es ? "Última actualización: julio de 2026." : "Last updated: July 2026."}
+          </p>
+          <PrivacySections english={!es} />
+        </Reveal>
+      </Container>
+    </Section>
+  );
+}

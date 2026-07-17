@@ -21,17 +21,29 @@ function decryptSetting(value: string) {
   if (version !== "v1" || !iv || !tag || !encrypted) throw new Error("CONFIGURATION_ERROR");
   const decipher = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv, "base64url"));
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
-  return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
+  return Buffer.concat([
+    decipher.update(Buffer.from(encrypted, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
 }
 
 function forbiddenIpv4(address: string) {
   const parts = address.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
+    return true;
   const [a, b] = parts;
-  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && (b === 168 || b === 0)) || (a === 198 && (b === 18 || b === 19 || b === 51)) ||
-    (a === 203 && b === 0) || a >= 224;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && (b === 168 || b === 0)) ||
+    (a === 198 && (b === 18 || b === 19 || b === 51)) ||
+    (a === 203 && b === 0) ||
+    a >= 224
+  );
 }
 
 function forbiddenIp(address: string) {
@@ -39,22 +51,48 @@ function forbiddenIp(address: string) {
   const value = address.toLowerCase().split("%")[0];
   const mapped = value.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return forbiddenIpv4(mapped[1]);
-  return value === "::" || value === "::1" || /^f[cd]/.test(value) || /^fe[89ab]/.test(value) || /^ff/.test(value) || /^2001:db8[:]/.test(value);
+  return (
+    value === "::" ||
+    value === "::1" ||
+    /^f[cd]/.test(value) ||
+    /^fe[89ab]/.test(value) ||
+    /^ff/.test(value) ||
+    /^2001:db8[:]/.test(value)
+  );
 }
 
 function normalizedDestination(raw: string) {
   let url: URL;
-  try { url = new URL(raw); } catch { throw new Error("INVALID_DESTINATION"); }
-  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.hostname) throw new Error("INVALID_DESTINATION");
-  if (process.env.NODE_ENV === "production" && url.protocol !== "https:") throw new Error("INVALID_DESTINATION");
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("INVALID_DESTINATION");
+  }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.hostname)
+    throw new Error("INVALID_DESTINATION");
+  if (process.env.NODE_ENV === "production" && url.protocol !== "https:")
+    throw new Error("INVALID_DESTINATION");
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host === "metadata.google.internal") throw new Error("DESTINATION_BLOCKED");
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "metadata.google.internal"
+  )
+    throw new Error("DESTINATION_BLOCKED");
   if (isIP(host) && forbiddenIp(host)) throw new Error("DESTINATION_BLOCKED");
   return url;
 }
 
 export const deliver = internalAction({
-  args: { url: v.string(), encryptedSecret: v.string(), eventId: v.string(), body: v.string(), timestamp: v.string() },
+  args: {
+    url: v.string(),
+    encryptedSecret: v.string(),
+    eventId: v.string(),
+    body: v.string(),
+    timestamp: v.string(),
+  },
   handler: async (_ctx, args) => {
     const startedAt = Date.now();
     try {
@@ -62,34 +100,58 @@ export const deliver = internalAction({
       const addresses = isIP(url.hostname)
         ? [{ address: url.hostname, family: isIP(url.hostname) }]
         : await lookup(url.hostname, { all: true, verbatim: true });
-      if (!addresses.length || addresses.some((item) => forbiddenIp(item.address))) throw new Error("DESTINATION_BLOCKED");
+      if (!addresses.length || addresses.some((item) => forbiddenIp(item.address)))
+        throw new Error("DESTINATION_BLOCKED");
       const preferred = addresses.find((item) => item.family === 4) ?? addresses[0];
-      const pinnedLookup = ((_hostname: string, _options: unknown, callback: (error: Error | null, address: string, family: number) => void) => callback(null, preferred.address, preferred.family)) as LookupFunction;
+      const pinnedLookup = ((
+        _hostname: string,
+        _options: unknown,
+        callback: (error: Error | null, address: string, family: number) => void,
+      ) => callback(null, preferred.address, preferred.family)) as LookupFunction;
       const secret = decryptSetting(args.encryptedSecret);
       const signature = createHmac("sha256", secret).update(args.body, "utf8").digest("hex");
       const statusCode = await new Promise<number>((resolve, reject) => {
         const send = url.protocol === "https:" ? httpsRequest : httpRequest;
-        const request = send(url, {
-          method: "POST",
-          lookup: pinnedLookup,
-          timeout: 10_000,
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(args.body),
-            "X-QuisqueyaTech-Event": args.eventId,
-            "X-QuisqueyaTech-Timestamp": args.timestamp,
-            "X-QuisqueyaTech-Signature": `sha256=${signature}`,
+        const request = send(
+          url,
+          {
+            method: "POST",
+            lookup: pinnedLookup,
+            timeout: 10_000,
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(args.body),
+              "X-QuisqueyaTech-Event": args.eventId,
+              "X-QuisqueyaTech-Timestamp": args.timestamp,
+              "X-QuisqueyaTech-Signature": `sha256=${signature}`,
+            },
           },
-        }, (response) => { response.resume(); resolve(response.statusCode ?? 0); });
+          (response) => {
+            response.resume();
+            resolve(response.statusCode ?? 0);
+          },
+        );
         request.on("timeout", () => request.destroy(new Error("TIMEOUT")));
         request.on("error", reject);
         request.end(args.body);
       });
       const success = statusCode >= 200 && statusCode < 300;
-      return { success, statusCode, error: success ? undefined : `HTTP ${statusCode}`, durationMs: Date.now() - startedAt };
+      return {
+        success,
+        statusCode,
+        error: success ? undefined : `HTTP ${statusCode}`,
+        durationMs: Date.now() - startedAt,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      const safeError = ["DESTINATION_BLOCKED", "INVALID_DESTINATION", "CONFIGURATION_ERROR", "TIMEOUT"].includes(message) ? message : "NETWORK_ERROR";
+      const safeError = [
+        "DESTINATION_BLOCKED",
+        "INVALID_DESTINATION",
+        "CONFIGURATION_ERROR",
+        "TIMEOUT",
+      ].includes(message)
+        ? message
+        : "NETWORK_ERROR";
       return { success: false, error: safeError, durationMs: Date.now() - startedAt };
     }
   },

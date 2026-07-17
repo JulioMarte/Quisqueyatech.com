@@ -55,7 +55,9 @@ test("the centered stepper validates navigation and preserves entered data", asy
   await expect(timeStep).toBeDisabled();
 });
 
-test("availability loading blocks stale navigation and confirmation submits only once", async ({ page }) => {
+test("availability loading blocks stale navigation and confirmation submits only once", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   let bookings = 0;
   await page.route("**/api/scheduling/book", async (route) => {
@@ -91,7 +93,9 @@ test("availability loading blocks stale navigation and confirmation submits only
   expect(bookings).toBe(1);
 });
 
-test("a date without slots stays on the calendar and an offline calendar blocks booking with retry", async ({ page }) => {
+test("a date without slots stays on the calendar and an offline calendar blocks booking with retry", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.unroute("**/api/scheduling/availability?**");
   let configured = true;
@@ -148,10 +152,15 @@ test("only the latest date response may auto-advance", async ({ page }) => {
 test("localized server labels remain selectable", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.unroute("**/api/scheduling/availability?**");
-  await page.route("**/api/scheduling/availability?**", route => route.fulfill({
-    contentType: "application/json",
-    body: JSON.stringify({ configured: true, slots: [{ start: "2030-01-15T13:00:00.000Z", label: "9:00 a. m." }] }),
-  }));
+  await page.route("**/api/scheduling/availability?**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        configured: true,
+        slots: [{ start: "2030-01-15T13:00:00.000Z", label: "9:00 a. m." }],
+      }),
+    }),
+  );
   await openScheduler(page);
   const dialog = page.getByRole("dialog");
   const dateStep = page.getByRole("button", { name: /Ir al paso 2: Fecha/ });
@@ -169,7 +178,9 @@ test("localized server labels remain selectable", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Confirmar evaluación" })).toBeEnabled();
 });
 
-test("uses the browser IANA timezone in availability, booking, and human confirmation", async ({ page }) => {
+test("uses the browser IANA timezone in availability, booking, and human confirmation", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.addInitScript(() => {
     const original = Intl.DateTimeFormat.prototype.resolvedOptions;
@@ -183,9 +194,10 @@ test("uses the browser IANA timezone in availability, booking, and human confirm
     availabilityZones.push(new URL(route.request().url()).searchParams.get("timezone") ?? "");
     await route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ configured: true, slots: [
-        { start: "2030-07-15T14:00:00.000Z", label: "10:00 a. m." },
-      ] }),
+      body: JSON.stringify({
+        configured: true,
+        slots: [{ start: "2030-07-15T14:00:00.000Z", label: "10:00 a. m." }],
+      }),
     });
   });
   let bookingTimezone = "";
@@ -209,37 +221,66 @@ test("uses the browser IANA timezone in availability, booking, and human confirm
   expect(bookingTimezone).toBe("America/New_York");
 });
 
-test("time wheel scrolls smoothly in both directions and keeps selection centered", async ({ page }) => {
+test("time wheel scrolls smoothly in both directions and keeps selection centered", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.unroute("**/api/scheduling/availability?**");
-  await page.route("**/api/scheduling/availability?**", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({ configured: true, slots: [
-    { start: "2030-01-15T13:00:00.000Z", label: "9:00 a. m." },
-    { start: "2030-01-15T13:15:00.000Z", label: "9:15 a. m." },
-    { start: "2030-01-15T13:30:00.000Z", label: "9:30 a. m." },
-  ] }) }));
-  await openScheduler(page); await completeContactStep(page);
+  await page.route("**/api/scheduling/availability?**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        configured: true,
+        slots: [
+          { start: "2030-01-15T13:00:00.000Z", label: "9:00 a. m." },
+          { start: "2030-01-15T13:15:00.000Z", label: "9:15 a. m." },
+          { start: "2030-01-15T13:30:00.000Z", label: "9:30 a. m." },
+        ],
+      }),
+    }),
+  );
+  await openScheduler(page);
+  await completeContactStep(page);
   await page.getByRole("button", { name: "Continuar a fecha" }).click();
   await page.getByRole("grid").locator("button:not([disabled])").first().click();
   await page.getByRole("button", { name: "9:15 a. m." }).click();
   const wheel = page.getByTestId("time-wheel");
-  await wheel.hover(); await page.mouse.wheel(0, -120);
-  await expect(page.getByRole("button", { name: /9:00 a\. m\./ })).toHaveAttribute("aria-pressed", "true");
-  await page.waitForTimeout(200); await page.mouse.wheel(0, 120);
+  await wheel.hover();
+  await page.mouse.wheel(0, -120);
+  await expect(page.getByRole("button", { name: /9:00 a\. m\./ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.waitForTimeout(200);
+  await page.mouse.wheel(0, 120);
   const selected = page.getByRole("button", { name: /9:15 a\. m\./ });
   await expect(selected).toHaveAttribute("aria-pressed", "true");
-  await expect.poll(async () => {
-    const [wheelBox, selectedBox] = await Promise.all([wheel.boundingBox(), selected.boundingBox()]);
-    if (!wheelBox || !selectedBox) return Infinity;
-    return Math.abs((wheelBox.y + wheelBox.height / 2) - (selectedBox.y + selectedBox.height / 2));
-  }).toBeLessThan(3);
+  await expect
+    .poll(async () => {
+      const [wheelBox, selectedBox] = await Promise.all([
+        wheel.boundingBox(),
+        selected.boundingBox(),
+      ]);
+      if (!wheelBox || !selectedBox) return Infinity;
+      return Math.abs(wheelBox.y + wheelBox.height / 2 - (selectedBox.y + selectedBox.height / 2));
+    })
+    .toBeLessThan(3);
   await wheel.focus();
   await wheel.press("ArrowDown");
-  await expect(page.getByRole("button", { name: /9:30 a\. m\./ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /9:30 a\. m\./ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await wheel.press("ArrowUp");
-  await expect(page.getByRole("button", { name: /9:15 a\. m\./ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /9:15 a\. m\./ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
-test("responsive layouts keep the modal inside the viewport and reserve side arrows for wide screens", async ({ page }) => {
+test("responsive layouts keep the modal inside the viewport and reserve side arrows for wide screens", async ({
+  page,
+}) => {
   test.setTimeout(60_000);
   for (const viewport of [
     { width: 375, height: 812 },
@@ -254,7 +295,9 @@ test("responsive layouts keep the modal inside the viewport and reserve side arr
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
     if (viewport.width >= 768) expect(box!.width).toBeLessThanOrEqual(680);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      viewport.width,
+    );
     await expect(page.getByText(/Tu información está cifrada/)).toHaveCount(0);
 
     const nextArrow = page.getByRole("button", { name: "Siguiente paso" });

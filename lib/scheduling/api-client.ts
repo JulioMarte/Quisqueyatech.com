@@ -22,10 +22,10 @@ export async function fetchAvailability(
 ): Promise<AvailabilityResponse> {
   const params = new URLSearchParams({ date, timezone, locale });
   try {
-    const response = await fetch(
-      `/api/scheduling/availability?${params.toString()}`,
-      { signal: options.signal, cache: "no-store" },
-    );
+    const response = await fetch(`/api/scheduling/availability?${params.toString()}`, {
+      signal: options.signal,
+      cache: "no-store",
+    });
     if (!response.ok) {
       return { configured: false, slots: [] };
     }

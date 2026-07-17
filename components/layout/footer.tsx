@@ -37,18 +37,12 @@ export function Footer() {
                 ? [
                     ["/soluciones/automatizacion", "Automatización"],
                     ["/soluciones/agentes-de-ia", "Agentes de IA"],
-                    [
-                      "/soluciones/software-e-integraciones",
-                      "Software e integraciones",
-                    ],
+                    ["/soluciones/software-e-integraciones", "Software e integraciones"],
                   ]
                 : [
                     ["/en/solutions/automation", "Automation"],
                     ["/en/solutions/ai-agents", "AI agents"],
-                    [
-                      "/en/solutions/software-and-integrations",
-                      "Software and integrations",
-                    ],
+                    ["/en/solutions/software-and-integrations", "Software and integrations"],
                   ]
             }
           />
@@ -113,10 +107,7 @@ export function Footer() {
           <span>
             © {new Date().getFullYear()} QuisqueyaTech · {brand.location}
           </span>
-          <Link
-            href={isEs ? "/privacidad" : "/en/privacy"}
-            className="hover:text-amber-deep"
-          >
+          <Link href={isEs ? "/privacidad" : "/en/privacy"} className="hover:text-amber-deep">
             {isEs ? "Privacidad" : "Privacy"}
           </Link>
         </div>
@@ -138,11 +129,7 @@ function FooterGroup({
         {title}
       </h2>
       {links.map(([href, label]) => (
-        <Link
-          key={href}
-          href={href}
-          className="block py-1.5 text-text-2 hover:text-amber-deep"
-        >
+        <Link key={href} href={href} className="block py-1.5 text-text-2 hover:text-amber-deep">
           {label}
         </Link>
       ))}

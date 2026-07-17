@@ -12,6 +12,13 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/blob-report
+
+# local tooling
+.worktrees
+.claude
 
 # next.js
 /.next/

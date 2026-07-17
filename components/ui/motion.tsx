@@ -25,11 +25,21 @@ const revealVariants: Record<"slide" | "scale" | "mask", Variants> = {
   },
   scale: {
     hidden: { opacity: 0, y: 28, scale: 0.96 },
-    visible: (delay = 0) => ({ opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, delay, ease } }),
+    visible: (delay = 0) => ({
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: 0.5, delay, ease },
+    }),
   },
   mask: {
     hidden: { opacity: 0, y: 30, clipPath: "inset(0 0 100% 0)" },
-    visible: (delay = 0) => ({ opacity: 1, y: 0, clipPath: "inset(0 0 0% 0)", transition: { duration: 0.56, delay, ease } }),
+    visible: (delay = 0) => ({
+      opacity: 1,
+      y: 0,
+      clipPath: "inset(0 0 0% 0)",
+      transition: { duration: 0.56, delay, ease },
+    }),
   },
 };
 
@@ -82,10 +92,7 @@ export function MotionProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-function useProgressiveMotion(
-  ref: React.RefObject<Element | null>,
-  amount: number,
-) {
+function useProgressiveMotion(ref: React.RefObject<Element | null>, amount: number) {
   const inView = useInView(ref, { once: true, amount });
   const reducedMotion = useReducedMotion();
   const [hydrated, setHydrated] = React.useState(false);
@@ -174,7 +181,12 @@ export function StaggerItem({
   index?: number;
 }) {
   return (
-    <m.div data-motion="item" className={cn("min-w-0", className)} variants={itemVariants} custom={index}>
+    <m.div
+      data-motion="item"
+      className={cn("min-w-0", className)}
+      variants={itemVariants}
+      custom={index}
+    >
       {children}
     </m.div>
   );
@@ -196,16 +208,19 @@ export function MotionCard({
   const rotateX = useSpring(rawRotateX, { stiffness: 260, damping: 30, mass: 0.8 });
   const rotateY = useSpring(rawRotateY, { stiffness: 260, damping: 30, mass: 0.8 });
 
-  const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "mouse") return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    rawRotateX.set((0.5 - y) * 3);
-    rawRotateY.set((x - 0.5) * 3);
-    event.currentTarget.style.setProperty("--spot-x", `${x * 100}%`);
-    event.currentTarget.style.setProperty("--spot-y", `${y * 100}%`);
-  }, [rawRotateX, rawRotateY]);
+  const handlePointerMove = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType !== "mouse") return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      rawRotateX.set((0.5 - y) * 3);
+      rawRotateY.set((x - 0.5) * 3);
+      event.currentTarget.style.setProperty("--spot-x", `${x * 100}%`);
+      event.currentTarget.style.setProperty("--spot-y", `${y * 100}%`);
+    },
+    [rawRotateX, rawRotateY],
+  );
 
   const resetTilt = React.useCallback(() => {
     rawRotateX.set(0);
@@ -245,17 +260,56 @@ export function ScrollProgressSteps({ steps }: { steps: readonly ProcessStepData
 
   return (
     <div ref={ref} className="process-flow relative">
-      <svg className="process-flow-horizontal" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
-        <path className="process-path-base" d="M125 60 C230 12 270 108 375 60 S520 12 625 60 S770 108 875 60" />
-        <path className="process-path-base process-path-base-secondary" d="M125 70 C230 22 270 118 375 70 S520 22 625 70 S770 118 875 70" />
-        <m.path className="process-path-active process-path-primary" pathLength={1} style={{ pathLength: primaryPath }} d="M125 60 C230 12 270 108 375 60 S520 12 625 60 S770 108 875 60" />
-        <m.path className="process-path-active process-path-secondary" pathLength={1} style={{ pathLength: secondaryPath }} d="M125 70 C230 22 270 118 375 70 S520 22 625 70 S770 118 875 70" />
+      <svg
+        className="process-flow-horizontal"
+        viewBox="0 0 1000 120"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path
+          className="process-path-base"
+          d="M125 60 C230 12 270 108 375 60 S520 12 625 60 S770 108 875 60"
+        />
+        <path
+          className="process-path-base process-path-base-secondary"
+          d="M125 70 C230 22 270 118 375 70 S520 22 625 70 S770 118 875 70"
+        />
+        <m.path
+          className="process-path-active process-path-primary"
+          pathLength={1}
+          style={{ pathLength: primaryPath }}
+          d="M125 60 C230 12 270 108 375 60 S520 12 625 60 S770 108 875 60"
+        />
+        <m.path
+          className="process-path-active process-path-secondary"
+          pathLength={1}
+          style={{ pathLength: secondaryPath }}
+          d="M125 70 C230 22 270 118 375 70 S520 22 625 70 S770 118 875 70"
+        />
       </svg>
-      <svg className="process-flow-vertical" viewBox="0 0 48 1000" preserveAspectRatio="none" aria-hidden="true">
+      <svg
+        className="process-flow-vertical"
+        viewBox="0 0 48 1000"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
         <path className="process-path-base" d="M24 30 C5 220 43 300 24 485 S5 710 24 970" />
-        <path className="process-path-base process-path-base-secondary" d="M32 30 C13 220 51 300 32 485 S13 710 32 970" />
-        <m.path className="process-path-active process-path-primary" pathLength={1} style={{ pathLength: primaryPath }} d="M24 30 C5 220 43 300 24 485 S5 710 24 970" />
-        <m.path className="process-path-active process-path-secondary" pathLength={1} style={{ pathLength: secondaryPath }} d="M32 30 C13 220 51 300 32 485 S13 710 32 970" />
+        <path
+          className="process-path-base process-path-base-secondary"
+          d="M32 30 C13 220 51 300 32 485 S13 710 32 970"
+        />
+        <m.path
+          className="process-path-active process-path-primary"
+          pathLength={1}
+          style={{ pathLength: primaryPath }}
+          d="M24 30 C5 220 43 300 24 485 S5 710 24 970"
+        />
+        <m.path
+          className="process-path-active process-path-secondary"
+          pathLength={1}
+          style={{ pathLength: secondaryPath }}
+          d="M32 30 C13 220 51 300 32 485 S13 710 32 970"
+        />
       </svg>
       <div className="process-flow-grid relative grid gap-5 md:grid-cols-4">
         {steps.map(([number, title, body], index) => (
@@ -285,7 +339,10 @@ function ProcessStep({
   return (
     <m.article
       ref={ref}
-      className={cn("process-step relative h-full rounded-xl border border-line bg-white p-6", active && "is-active")}
+      className={cn(
+        "process-step relative h-full rounded-xl border border-line bg-white p-6",
+        active && "is-active",
+      )}
       initial={false}
       animate={active ? { opacity: 1, y: -8, scale: 1 } : { opacity: 0.55, y: 22, scale: 0.97 }}
       transition={{ duration: 0.48, delay: index * 0.04, ease }}

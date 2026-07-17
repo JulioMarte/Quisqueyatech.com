@@ -4,14 +4,16 @@ import { brand } from "@/lib/brand";
 export const seo = {
   homeEs: {
     title: "Automatización, IA y software para empresas",
-    description: "Evaluamos cómo opera tu empresa y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad.",
+    description:
+      "Evaluamos cómo opera tu empresa y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad.",
     url: brand.siteUrl,
     locale: "es_DO",
     image: "/og/home-hero-v2.png",
   },
   homeEn: {
     title: "Automation, AI, and software for modern companies",
-    description: "We assess how your company operates and build automation, AI agents, and software that improve productivity.",
+    description:
+      "We assess how your company operates and build automation, AI agents, and software that improve productivity.",
     url: `${brand.siteUrl}/en`,
     locale: "en_US",
     image: "/og/home-hero-v2.png",
@@ -42,7 +44,12 @@ export function pageMetadata(page: SeoPage): Metadata {
       description: page.description,
       images: [{ url: image, width: 1200, height: 630, type: "image/png", alt: page.title }],
     },
-    twitter: { card: "summary_large_image", title: page.title, description: page.description, images: [image] },
+    twitter: {
+      card: "summary_large_image",
+      title: page.title,
+      description: page.description,
+      images: [image],
+    },
   };
 }
 

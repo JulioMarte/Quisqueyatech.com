@@ -31,9 +31,7 @@ export async function GET(request: Request) {
         return adminFailure(trace, "Invalid appointment id", 400);
       }
       const item = await fetchAuthQuery(api.agenda.adminDetail, { bookingId });
-      return item
-        ? adminJson(trace, item)
-        : adminFailure(trace, "Appointment not found", 404);
+      return item ? adminJson(trace, item) : adminFailure(trace, "Appointment not found", 404);
     }
     const statusValue = url.searchParams.get("status");
     const status = appointmentStatuses.find((value) => value === statusValue);
@@ -47,13 +45,15 @@ export async function GET(request: Request) {
     }
     const fromAt = parseInstant(url.searchParams.get("fromAt"));
     const toAt = parseInstant(url.searchParams.get("toAt"));
-    if (fromAt === false || toAt === false || (typeof fromAt === "number" && typeof toAt === "number" && fromAt > toAt)) {
+    if (
+      fromAt === false ||
+      toAt === false ||
+      (typeof fromAt === "number" && typeof toAt === "number" && fromAt > toAt)
+    ) {
       return adminFailure(trace, "Invalid appointment date range", 400);
     }
     const rawLimit = Number(url.searchParams.get("limit") || 30);
-    const limit = Number.isInteger(rawLimit)
-      ? Math.min(50, Math.max(1, rawLimit))
-      : 30;
+    const limit = Number.isInteger(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 30;
     const search = url.searchParams.get("search")?.trim().slice(0, 100);
     const page = await fetchAuthQuery(api.agenda.adminList, {
       paginationOpts: {

@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import { convexQuery } from "@/lib/server/convex";
+import { allowRequest } from "@/lib/server/rate-limit";
 import { DEFAULT_TIME_ZONE, isValidTimeZone } from "@/lib/scheduling/timezone";
 
 export async function GET(request: Request) {
+  const ip =
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-real-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+
+  // Public read endpoint: allow generous but bounded traffic per IP.
+  if (!(await allowRequest(`availability:${ip}`, 120, 60 * 60_000))) {
+    return NextResponse.json({ error: "Too many availability requests" }, { status: 429 });
+  }
+
   const url = new URL(request.url);
   const date = url.searchParams.get("date");
-  const timezone =
-    url.searchParams.get("timezone") || DEFAULT_TIME_ZONE;
+  const timezone = url.searchParams.get("timezone") || DEFAULT_TIME_ZONE;
   const locale = url.searchParams.get("locale") || "es";
   if (!date || !isCivilDate(date)) {
     return NextResponse.json({ error: "Invalid date" }, { status: 400 });
@@ -23,13 +34,17 @@ export async function GET(request: Request) {
       timezone,
       locale,
     });
-    return NextResponse.json({ configured: true, slots });
+    return NextResponse.json(
+      { configured: true, slots },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=30",
+        },
+      },
+    );
   } catch (error) {
     console.error("[scheduling:availability]", error);
-    return NextResponse.json(
-      { configured: false, slots: [] },
-      { status: 503 },
-    );
+    return NextResponse.json({ configured: false, slots: [] }, { status: 503 });
   }
 }
 

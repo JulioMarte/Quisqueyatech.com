@@ -16,6 +16,8 @@ import type * as bookings from "../bookings.js";
 import type * as crons from "../crons.js";
 import type * as funnel from "../funnel.js";
 import type * as http from "../http.js";
+import type * as lib_security from "../lib/security.js";
+import type * as machineHttp from "../machineHttp.js";
 import type * as migrations from "../migrations.js";
 import type * as posts from "../posts.js";
 import type * as retention from "../retention.js";
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   funnel: typeof funnel;
   http: typeof http;
+  "lib/security": typeof lib_security;
+  machineHttp: typeof machineHttp;
   migrations: typeof migrations;
   posts: typeof posts;
   retention: typeof retention;

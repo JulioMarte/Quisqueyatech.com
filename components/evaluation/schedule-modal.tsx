@@ -42,10 +42,7 @@ import {
   type ScheduleSlot,
 } from "@/lib/scheduling/types";
 import { fetchAvailability, submitBooking } from "@/lib/scheduling/api-client";
-import {
-  detectBrowserTimeZone,
-  humanTimeZoneLabel,
-} from "@/lib/scheduling/timezone";
+import { detectBrowserTimeZone, humanTimeZoneLabel } from "@/lib/scheduling/timezone";
 import { trackSchedule } from "@/lib/scheduling/analytics";
 import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
@@ -60,7 +57,9 @@ const STORAGE_KEY = "qt:schedule:draft:v1";
 const STORAGE_VERSION = 2;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function buildStepLabels(es: boolean): Record<number, { eyebrow: string; title: string; sub: string }> {
+function buildStepLabels(
+  es: boolean,
+): Record<number, { eyebrow: string; title: string; sub: string }> {
   return {
     1: {
       eyebrow: es ? "Evaluación inicial gratuita" : "Free initial assessment",
@@ -154,12 +153,7 @@ export function ScheduleModalHost() {
   /* eslint-enable react-hooks/set-state-in-effect */
   if (!mounted) return null;
   return createPortal(
-    <ScheduleModalImpl
-      isOpen={isOpen}
-      source={source}
-      locale={locale}
-      onClose={close}
-    />,
+    <ScheduleModalImpl isOpen={isOpen} source={source} locale={locale} onClose={close} />,
     document.body,
   );
 }
@@ -177,9 +171,7 @@ interface ScheduleModalImplProps {
 
 type WizardStep = 1 | 2 | 3 | 4;
 
-type StepValidation =
-  | { valid: true }
-  | { valid: false; message: string; target: string };
+type StepValidation = { valid: true } | { valid: false; message: string; target: string };
 
 function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImplProps) {
   const es = locale === "es";
@@ -295,7 +287,20 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
       date: selectedDate ?? undefined,
       time: selectedTime ?? undefined,
     });
-  }, [isOpen, step, firstName, lastName, email, company, role, phone, country, notes, selectedDate, selectedTime]);
+  }, [
+    isOpen,
+    step,
+    firstName,
+    lastName,
+    email,
+    company,
+    role,
+    phone,
+    country,
+    notes,
+    selectedDate,
+    selectedTime,
+  ]);
 
   // Reset full state on close (after the user has seen the success state).
   const reset = useCallback(() => {
@@ -433,133 +438,141 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
 
   // Pure validation keeps rendering side-effect free. Errors are only exposed
   // after the user attempts to navigate or confirm.
-  const getStepValidation = useCallback((targetStep: WizardStep): StepValidation => {
-    if (targetStep === 1) {
-      if (!firstName.trim() || firstName.trim().length < 2) {
-        return {
-          valid: false,
-          message: es ? "Por favor escribe tu nombre." : "Please enter your first name.",
-          target: "firstName",
-        };
+  const getStepValidation = useCallback(
+    (targetStep: WizardStep): StepValidation => {
+      if (targetStep === 1) {
+        if (!firstName.trim() || firstName.trim().length < 2) {
+          return {
+            valid: false,
+            message: es ? "Por favor escribe tu nombre." : "Please enter your first name.",
+            target: "firstName",
+          };
+        }
+        if (!lastName.trim() || lastName.trim().length < 2) {
+          return {
+            valid: false,
+            message: es ? "Por favor escribe tu apellido." : "Please enter your last name.",
+            target: "lastName",
+          };
+        }
+        if (!EMAIL_REGEX.test(email.trim())) {
+          return {
+            valid: false,
+            message: es ? "Escribe un correo electrónico válido." : "Enter a valid email address.",
+            target: "email",
+          };
+        }
+        if (!country) {
+          return {
+            valid: false,
+            message: es ? "Selecciona tu país." : "Please select your country.",
+            target: "country",
+          };
+        }
+        if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ""))) {
+          return {
+            valid: false,
+            message: es
+              ? "Revisa el número. Usa formato internacional, por ejemplo +18095551234."
+              : "Check the number. Use international format, e.g. +18095551234.",
+            target: "phone",
+          };
+        }
+        if (!consentProcessing) {
+          return {
+            valid: false,
+            message: es
+              ? "Necesitamos tu consentimiento para procesar tus datos."
+              : "We need your consent to process your data.",
+            target: "processingConsent",
+          };
+        }
+        return { valid: true };
       }
-      if (!lastName.trim() || lastName.trim().length < 2) {
-        return {
-          valid: false,
-          message: es ? "Por favor escribe tu apellido." : "Please enter your last name.",
-          target: "lastName",
-        };
+      if (targetStep === 2) {
+        if (!timezone) {
+          return {
+            valid: false,
+            message: es
+              ? "Espera mientras detectamos tu zona horaria."
+              : "Wait while we detect your timezone.",
+            target: "calendar",
+          };
+        }
+        if (!selectedDate) {
+          return {
+            valid: false,
+            message: es ? "Selecciona una fecha disponible." : "Please select an available date.",
+            target: "calendar",
+          };
+        }
+        if (loadingAvailability) {
+          return {
+            valid: false,
+            message: es
+              ? "Espera mientras verificamos los horarios."
+              : "Wait while we check the available times.",
+            target: "calendar",
+          };
+        }
+        if (!availabilityConfigured) {
+          return {
+            valid: false,
+            message: es
+              ? "La agenda en vivo no está disponible. Reintenta para continuar."
+              : "Live scheduling is unavailable. Retry to continue.",
+            target: "calendar",
+          };
+        }
+        if (slots.length === 0) {
+          return {
+            valid: false,
+            message: es
+              ? "No hay horarios disponibles para esta fecha."
+              : "No slots are available for this date.",
+            target: "calendar",
+          };
+        }
+        return { valid: true };
       }
-      if (!EMAIL_REGEX.test(email.trim())) {
+      if (targetStep === 3 && !selectedTime) {
         return {
           valid: false,
-          message: es ? "Escribe un correo electrónico válido." : "Enter a valid email address.",
-          target: "email",
-        };
-      }
-      if (!country) {
-        return {
-          valid: false,
-          message: es ? "Selecciona tu país." : "Please select your country.",
-          target: "country",
-        };
-      }
-      if (!PHONE_REGEX.test(phone.replace(/[\s\-()]/g, ""))) {
-        return {
-          valid: false,
-          message: es
-            ? "Revisa el número. Usa formato internacional, por ejemplo +18095551234."
-            : "Check the number. Use international format, e.g. +18095551234.",
-          target: "phone",
-        };
-      }
-      if (!consentProcessing) {
-        return {
-          valid: false,
-          message: es
-            ? "Necesitamos tu consentimiento para procesar tus datos."
-            : "We need your consent to process your data.",
-          target: "processingConsent",
+          message: es ? "Selecciona una hora." : "Please select a time.",
+          target: "timeGrid",
         };
       }
       return { valid: true };
-    }
-    if (targetStep === 2) {
-      if (!timezone) {
-        return {
-          valid: false,
-          message: es ? "Espera mientras detectamos tu zona horaria." : "Wait while we detect your timezone.",
-          target: "calendar",
-        };
-      }
-      if (!selectedDate) {
-        return {
-          valid: false,
-          message: es ? "Selecciona una fecha disponible." : "Please select an available date.",
-          target: "calendar",
-        };
-      }
-      if (loadingAvailability) {
-        return {
-          valid: false,
-          message: es
-            ? "Espera mientras verificamos los horarios."
-            : "Wait while we check the available times.",
-          target: "calendar",
-        };
-      }
-      if (!availabilityConfigured) {
-        return {
-          valid: false,
-          message: es
-            ? "La agenda en vivo no está disponible. Reintenta para continuar."
-            : "Live scheduling is unavailable. Retry to continue.",
-          target: "calendar",
-        };
-      }
-      if (slots.length === 0) {
-        return {
-          valid: false,
-          message: es
-            ? "No hay horarios disponibles para esta fecha."
-            : "No slots are available for this date.",
-          target: "calendar",
-        };
-      }
-      return { valid: true };
-    }
-    if (targetStep === 3 && !selectedTime) {
-      return {
-        valid: false,
-        message: es ? "Selecciona una hora." : "Please select a time.",
-        target: "timeGrid",
-      };
-    }
-    return { valid: true };
-  }, [
-    firstName,
-    lastName,
-    email,
-    country,
-    phone,
-    consentProcessing,
-    selectedDate,
-    selectedTime,
-    availabilityConfigured,
-    loadingAvailability,
-    slots.length,
-    timezone,
-    es,
-  ]);
+    },
+    [
+      firstName,
+      lastName,
+      email,
+      country,
+      phone,
+      consentProcessing,
+      selectedDate,
+      selectedTime,
+      availabilityConfigured,
+      loadingAvailability,
+      slots.length,
+      timezone,
+      es,
+    ],
+  );
 
-  const focusInvalidTarget = useCallback((target: string) => {
-    window.requestAnimationFrame(() => {
-      const element = dialogRef.current?.querySelector<HTMLElement>(
-        `[data-schedule-target="${target}"]`,
-      );
-      element?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
-      element?.focus({ preventScroll: true });
-    });
-  }, [reduceMotion]);
+  const focusInvalidTarget = useCallback(
+    (target: string) => {
+      window.requestAnimationFrame(() => {
+        const element = dialogRef.current?.querySelector<HTMLElement>(
+          `[data-schedule-target="${target}"]`,
+        );
+        element?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+        element?.focus({ preventScroll: true });
+      });
+    },
+    [reduceMotion],
+  );
 
   const validateCurrentStep = useCallback((): boolean => {
     const result = getStepValidation(step);
@@ -804,182 +817,223 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
           >
             {/* Side navigation arrows only appear when the viewport leaves safe gutters. */}
             {step > 1 && step < 4 ? (
-                <button
-                  type="button"
-                  onClick={goBack}
-                  disabled={submitting}
-                  aria-label={es ? "Paso anterior" : "Previous step"}
-                  className={cn(
-                    "absolute -left-[124px] top-1/2 z-10 hidden h-11 min-w-[112px] -translate-y-1/2 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-white/80 bg-white px-3 text-[12.5px] font-bold text-primary shadow-xl transition-colors lg:flex",
-                    "hover:border-tech hover:text-tech focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
-                  )}
-                >
-                  <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-                  <span>{step === 3 ? (es ? "Fecha" : "Date") : (es ? "Tus datos" : "Your details")}</span>
-                </button>
+              <button
+                type="button"
+                onClick={goBack}
+                disabled={submitting}
+                aria-label={es ? "Paso anterior" : "Previous step"}
+                className={cn(
+                  "absolute -left-[124px] top-1/2 z-10 hidden h-11 min-w-[112px] -translate-y-1/2 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-white/80 bg-white px-3 text-[12.5px] font-bold text-primary shadow-xl transition-colors lg:flex",
+                  "hover:border-tech hover:text-tech focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+                )}
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+                <span>
+                  {step === 3 ? (es ? "Fecha" : "Date") : es ? "Tus datos" : "Your details"}
+                </span>
+              </button>
             ) : null}
             {step < 4 ? (
-                <button
-                  type="button"
-                  onClick={() => void goNext()}
-                  disabled={submitting || (loadingAvailability && step === 2) || (step === 3 && !selectedTime)}
-                  aria-label={step === 3 ? (es ? "Confirmar evaluación" : "Confirm assessment") : (es ? "Siguiente paso" : "Next step")}
-                  className={cn(
-                    "absolute -right-[124px] top-1/2 z-10 hidden h-11 min-w-[112px] -translate-y-1/2 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 text-[12.5px] font-bold text-white shadow-xl transition-colors lg:flex",
-                    step === 3 ? "border-amber bg-amber hover:border-amber-deep hover:bg-amber-deep" : "border-primary bg-primary hover:border-tech hover:bg-primary-2",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
-                  )}
-                >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-                  <span>{step === 1 ? (es ? "Fecha" : "Date") : step === 2 ? (es ? "Hora" : "Time") : (es ? "Confirmar" : "Confirm")}</span>
-                  {!submitting ? (step === 3 ? <Check className="h-5 w-5" aria-hidden="true" /> : <ArrowRight className="h-5 w-5" aria-hidden="true" />) : null}
-                </button>
+              <button
+                type="button"
+                onClick={() => void goNext()}
+                disabled={
+                  submitting || (loadingAvailability && step === 2) || (step === 3 && !selectedTime)
+                }
+                aria-label={
+                  step === 3
+                    ? es
+                      ? "Confirmar evaluación"
+                      : "Confirm assessment"
+                    : es
+                      ? "Siguiente paso"
+                      : "Next step"
+                }
+                className={cn(
+                  "absolute -right-[124px] top-1/2 z-10 hidden h-11 min-w-[112px] -translate-y-1/2 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 text-[12.5px] font-bold text-white shadow-xl transition-colors lg:flex",
+                  step === 3
+                    ? "border-amber bg-amber hover:border-amber-deep hover:bg-amber-deep"
+                    : "border-primary bg-primary hover:border-tech hover:bg-primary-2",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+                )}
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                <span>
+                  {step === 1
+                    ? es
+                      ? "Fecha"
+                      : "Date"
+                    : step === 2
+                      ? es
+                        ? "Hora"
+                        : "Time"
+                      : es
+                        ? "Confirmar"
+                        : "Confirm"}
+                </span>
+                {!submitting ? (
+                  step === 3 ? (
+                    <Check className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                  )
+                ) : null}
+              </button>
             ) : null}
 
             <div className="flex max-h-[95dvh] min-h-0 flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[92dvh] sm:rounded-2xl">
-            <ScheduleModalHeader
-              step={step}
-              titleRef={titleRef}
-              closeRef={closeButtonRef}
-              onClose={handleClose}
-              titleId={titleId}
-              descId={descId}
-              locale={locale}
-              canNavigateToStep={canNavigateToStep}
-              onStepClick={onStepClick}
-            />
+              <ScheduleModalHeader
+                step={step}
+                titleRef={titleRef}
+                closeRef={closeButtonRef}
+                onClose={handleClose}
+                titleId={titleId}
+                descId={descId}
+                locale={locale}
+                canNavigateToStep={canNavigateToStep}
+                onStepClick={onStepClick}
+              />
 
-            <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              {step < 4 && (stepError || error) ? (
-                <div className="hidden px-6 pt-4 lg:block">
-                  <p
-                    role="alert"
-                    className="flex items-start gap-2 rounded-lg bg-rose-soft p-2.5 text-[13px] text-rose"
-                  >
-                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
-                    {stepError || error}
-                  </p>
-                </div>
-              ) : null}
-              {step === 1 ? (
-                <ContactStep
-                  firstName={firstName}
-                  lastName={lastName}
-                  email={email}
-                  company={company}
-                  role={role}
-                  phone={phone}
-                  country={country}
-                  notes={notes}
-                  channel={channel}
-                  consentProcessing={consentProcessing}
-                  consentRecording={consentRecording}
-                  onFirstNameChange={setFirstName}
-                  onLastNameChange={setLastName}
-                  onEmailChange={setEmail}
-                  onCompanyChange={setCompany}
-                  onRoleChange={setRole}
-                  onPhoneChange={setPhone}
-                  onCountryChange={onCountryChange}
-                  onNotesChange={setNotes}
-                  onChannelChange={setChannel}
-                  onConsentProcessingChange={setConsentProcessing}
-                  onConsentRecordingChange={setConsentRecording}
-                  invalidTarget={invalidTarget}
-                  locale={locale}
-                />
-              ) : null}
-              {step === 2 && timezone ? (
-                <CalendarStep
-                  calMonth={calMonth}
-                  setCalMonth={setCalMonth}
-                  selectedDate={selectedDate}
-                  onSelectDate={(d) => {
-                    if (d === selectedDate) return;
-                    setSlots([]);
-                    setLoadingAvailability(true);
-                    setSelectedDate(d);
-                    setSelectedTime(null);
-                    setStepError(null);
-                    setInvalidTarget(null);
-                  }}
-                  timezone={timezone}
-                  invalid={invalidTarget === "calendar"}
-                  unavailable={!availabilityConfigured}
-                  loading={loadingAvailability}
-                  onRetry={() => {
-                    setSlots([]);
-                    setSelectedTime(null);
-                    setStepError(null);
-                    setAvailabilityConfigured(true);
-                    setAvailabilityRefresh((value) => value + 1);
-                  }}
-                  locale={locale}
-                />
-              ) : step === 2 ? (
-                <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-mute" role="status">
-                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                  {es ? "Detectando tu zona horaria..." : "Detecting your timezone..."}
-                </div>
-              ) : null}
-              {step === 3 && selectedDate && timezone ? (
-                <>
-                  <TimeStep
-                    date={selectedDate}
-                    selectedTime={selectedTime}
-                    onSelectTime={(time) => {
-                      setSelectedTime(time);
+              <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                {step < 4 && (stepError || error) ? (
+                  <div className="hidden px-6 pt-4 lg:block">
+                    <p
+                      role="alert"
+                      className="flex items-start gap-2 rounded-lg bg-rose-soft p-2.5 text-[13px] text-rose"
+                    >
+                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      {stepError || error}
+                    </p>
+                  </div>
+                ) : null}
+                {step === 1 ? (
+                  <ContactStep
+                    firstName={firstName}
+                    lastName={lastName}
+                    email={email}
+                    company={company}
+                    role={role}
+                    phone={phone}
+                    country={country}
+                    notes={notes}
+                    channel={channel}
+                    consentProcessing={consentProcessing}
+                    consentRecording={consentRecording}
+                    onFirstNameChange={setFirstName}
+                    onLastNameChange={setLastName}
+                    onEmailChange={setEmail}
+                    onCompanyChange={setCompany}
+                    onRoleChange={setRole}
+                    onPhoneChange={setPhone}
+                    onCountryChange={onCountryChange}
+                    onNotesChange={setNotes}
+                    onChannelChange={setChannel}
+                    onConsentProcessingChange={setConsentProcessing}
+                    onConsentRecordingChange={setConsentRecording}
+                    invalidTarget={invalidTarget}
+                    locale={locale}
+                  />
+                ) : null}
+                {step === 2 && timezone ? (
+                  <CalendarStep
+                    calMonth={calMonth}
+                    setCalMonth={setCalMonth}
+                    selectedDate={selectedDate}
+                    onSelectDate={(d) => {
+                      if (d === selectedDate) return;
+                      setSlots([]);
+                      setLoadingAvailability(true);
+                      setSelectedDate(d);
+                      setSelectedTime(null);
                       setStepError(null);
                       setInvalidTarget(null);
                     }}
-                    slots={slots}
-                    loading={loadingAvailability}
-                    configured={availabilityConfigured}
                     timezone={timezone}
-                    invalid={invalidTarget === "timeGrid"}
+                    invalid={invalidTarget === "calendar"}
+                    unavailable={!availabilityConfigured}
+                    loading={loadingAvailability}
+                    onRetry={() => {
+                      setSlots([]);
+                      setSelectedTime(null);
+                      setStepError(null);
+                      setAvailabilityConfigured(true);
+                      setAvailabilityRefresh((value) => value + 1);
+                    }}
                     locale={locale}
                   />
-                  {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
-                    <div className="px-5 pb-4 sm:px-7 lg:px-6">
-                      <TurnstileField onToken={setTurnstileToken} />
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-              {step === 4 && bookingResult ? (
-                <SuccessStep
-                  firstName={firstName}
-                  lastName={lastName}
-                  country={country}
-                  start={bookingResult.start}
-                  timezone={bookingResult.timezone}
-                  confirmed={bookingResult.confirmed}
-                  bookingId={bookingResult.bookingId}
+                ) : step === 2 ? (
+                  <div
+                    className="flex min-h-72 items-center justify-center gap-2 text-sm text-mute"
+                    role="status"
+                  >
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    {es ? "Detectando tu zona horaria..." : "Detecting your timezone..."}
+                  </div>
+                ) : null}
+                {step === 3 && selectedDate && timezone ? (
+                  <>
+                    <TimeStep
+                      date={selectedDate}
+                      selectedTime={selectedTime}
+                      onSelectTime={(time) => {
+                        setSelectedTime(time);
+                        setStepError(null);
+                        setInvalidTarget(null);
+                      }}
+                      slots={slots}
+                      loading={loadingAvailability}
+                      configured={availabilityConfigured}
+                      timezone={timezone}
+                      invalid={invalidTarget === "timeGrid"}
+                      locale={locale}
+                    />
+                    {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                      <div className="px-5 pb-4 sm:px-7 lg:px-6">
+                        <TurnstileField onToken={setTurnstileToken} />
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+                {step === 4 && bookingResult ? (
+                  <SuccessStep
+                    firstName={firstName}
+                    lastName={lastName}
+                    country={country}
+                    start={bookingResult.start}
+                    timezone={bookingResult.timezone}
+                    confirmed={bookingResult.confirmed}
+                    bookingId={bookingResult.bookingId}
+                    locale={locale}
+                  />
+                ) : null}
+              </div>
+
+              {step !== 4 ? (
+                <ScheduleModalFooter
+                  step={step}
+                  submitting={submitting}
+                  stepError={stepError}
+                  error={error}
+                  canGoBack={step > 1}
+                  onBack={goBack}
+                  onClose={handleClose}
+                  onNext={goNext}
+                  nextDisabled={
+                    (step === 2 &&
+                      (!selectedDate ||
+                        loadingAvailability ||
+                        !availabilityConfigured ||
+                        slots.length === 0)) ||
+                    (step === 3 && (!selectedTime || !availabilityConfigured))
+                  }
+                  readyToConfirm={step === 3 && Boolean(selectedTime)}
                   locale={locale}
                 />
-              ) : null}
-            </div>
-
-            {step !== 4 ? (
-              <ScheduleModalFooter
-                step={step}
-                submitting={submitting}
-                stepError={stepError}
-                error={error}
-                canGoBack={step > 1}
-                onBack={goBack}
-                onClose={handleClose}
-                onNext={goNext}
-                nextDisabled={(step === 2 && (!selectedDate || loadingAvailability || !availabilityConfigured || slots.length === 0)) || (step === 3 && (!selectedTime || !availabilityConfigured))}
-                readyToConfirm={step === 3 && Boolean(selectedTime)}
-                locale={locale}
-              />
-            ) : (
-              <ScheduleModalSuccessFooter
-                onClose={handleClose}
-                locale={locale}
-              />
-            )}
+              ) : (
+                <ScheduleModalSuccessFooter onClose={handleClose} locale={locale} />
+              )}
             </div>
           </m.div>
         </m.div>
@@ -1065,13 +1119,12 @@ function Stepper({
   onStepClick: (target: WizardStep) => void;
 }) {
   const es = locale === "es";
-  const labels = [
-    es ? "Tus datos" : "Your details",
-    es ? "Fecha" : "Date",
-    es ? "Hora" : "Time",
-  ];
+  const labels = [es ? "Tus datos" : "Your details", es ? "Fecha" : "Date", es ? "Hora" : "Time"];
   return (
-    <ol className="mx-auto mt-3 grid w-full max-w-[480px] grid-cols-3 gap-2 lg:hidden" aria-label={es ? "Progreso" : "Progress"}>
+    <ol
+      className="mx-auto mt-3 grid w-full max-w-[480px] grid-cols-3 gap-2 lg:hidden"
+      aria-label={es ? "Progreso" : "Progress"}
+    >
       {labels.map((label, i) => {
         const n = i + 1;
         const state = n < step ? "done" : n === step ? "active" : "pending";
@@ -1098,7 +1151,9 @@ function Stepper({
                 "group relative z-[1] inline-flex min-h-[52px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 text-center shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none",
                 state === "active" && "border-primary bg-primary text-white shadow-md",
                 state === "done" && "border-success/30 bg-success-soft text-success",
-                state === "pending" && clickable && "border-tech/50 bg-white text-primary hover:border-tech hover:bg-larimar-soft",
+                state === "pending" &&
+                  clickable &&
+                  "border-tech/50 bg-white text-primary hover:border-tech hover:bg-larimar-soft",
                 state === "pending" && !clickable && "border-line bg-bg-2 text-mute opacity-80",
                 clickable ? "cursor-pointer" : "cursor-default",
               )}
@@ -1106,7 +1161,7 @@ function Stepper({
               <span
                 aria-hidden="true"
                 className={cn(
-          "inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[11.5px] font-bold transition-colors motion-reduce:transition-none",
+                  "inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[11.5px] font-bold transition-colors motion-reduce:transition-none",
                   state === "active" && "border-white/30 bg-white/15 text-white",
                   state === "done" && "border-success/20 bg-white/70 text-success",
                   state === "pending" && clickable && "border-tech/30 bg-larimar-soft text-primary",
@@ -1123,7 +1178,9 @@ function Stepper({
               >
                 {label}
               </span>
-              <span className="sr-only">{state === "done" ? (es ? "Completado" : "Completed") : null}</span>
+              <span className="sr-only">
+                {state === "done" ? (es ? "Completado" : "Completed") : null}
+              </span>
             </button>
           </li>
         );
@@ -1199,7 +1256,15 @@ function ContactStep(props: ContactStepProps) {
           />
         </Field>
       </div>
-      <Field label={es ? "Correo electrónico" : "Email address"} required hint={es ? "Recibirás aquí la confirmación de la cita." : "Your appointment confirmation will be sent here."}>
+      <Field
+        label={es ? "Correo electrónico" : "Email address"}
+        required
+        hint={
+          es
+            ? "Recibirás aquí la confirmación de la cita."
+            : "Your appointment confirmation will be sent here."
+        }
+      >
         <input
           type="email"
           value={props.email}
@@ -1215,17 +1280,35 @@ function ContactStep(props: ContactStepProps) {
       </Field>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label={es ? "Empresa" : "Company"} hint={es ? "Opcional" : "Optional"}>
-          <input type="text" value={props.company} onChange={(e) => props.onCompanyChange(e.target.value)} autoComplete="organization" className="qt-input" maxLength={120} />
+          <input
+            type="text"
+            value={props.company}
+            onChange={(e) => props.onCompanyChange(e.target.value)}
+            autoComplete="organization"
+            className="qt-input"
+            maxLength={120}
+          />
         </Field>
         <Field label={es ? "Cargo" : "Role"} hint={es ? "Opcional" : "Optional"}>
-          <input type="text" value={props.role} onChange={(e) => props.onRoleChange(e.target.value)} autoComplete="organization-title" className="qt-input" maxLength={100} />
+          <input
+            type="text"
+            value={props.role}
+            onChange={(e) => props.onRoleChange(e.target.value)}
+            autoComplete="organization-title"
+            className="qt-input"
+            maxLength={100}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field
           label={es ? "Celular (con código de país)" : "Mobile (with country code)"}
           required
-          hint={es ? "Te contactaremos por WhatsApp a este número." : "We'll reach you on WhatsApp at this number."}
+          hint={
+            es
+              ? "Te contactaremos por WhatsApp a este número."
+              : "We'll reach you on WhatsApp at this number."
+          }
         >
           <input
             type="tel"
@@ -1262,7 +1345,11 @@ function ContactStep(props: ContactStepProps) {
       </div>
       <Field
         label={es ? "¿Qué te gustaría resolver?" : "What would you like to solve?"}
-        hint={es ? "Opcional. Lo lee el consultor antes de la llamada." : "Optional. Read by the consultant before the call."}
+        hint={
+          es
+            ? "Opcional. Lo lee el consultor antes de la llamada."
+            : "Optional. Read by the consultant before the call."
+        }
       >
         <textarea
           value={props.notes}
@@ -1368,9 +1455,7 @@ function ChannelPill({
       aria-pressed={active}
       className={cn(
         "flex min-h-11 cursor-pointer flex-col items-start gap-0.5 rounded-xl border p-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none lg:p-2.5",
-        active
-          ? "border-tech bg-larimar-soft"
-          : "border-line bg-white hover:border-tech",
+        active ? "border-tech bg-larimar-soft" : "border-line bg-white hover:border-tech",
       )}
     >
       <span className="flex items-center gap-1.5 text-[13px] font-semibold text-text">
@@ -1399,7 +1484,10 @@ function ConsentCheckbox({
 }) {
   const id = useId();
   return (
-    <label htmlFor={id} className="flex min-h-11 cursor-pointer items-start gap-2.5 text-[13px] text-text-2">
+    <label
+      htmlFor={id}
+      className="flex min-h-11 cursor-pointer items-start gap-2.5 text-[13px] text-text-2"
+    >
       <input
         id={id}
         type="checkbox"
@@ -1463,9 +1551,7 @@ function CalendarStep({
       }).format(calMonth),
     [calMonth, es],
   );
-  const dowLabels = es
-    ? ["D", "L", "M", "M", "J", "V", "S"]
-    : ["S", "M", "T", "W", "T", "F", "S"];
+  const dowLabels = es ? ["D", "L", "M", "M", "J", "V", "S"] : ["S", "M", "T", "W", "T", "F", "S"];
 
   const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const isPrevDisabled = calMonth <= thisMonth;
@@ -1491,9 +1577,21 @@ function CalendarStep({
       className="px-5 py-4 outline-none sm:px-7 sm:py-5 lg:px-6 lg:py-4"
     >
       {unavailable ? (
-        <div className="mb-4 rounded-xl border border-amber/30 bg-amber-soft p-4 text-sm text-amber-deep" role="alert">
-          <p>{es ? "No se pudo verificar la disponibilidad en vivo. No reservaremos un horario sin confirmarlo primero." : "Live availability could not be verified. We will not book a time before confirming it."}</p>
-          <button type="button" onClick={onRetry} disabled={loading} className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-amber-deep/30 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-deep disabled:cursor-not-allowed disabled:opacity-60">
+        <div
+          className="mb-4 rounded-xl border border-amber/30 bg-amber-soft p-4 text-sm text-amber-deep"
+          role="alert"
+        >
+          <p>
+            {es
+              ? "No se pudo verificar la disponibilidad en vivo. No reservaremos un horario sin confirmarlo primero."
+              : "Live availability could not be verified. We will not book a time before confirming it."}
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={loading}
+            className="mt-3 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-amber-deep/30 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-deep disabled:cursor-not-allowed disabled:opacity-60"
+          >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {es ? "Reintentar" : "Retry"}
           </button>
@@ -1548,13 +1646,20 @@ function CalendarStep({
               className={cn(
                 "relative aspect-square cursor-pointer rounded-lg text-[13.5px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:transition-none",
                 isPast && "cursor-not-allowed text-line-2",
-                !isPast && !isSelected && "bg-bg-2 text-text hover:border-tech hover:bg-white hover:ring-1 hover:ring-tech",
+                !isPast &&
+                  !isSelected &&
+                  "bg-bg-2 text-text hover:border-tech hover:bg-white hover:ring-1 hover:ring-tech",
                 isToday && !isSelected && "ring-1 ring-inset ring-larimar text-amber-deep",
                 isSelected && "bg-primary text-white",
               )}
             >
               {cell.day}
-              {isSelected ? <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white" aria-hidden="true" /> : null}
+              {isSelected ? (
+                <span
+                  className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white"
+                  aria-hidden="true"
+                />
+              ) : null}
             </button>
           );
         })}
@@ -1566,7 +1671,13 @@ function CalendarStep({
       </div>
       <p className="mt-4 text-[12px] text-mute">
         {es ? "Horarios en " : "Times in "}
-        <span className="font-medium text-text-2">{humanTimeZoneLabel(timezone, selectedDate ? `${selectedDate}T12:00:00Z` : calMonth, locale)}</span>
+        <span className="font-medium text-text-2">
+          {humanTimeZoneLabel(
+            timezone,
+            selectedDate ? `${selectedDate}T12:00:00Z` : calMonth,
+            locale,
+          )}
+        </span>
       </p>
     </div>
   );
@@ -1632,14 +1743,18 @@ function TimeStep({
   const allTimes = useMemo(() => {
     return slots.map((slot) => ({ time: slot.label, disabled: false }));
   }, [slots]);
-  const timezoneInstant = slots.find((slot) => slot.label === selectedTime)?.start
-    ?? slots[0]?.start
-    ?? `${date}T12:00:00Z`;
+  const timezoneInstant =
+    slots.find((slot) => slot.label === selectedTime)?.start ??
+    slots[0]?.start ??
+    `${date}T12:00:00Z`;
   const timezoneLabel = humanTimeZoneLabel(timezone, timezoneInstant, locale);
 
-  useEffect(() => () => {
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    },
+    [],
+  );
 
   const centerOption = useCallback((element: HTMLButtonElement, behavior: ScrollBehavior) => {
     const wheel = wheelRef.current;
@@ -1670,43 +1785,74 @@ function TimeStep({
     }, 90);
   }, [centerOption, onSelectTime, selectedTime]);
 
-  const chooseTime = useCallback((time: string, element: HTMLButtonElement, behavior: ScrollBehavior = "auto") => {
-    programmaticScrollUntilRef.current = performance.now() + 400;
-    onSelectTime(time);
-    centerOption(element, behavior);
-  }, [centerOption, onSelectTime]);
+  const chooseTime = useCallback(
+    (time: string, element: HTMLButtonElement, behavior: ScrollBehavior = "auto") => {
+      programmaticScrollUntilRef.current = performance.now() + 400;
+      onSelectTime(time);
+      centerOption(element, behavior);
+    },
+    [centerOption, onSelectTime],
+  );
 
-  const moveSelection = useCallback((direction: -1 | 1 | "first" | "last", behavior: ScrollBehavior = "auto") => {
-    const wheel = wheelRef.current;
-    if (!wheel) return;
-    const options = Array.from(wheel.querySelectorAll<HTMLButtonElement>("button[data-time]:not(:disabled)"));
-    if (!options.length) return;
-    const current = Math.max(0, options.findIndex(option => option.dataset.time === selectedTime));
-    const next = direction === "first" ? 0 : direction === "last" ? options.length - 1 : Math.min(options.length - 1, Math.max(0, current + direction));
-    const option = options[next];
-    chooseTime(option.dataset.time!, option, behavior);
-    option.focus({ preventScroll: true });
-  }, [chooseTime, selectedTime]);
+  const moveSelection = useCallback(
+    (direction: -1 | 1 | "first" | "last", behavior: ScrollBehavior = "auto") => {
+      const wheel = wheelRef.current;
+      if (!wheel) return;
+      const options = Array.from(
+        wheel.querySelectorAll<HTMLButtonElement>("button[data-time]:not(:disabled)"),
+      );
+      if (!options.length) return;
+      const current = Math.max(
+        0,
+        options.findIndex((option) => option.dataset.time === selectedTime),
+      );
+      const next =
+        direction === "first"
+          ? 0
+          : direction === "last"
+            ? options.length - 1
+            : Math.min(options.length - 1, Math.max(0, current + direction));
+      const option = options[next];
+      chooseTime(option.dataset.time!, option, behavior);
+      option.focus({ preventScroll: true });
+    },
+    [chooseTime, selectedTime],
+  );
 
-  const onWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    if (Math.abs(event.deltaY) < Math.abs(event.deltaX) || event.deltaY === 0) return;
-    event.preventDefault();
-    const direction: -1 | 1 = event.deltaY < 0 ? -1 : 1;
-    const now = performance.now();
-    const previous = wheelGestureRef.current;
-    // Trackpads emit several wheel events for one gesture. Collapse events in
-    // the same direction, but never lock an immediate reversal.
-    if (previous?.direction === direction && now - previous.at < 140) return;
-    wheelGestureRef.current = { direction, at: now };
-    moveSelection(direction, "smooth");
-  }, [moveSelection]);
+  const onWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (Math.abs(event.deltaY) < Math.abs(event.deltaX) || event.deltaY === 0) return;
+      event.preventDefault();
+      const direction: -1 | 1 = event.deltaY < 0 ? -1 : 1;
+      const now = performance.now();
+      const previous = wheelGestureRef.current;
+      // Trackpads emit several wheel events for one gesture. Collapse events in
+      // the same direction, but never lock an immediate reversal.
+      if (previous?.direction === direction && now - previous.at < 140) return;
+      wheelGestureRef.current = { direction, at: now };
+      moveSelection(direction, "smooth");
+    },
+    [moveSelection],
+  );
 
-  const onWheelKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowUp") { event.preventDefault(); moveSelection(-1); }
-    else if (event.key === "ArrowDown") { event.preventDefault(); moveSelection(1); }
-    else if (event.key === "Home") { event.preventDefault(); moveSelection("first"); }
-    else if (event.key === "End") { event.preventDefault(); moveSelection("last"); }
-  }, [moveSelection]);
+  const onWheelKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveSelection(-1);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveSelection(1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        moveSelection("first");
+      } else if (event.key === "End") {
+        event.preventDefault();
+        moveSelection("last");
+      }
+    },
+    [moveSelection],
+  );
 
   return (
     <div
@@ -1721,9 +1867,7 @@ function TimeStep({
       {loading ? (
         <div className="flex items-center justify-center py-10 text-mute">
           <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-          <span className="ml-2 text-sm">
-            {es ? "Cargando horarios..." : "Loading slots..."}
-          </span>
+          <span className="ml-2 text-sm">{es ? "Cargando horarios..." : "Loading slots..."}</span>
         </div>
       ) : !configured ? (
         <div className="mb-4 rounded-xl border border-amber/30 bg-amber-soft p-3 text-[13px] leading-relaxed text-amber-deep">
@@ -1732,30 +1876,69 @@ function TimeStep({
             : "Live scheduling is offline. Return to the date and retry."}
         </div>
       ) : null}
-      {!loading ? <div className="relative mx-auto max-w-sm" role="group" aria-label={es ? "Horarios disponibles" : "Available times"}>
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-1/2 z-10 h-14 -translate-y-1/2 rounded-xl border border-tech/35 bg-larimar/10 shadow-[0_8px_24px_rgba(13,54,80,0.08)]" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-white via-white/80 to-transparent" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-white via-white/80 to-transparent" />
+      {!loading ? (
         <div
-          ref={wheelRef}
-          data-testid="time-wheel"
-          onWheel={onWheel}
-          onScroll={settleWheel}
-          onKeyDown={onWheelKeyDown}
-          tabIndex={0}
-          className="relative h-56 overflow-y-auto overscroll-contain scroll-smooth px-2 py-[84px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="relative mx-auto max-w-sm"
+          role="group"
+          aria-label={es ? "Horarios disponibles" : "Available times"}
         >
-          <div className="space-y-2">
-            {allTimes.map((t) => {
-              const isSelected = selectedTime === t.time;
-              return <button key={t.time} data-time={t.time} type="button" disabled={t.disabled} onClick={(event) => chooseTime(t.time, event.currentTarget)} aria-pressed={isSelected} className={cn("relative z-10 mx-auto flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl px-4 text-lg font-semibold transition-[color,opacity] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto motion-reduce:transition-none", isSelected ? "text-primary" : "text-mute opacity-65 hover:text-text hover:opacity-100", t.disabled && "cursor-not-allowed line-through opacity-35")}>{t.time}<span className="sr-only">{isSelected ? (es ? ", seleccionado" : ", selected") : ""}</span></button>;
-            })}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-1/2 z-10 h-14 -translate-y-1/2 rounded-xl border border-tech/35 bg-larimar/10 shadow-[0_8px_24px_rgba(13,54,80,0.08)]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-gradient-to-b from-white via-white/80 to-transparent"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-16 bg-gradient-to-t from-white via-white/80 to-transparent"
+          />
+          <div
+            ref={wheelRef}
+            data-testid="time-wheel"
+            onWheel={onWheel}
+            onScroll={settleWheel}
+            onKeyDown={onWheelKeyDown}
+            tabIndex={0}
+            className="relative h-56 overflow-y-auto overscroll-contain scroll-smooth px-2 py-[84px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <div className="space-y-2">
+              {allTimes.map((t) => {
+                const isSelected = selectedTime === t.time;
+                return (
+                  <button
+                    key={t.time}
+                    data-time={t.time}
+                    type="button"
+                    disabled={t.disabled}
+                    onClick={(event) => chooseTime(t.time, event.currentTarget)}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "relative z-10 mx-auto flex min-h-14 w-full cursor-pointer items-center justify-center rounded-xl px-4 text-lg font-semibold transition-[color,opacity] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep motion-reduce:scroll-auto motion-reduce:transition-none",
+                      isSelected
+                        ? "text-primary"
+                        : "text-mute opacity-65 hover:text-text hover:opacity-100",
+                      t.disabled && "cursor-not-allowed line-through opacity-35",
+                    )}
+                  >
+                    {t.time}
+                    <span className="sr-only">
+                      {isSelected ? (es ? ", seleccionado" : ", selected") : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+          <p className="mt-1 text-center text-xs text-mute">
+            {es ? "Desliza para elegir una hora" : "Scroll to choose a time"}
+          </p>
         </div>
-        <p className="mt-1 text-center text-xs text-mute">{es ? "Desliza para elegir una hora" : "Scroll to choose a time"}</p>
-      </div> : null}
+      ) : null}
       <p className="mt-4 text-[12px] text-mute">
-        {es ? "Horarios en " : "Times in "}<span className="font-medium text-text-2">{timezoneLabel}</span>
+        {es ? "Horarios en " : "Times in "}
+        <span className="font-medium text-text-2">{timezoneLabel}</span>
       </p>
     </div>
   );
@@ -1812,16 +1995,26 @@ function SuccessStep({
       </div>
       <p className="text-[11px] font-bold uppercase tracking-wider text-mute">
         {confirmed
-          ? es ? "Cita confirmada" : "Appointment confirmed"
-          : es ? "Solicitud recibida" : "Request received"}
+          ? es
+            ? "Cita confirmada"
+            : "Appointment confirmed"
+          : es
+            ? "Solicitud recibida"
+            : "Request received"}
       </p>
       <h3 className="mt-2 font-display text-[26px] font-bold leading-tight text-primary">
         {es ? "¡Listo! Te contactaremos" : "All set! We'll be in touch"}
       </h3>
       <div className="mx-auto mt-4 inline-flex flex-col gap-1 rounded-xl bg-bg-2 px-5 py-3 text-left text-[13.5px] text-text-2">
-        <span><strong className="text-primary">{firstName} {lastName}</strong></span>
+        <span>
+          <strong className="text-primary">
+            {firstName} {lastName}
+          </strong>
+        </span>
         <span className="capitalize">{appointmentLabel}</span>
-        <span>{countryName(country, locale)} · {timezoneLabel}</span>
+        <span>
+          {countryName(country, locale)} · {timezoneLabel}
+        </span>
       </div>
       <div className="mx-auto mt-5 max-w-md space-y-2 text-[14.5px] leading-relaxed text-text-2">
         <p>
@@ -1830,9 +2023,17 @@ function SuccessStep({
             : "One of our consultants will reach out via WhatsApp shortly to confirm your assessment details."}
         </p>
         <p>
-          {es
-            ? <>Te contactaremos <strong>1 día antes</strong> de la sesión para confirmar y compartirte los puntos a tratar.</>
-            : <>We&apos;ll reach out <strong>1 day before</strong> the session to confirm and share the talking points.</>}
+          {es ? (
+            <>
+              Te contactaremos <strong>1 día antes</strong> de la sesión para confirmar y
+              compartirte los puntos a tratar.
+            </>
+          ) : (
+            <>
+              We&apos;ll reach out <strong>1 day before</strong> the session to confirm and share
+              the talking points.
+            </>
+          )}
         </p>
       </div>
       <p className="mt-4 font-mono text-[11px] text-mute">
@@ -1872,11 +2073,18 @@ function ScheduleModalFooter({
   locale: "es" | "en";
 }) {
   const es = locale === "es";
-  const nextLabel = step === 1
-    ? es ? "Continuar a fecha" : "Continue to date"
-    : step === 2
-      ? es ? "Continuar a hora" : "Continue to time"
-      : es ? "Confirmar evaluación" : "Confirm assessment";
+  const nextLabel =
+    step === 1
+      ? es
+        ? "Continuar a fecha"
+        : "Continue to date"
+      : step === 2
+        ? es
+          ? "Continuar a hora"
+          : "Continue to time"
+        : es
+          ? "Confirmar evaluación"
+          : "Confirm assessment";
   return (
     <div className="flex-none border-t border-line bg-bg-2 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:pb-3 lg:hidden">
       {stepError ? (
@@ -1941,7 +2149,13 @@ function ScheduleModalFooter({
   );
 }
 
-function ScheduleModalSuccessFooter({ onClose, locale }: { onClose: () => void; locale: "es" | "en" }) {
+function ScheduleModalSuccessFooter({
+  onClose,
+  locale,
+}: {
+  onClose: () => void;
+  locale: "es" | "en";
+}) {
   const es = locale === "es";
   return (
     <div className="flex-none border-t border-line bg-bg-2 px-5 py-3 sm:px-7 lg:hidden">

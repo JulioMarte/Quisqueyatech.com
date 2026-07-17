@@ -1,0 +1,13 @@
+node_modules
+.next
+.convex
+coverage
+playwright-report
+test-results
+package-lock.json
+convex/_generated
+*.tsbuildinfo
+public
+Docs
+.agents
+.worktrees

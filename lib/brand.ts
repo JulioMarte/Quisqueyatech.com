@@ -17,8 +17,7 @@ export const brand = {
     initials: "JM",
     image: "/team/julio-marte.jpeg",
     role: "Fundador y consultor de automatización e IA",
-    linkedIn:
-      "https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072",
+    linkedIn: "https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072",
   },
   social: {
     instagram: "https://instagram.com/quisqueyait",

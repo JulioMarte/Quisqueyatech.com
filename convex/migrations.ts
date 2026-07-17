@@ -48,7 +48,8 @@ export const backfillBookingTimestamps = migrations.define({
       throw new Error(`Invalid ISO date in booking ${booking.bookingId}`);
     }
     const previousStartAt = booking.previousStart ? Date.parse(booking.previousStart) : undefined;
-    if (booking.previousStart && !Number.isFinite(previousStartAt)) throw new Error(`Invalid previousStart in booking ${booking.bookingId}`);
+    if (booking.previousStart && !Number.isFinite(previousStartAt))
+      throw new Error(`Invalid previousStart in booking ${booking.bookingId}`);
     return { startAt, endAt, previousStartAt };
   },
 });
@@ -66,7 +67,10 @@ export const backfillBookingSearchText = migrations.define({
       lead?.company,
       lead?.email,
       lead?.phone,
-    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase();
     return { searchText };
   },
 });

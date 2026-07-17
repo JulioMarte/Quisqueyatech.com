@@ -33,7 +33,9 @@ function offsetLabel(timeZone: string, instant: Date): string | null {
     const name = new Intl.DateTimeFormat("en-US", {
       timeZone,
       timeZoneName: "longOffset",
-    }).formatToParts(instant).find((part) => part.type === "timeZoneName")?.value;
+    })
+      .formatToParts(instant)
+      .find((part) => part.type === "timeZoneName")?.value;
     if (!name || name === "GMT" || name === "UTC") return "UTC";
     const match = name.match(/(?:GMT|UTC)([+-])(\d{2}):?(\d{2})?/);
     if (!match) return null;

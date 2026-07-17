@@ -85,9 +85,7 @@ export function useFocusTrap<T extends HTMLElement>(
 }
 
 function getFocusables(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-  ).filter((el) => {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => {
     if (el.hasAttribute("disabled")) return false;
     if (el.getAttribute("aria-hidden") === "true") return false;
     // Filter visually hidden inputs (Turnstile injects hidden inputs).

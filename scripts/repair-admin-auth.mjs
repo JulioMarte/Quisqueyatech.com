@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 
 function usage(message) {
   if (message) console.error(`Error: ${message}\n`);
-  console.error("Uso:\n  npm run admin:repair-auth -- --prod\n  npm run admin:repair-auth -- --deployment <nombre|referencia>");
+  console.error(
+    "Uso:\n  npm run admin:repair-auth -- --prod\n  npm run admin:repair-auth -- --deployment <nombre|referencia>",
+  );
   process.exit(2);
 }
 
@@ -42,7 +44,10 @@ if (answer !== confirmation) usage("confirmación incorrecta; no se modificó na
 const convexCli = fileURLToPath(new URL("../node_modules/convex/bin/main.js", import.meta.url));
 function convex(args, { capture = false } = {}) {
   const result = spawnSync(process.execPath, [convexCli, ...args, ...target.args], {
-    cwd: process.cwd(), encoding: "utf8", stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit", windowsHide: true,
+    cwd: process.cwd(),
+    encoding: "utf8",
+    stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    windowsHide: true,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
@@ -61,17 +66,34 @@ function signedSessionCookie(value, secret) {
 }
 
 async function validateJwtRegeneration() {
-  const sessions = JSON.parse(convex(["data", "session", "--component", "betterAuth", "--limit", "1", "--format", "json"], { capture: true }));
-  if (!sessions[0]?.token) throw new Error("No existe una sesión para validar. Intenta iniciar sesión una vez y repite la reparación.");
+  const sessions = JSON.parse(
+    convex(["data", "session", "--component", "betterAuth", "--limit", "1", "--format", "json"], {
+      capture: true,
+    }),
+  );
+  if (!sessions[0]?.token)
+    throw new Error(
+      "No existe una sesión para validar. Intenta iniciar sesión una vez y repite la reparación.",
+    );
   const secret = convex(["env", "get", "BETTER_AUTH_SECRET"], { capture: true });
   const siteUrl = convex(["env", "get", "SITE_URL"], { capture: true });
   const cookie = `better-auth.session_token=${signedSessionCookie(sessions[0].token, secret)}`;
-  const tokenResponse = await fetch(new URL("/api/auth/convex/token", siteUrl), { headers: { cookie }, redirect: "manual" });
+  const tokenResponse = await fetch(new URL("/api/auth/convex/token", siteUrl), {
+    headers: { cookie },
+    redirect: "manual",
+  });
   const tokenBody = await tokenResponse.json().catch(() => null);
-  if (tokenResponse.status !== 200 || typeof tokenBody?.token !== "string" || tokenBody.token.length < 100) {
+  if (
+    tokenResponse.status !== 200 ||
+    typeof tokenBody?.token !== "string" ||
+    tokenBody.token.length < 100
+  ) {
     throw new Error(`La regeneración JWT no pudo validarse (HTTP ${tokenResponse.status}).`);
   }
-  const adminResponse = await fetch(new URL("/admin", siteUrl), { headers: { cookie }, redirect: "manual" });
+  const adminResponse = await fetch(new URL("/admin", siteUrl), {
+    headers: { cookie },
+    redirect: "manual",
+  });
   if (adminResponse.status !== 200) {
     throw new Error(`El panel todavía no reconoce la sesión (HTTP ${adminResponse.status}).`);
   }
@@ -84,7 +106,13 @@ try {
   console.log("\nInstalando autorización efímera de mantenimiento...");
   convex(["env", "set", "ADMIN_SETUP_RESET_TOKEN", `${resetToken}:${resetExpiresAt}`]);
   console.log("Retirando claves JWKS incompatibles...");
-  convex(["run", "adminReset:repairAdminJwks", JSON.stringify({ resetToken, confirmation: "REPAIR_ADMIN_JWKS" }), "--typecheck", "disable"]);
+  convex([
+    "run",
+    "adminReset:repairAdminJwks",
+    JSON.stringify({ resetToken, confirmation: "REPAIR_ADMIN_JWKS" }),
+    "--typecheck",
+    "disable",
+  ]);
   console.log("Regenerando y validando el token Convex...");
   await validateJwtRegeneration();
 } catch (error) {
@@ -99,7 +127,9 @@ try {
 }
 
 if (failure) {
-  console.error(`\nLa reparación no terminó: ${failure instanceof Error ? failure.message : String(failure)}`);
+  console.error(
+    `\nLa reparación no terminó: ${failure instanceof Error ? failure.message : String(failure)}`,
+  );
   process.exit(1);
 }
 console.log("\nReparación completada: JWT válido y acceso a /admin confirmado.");

@@ -41,13 +41,7 @@ export interface BookingPayload {
 }
 
 export type BookingFailureCode =
-  | "validation"
-  | "captcha"
-  | "slot_unavailable"
-  | "rate_limited"
-  | "network"
-  | "server"
-  | "unknown";
+  "validation" | "captcha" | "slot_unavailable" | "rate_limited" | "network" | "server" | "unknown";
 
 export interface BookingSuccess {
   ok: true;

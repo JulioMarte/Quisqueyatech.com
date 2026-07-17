@@ -7,7 +7,12 @@ import { organizationJsonLd } from "@/lib/seo";
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ScheduleModalProvider>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

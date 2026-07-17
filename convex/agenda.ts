@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { requireAdmin } from "./auth";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import { requireAdminApiSecret } from "./lib/security";
 
 const DEFAULT_RULES = {
   timezone: "America/Santo_Domingo",
@@ -56,21 +57,8 @@ type AvailabilityConfig = {
   weekly: WeeklyRule[];
 };
 
-function constantTimeEqual(left: string, right: string) {
-  const size = Math.max(left.length, right.length);
-  let difference = left.length ^ right.length;
-  for (let index = 0; index < size; index += 1) {
-    difference |=
-      (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
-  }
-  return difference === 0;
-}
-
 function requireServer(secret: string) {
-  const expected = process.env.ADMIN_API_SECRET?.trim();
-  if (!expected || !constantTimeEqual(secret, expected)) {
-    throw new Error("UNAUTHORIZED");
-  }
+  requireAdminApiSecret(secret);
 }
 
 function assertTimeZone(timezone: string) {
@@ -197,9 +185,7 @@ function weekdayFor(date: string) {
 async function rules(ctx: QueryCtx | MutationCtx): Promise<AvailabilityConfig> {
   const stored = await ctx.db
     .query("availabilityRules")
-    .withIndex("by_singleton", (queryBuilder) =>
-      queryBuilder.eq("singleton", "default"),
-    )
+    .withIndex("by_singleton", (queryBuilder) => queryBuilder.eq("singleton", "default"))
     .unique();
   const config = stored ?? DEFAULT_RULES;
   assertRules(config);
@@ -263,8 +249,7 @@ async function enqueue(
 ) {
   const now = Date.now();
   const startAt = booking.startAt ?? Date.parse(booking.start);
-  const endAt = booking.endAt ??
-    (booking.end ? Date.parse(booking.end) : undefined);
+  const endAt = booking.endAt ?? (booking.end ? Date.parse(booking.end) : undefined);
   const payload = eventPayload(
     type,
     booking.bookingId,
@@ -312,9 +297,7 @@ async function scheduleForAgendaDate(
     .withIndex("by_date", (queryBuilder) => queryBuilder.eq("date", agendaDate))
     .unique();
   if (exception && !exception.available) return null;
-  const rule = config.weekly.find(
-    (item) => item.weekday === weekdayFor(agendaDate),
-  );
+  const rule = config.weekly.find((item) => item.weekday === weekdayFor(agendaDate));
   const start = exception?.start ?? rule?.start;
   const end = exception?.end ?? rule?.end;
   if ((!rule?.enabled && !exception?.available) || !start || !end) return null;
@@ -335,9 +318,26 @@ export const availability = query({
     const earliest = now + config.minimumNoticeHours * 3_600_000;
     const latest = now + config.horizonDays * 86_400_000;
     const durationMs = config.durationMinutes * 60_000;
-    const stepMs =
-      (config.durationMinutes + config.bufferMinutes) * 60_000;
+    const stepMs = (config.durationMinutes + config.bufferMinutes) * 60_000;
     const slots: { start: string; label: string }[] = [];
+
+    // Prefetch active bookings once for the visible horizon instead of
+    // one indexed lookup per candidate slot (N+1 under load).
+    const occupiedStartAt = new Set<number>();
+    const occupiedStartIso = new Set<string>();
+    const rangeStart = Math.max(0, earliest - stepMs);
+    const rangeEnd = latest + durationMs;
+    const windowBookings = await ctx.db
+      .query("bookings")
+      .withIndex("by_start_at", (queryBuilder) =>
+        queryBuilder.gte("startAt", rangeStart).lte("startAt", rangeEnd),
+      )
+      .take(500);
+    for (const booking of windowBookings) {
+      if (!activeStatuses.has(booking.status)) continue;
+      if (typeof booking.startAt === "number") occupiedStartAt.add(booking.startAt);
+      occupiedStartIso.add(booking.start);
+    }
 
     // The visitor's civil day can overlap two agenda dates (or three at the
     // extreme IANA offsets). Generate a bounded superset in the agenda zone,
@@ -356,30 +356,14 @@ export const availability = query({
         if (cursor < earliest || cursor > latest) continue;
         if (localDateAt(new Date(cursor), args.timezone) !== args.date) continue;
         const iso = new Date(cursor).toISOString();
-        const existingAt = await ctx.db
-          .query("bookings")
-          .withIndex("by_start_at", (queryBuilder) =>
-            queryBuilder.eq("startAt", cursor),
-          )
-          .first();
-        const existing = existingAt ??
-          (await ctx.db
-            .query("bookings")
-            .withIndex("by_start", (queryBuilder) =>
-              queryBuilder.eq("start", iso),
-            )
-            .first());
-        if (existing && activeStatuses.has(existing.status)) continue;
+        if (occupiedStartAt.has(cursor) || occupiedStartIso.has(iso)) continue;
         slots.push({
           start: iso,
-          label: new Intl.DateTimeFormat(
-            args.locale === "es" ? "es-DO" : "en-US",
-            {
-              timeZone: args.timezone,
-              hour: "numeric",
-              minute: "2-digit",
-            },
-          ).format(new Date(cursor)),
+          label: new Intl.DateTimeFormat(args.locale === "es" ? "es-DO" : "en-US", {
+            timeZone: args.timezone,
+            hour: "numeric",
+            minute: "2-digit",
+          }).format(new Date(cursor)),
         });
       }
     }
@@ -424,9 +408,7 @@ export const create = mutation({
     }
     const duplicate = await ctx.db
       .query("bookings")
-      .withIndex("by_booking_id", (queryBuilder) =>
-        queryBuilder.eq("bookingId", args.bookingId),
-      )
+      .withIndex("by_booking_id", (queryBuilder) => queryBuilder.eq("bookingId", args.bookingId))
       .unique();
     if (duplicate) {
       return {
@@ -448,16 +430,13 @@ export const create = mutation({
     }
     const existingAt = await ctx.db
       .query("bookings")
-      .withIndex("by_start_at", (queryBuilder) =>
-        queryBuilder.eq("startAt", startMs),
-      )
+      .withIndex("by_start_at", (queryBuilder) => queryBuilder.eq("startAt", startMs))
       .first();
-    const existing = existingAt ??
+    const existing =
+      existingAt ??
       (await ctx.db
         .query("bookings")
-        .withIndex("by_start", (queryBuilder) =>
-          queryBuilder.eq("start", args.start),
-        )
+        .withIndex("by_start", (queryBuilder) => queryBuilder.eq("start", args.start))
         .first());
     if (existing && activeStatuses.has(existing.status)) {
       throw new Error("SLOT_UNAVAILABLE");
@@ -466,13 +445,9 @@ export const create = mutation({
     const localDate = `${parts.year}-${parts.month}-${parts.day}`;
     const exception = await ctx.db
       .query("availabilityExceptions")
-      .withIndex("by_date", (queryBuilder) =>
-        queryBuilder.eq("date", localDate),
-      )
+      .withIndex("by_date", (queryBuilder) => queryBuilder.eq("date", localDate))
       .unique();
-    const rule = config.weekly.find(
-      (item) => item.weekday === weekdayFor(localDate),
-    );
+    const rule = config.weekly.find((item) => item.weekday === weekdayFor(localDate));
     if (exception && !exception.available) throw new Error("SLOT_UNAVAILABLE");
     const opening = exception?.start ?? rule?.start;
     const closing = exception?.end ?? rule?.end;
@@ -566,50 +541,185 @@ export const adminList = query({
     const search = args.search?.trim().toLocaleLowerCase().slice(0, 100);
     const result = search
       ? args.status && args.channel
-        ? await ctx.db.query("bookings").withSearchIndex("search_appointments", (queryBuilder) => queryBuilder.search("searchText", search).eq("status", args.status!).eq("channel", args.channel!)).paginate(args.paginationOpts)
+        ? await ctx.db
+            .query("bookings")
+            .withSearchIndex("search_appointments", (queryBuilder) =>
+              queryBuilder
+                .search("searchText", search)
+                .eq("status", args.status!)
+                .eq("channel", args.channel!),
+            )
+            .paginate(args.paginationOpts)
         : args.status
-          ? await ctx.db.query("bookings").withSearchIndex("search_appointments", (queryBuilder) => queryBuilder.search("searchText", search).eq("status", args.status!)).paginate(args.paginationOpts)
+          ? await ctx.db
+              .query("bookings")
+              .withSearchIndex("search_appointments", (queryBuilder) =>
+                queryBuilder.search("searchText", search).eq("status", args.status!),
+              )
+              .paginate(args.paginationOpts)
           : args.channel
-            ? await ctx.db.query("bookings").withSearchIndex("search_appointments", (queryBuilder) => queryBuilder.search("searchText", search).eq("channel", args.channel!)).paginate(args.paginationOpts)
-            : await ctx.db.query("bookings").withSearchIndex("search_appointments", (queryBuilder) => queryBuilder.search("searchText", search)).paginate(args.paginationOpts)
+            ? await ctx.db
+                .query("bookings")
+                .withSearchIndex("search_appointments", (queryBuilder) =>
+                  queryBuilder.search("searchText", search).eq("channel", args.channel!),
+                )
+                .paginate(args.paginationOpts)
+            : await ctx.db
+                .query("bookings")
+                .withSearchIndex("search_appointments", (queryBuilder) =>
+                  queryBuilder.search("searchText", search),
+                )
+                .paginate(args.paginationOpts)
       : args.status && args.channel
         ? args.fromAt !== undefined && args.toAt !== undefined
-          ? await ctx.db.query("bookings").withIndex("by_status_and_channel_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).eq("channel", args.channel!).gte("startAt", args.fromAt).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
+          ? await ctx.db
+              .query("bookings")
+              .withIndex("by_status_and_channel_and_start_at", (queryBuilder) =>
+                queryBuilder
+                  .eq("status", args.status!)
+                  .eq("channel", args.channel!)
+                  .gte("startAt", args.fromAt)
+                  .lte("startAt", args.toAt),
+              )
+              .order("desc")
+              .paginate(args.paginationOpts)
           : args.fromAt !== undefined
-            ? await ctx.db.query("bookings").withIndex("by_status_and_channel_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).eq("channel", args.channel!).gte("startAt", args.fromAt)).order("desc").paginate(args.paginationOpts)
+            ? await ctx.db
+                .query("bookings")
+                .withIndex("by_status_and_channel_and_start_at", (queryBuilder) =>
+                  queryBuilder
+                    .eq("status", args.status!)
+                    .eq("channel", args.channel!)
+                    .gte("startAt", args.fromAt),
+                )
+                .order("desc")
+                .paginate(args.paginationOpts)
             : args.toAt !== undefined
-              ? await ctx.db.query("bookings").withIndex("by_status_and_channel_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).eq("channel", args.channel!).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
-              : await ctx.db.query("bookings").withIndex("by_status_and_channel_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).eq("channel", args.channel!)).order("desc").paginate(args.paginationOpts)
+              ? await ctx.db
+                  .query("bookings")
+                  .withIndex("by_status_and_channel_and_start_at", (queryBuilder) =>
+                    queryBuilder
+                      .eq("status", args.status!)
+                      .eq("channel", args.channel!)
+                      .lte("startAt", args.toAt),
+                  )
+                  .order("desc")
+                  .paginate(args.paginationOpts)
+              : await ctx.db
+                  .query("bookings")
+                  .withIndex("by_status_and_channel_and_start_at", (queryBuilder) =>
+                    queryBuilder.eq("status", args.status!).eq("channel", args.channel!),
+                  )
+                  .order("desc")
+                  .paginate(args.paginationOpts)
         : args.status
           ? args.fromAt !== undefined && args.toAt !== undefined
-        ? await ctx.db.query("bookings").withIndex("by_status_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).gte("startAt", args.fromAt).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
-        : args.fromAt !== undefined
-          ? await ctx.db.query("bookings").withIndex("by_status_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).gte("startAt", args.fromAt)).order("desc").paginate(args.paginationOpts)
-          : args.toAt !== undefined
-            ? await ctx.db.query("bookings").withIndex("by_status_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
-            : await ctx.db.query("bookings").withIndex("by_status_and_start_at", (queryBuilder) => queryBuilder.eq("status", args.status!)).order("desc").paginate(args.paginationOpts)
+            ? await ctx.db
+                .query("bookings")
+                .withIndex("by_status_and_start_at", (queryBuilder) =>
+                  queryBuilder
+                    .eq("status", args.status!)
+                    .gte("startAt", args.fromAt)
+                    .lte("startAt", args.toAt),
+                )
+                .order("desc")
+                .paginate(args.paginationOpts)
+            : args.fromAt !== undefined
+              ? await ctx.db
+                  .query("bookings")
+                  .withIndex("by_status_and_start_at", (queryBuilder) =>
+                    queryBuilder.eq("status", args.status!).gte("startAt", args.fromAt),
+                  )
+                  .order("desc")
+                  .paginate(args.paginationOpts)
+              : args.toAt !== undefined
+                ? await ctx.db
+                    .query("bookings")
+                    .withIndex("by_status_and_start_at", (queryBuilder) =>
+                      queryBuilder.eq("status", args.status!).lte("startAt", args.toAt),
+                    )
+                    .order("desc")
+                    .paginate(args.paginationOpts)
+                : await ctx.db
+                    .query("bookings")
+                    .withIndex("by_status_and_start_at", (queryBuilder) =>
+                      queryBuilder.eq("status", args.status!),
+                    )
+                    .order("desc")
+                    .paginate(args.paginationOpts)
           : args.channel
             ? args.fromAt !== undefined && args.toAt !== undefined
-              ? await ctx.db.query("bookings").withIndex("by_channel_and_start_at", (queryBuilder) => queryBuilder.eq("channel", args.channel!).gte("startAt", args.fromAt).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
+              ? await ctx.db
+                  .query("bookings")
+                  .withIndex("by_channel_and_start_at", (queryBuilder) =>
+                    queryBuilder
+                      .eq("channel", args.channel!)
+                      .gte("startAt", args.fromAt)
+                      .lte("startAt", args.toAt),
+                  )
+                  .order("desc")
+                  .paginate(args.paginationOpts)
               : args.fromAt !== undefined
-                ? await ctx.db.query("bookings").withIndex("by_channel_and_start_at", (queryBuilder) => queryBuilder.eq("channel", args.channel!).gte("startAt", args.fromAt)).order("desc").paginate(args.paginationOpts)
+                ? await ctx.db
+                    .query("bookings")
+                    .withIndex("by_channel_and_start_at", (queryBuilder) =>
+                      queryBuilder.eq("channel", args.channel!).gte("startAt", args.fromAt),
+                    )
+                    .order("desc")
+                    .paginate(args.paginationOpts)
                 : args.toAt !== undefined
-                  ? await ctx.db.query("bookings").withIndex("by_channel_and_start_at", (queryBuilder) => queryBuilder.eq("channel", args.channel!).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
-                  : await ctx.db.query("bookings").withIndex("by_channel_and_start_at", (queryBuilder) => queryBuilder.eq("channel", args.channel!)).order("desc").paginate(args.paginationOpts)
+                  ? await ctx.db
+                      .query("bookings")
+                      .withIndex("by_channel_and_start_at", (queryBuilder) =>
+                        queryBuilder.eq("channel", args.channel!).lte("startAt", args.toAt),
+                      )
+                      .order("desc")
+                      .paginate(args.paginationOpts)
+                  : await ctx.db
+                      .query("bookings")
+                      .withIndex("by_channel_and_start_at", (queryBuilder) =>
+                        queryBuilder.eq("channel", args.channel!),
+                      )
+                      .order("desc")
+                      .paginate(args.paginationOpts)
             : args.fromAt !== undefined && args.toAt !== undefined
-        ? await ctx.db.query("bookings").withIndex("by_start_at", (queryBuilder) => queryBuilder.gte("startAt", args.fromAt).lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
-        : args.fromAt !== undefined
-          ? await ctx.db.query("bookings").withIndex("by_start_at", (queryBuilder) => queryBuilder.gte("startAt", args.fromAt)).order("desc").paginate(args.paginationOpts)
-          : args.toAt !== undefined
-            ? await ctx.db.query("bookings").withIndex("by_start_at", (queryBuilder) => queryBuilder.lte("startAt", args.toAt)).order("desc").paginate(args.paginationOpts)
-            : await ctx.db.query("bookings").withIndex("by_start_at").order("desc").paginate(args.paginationOpts);
+              ? await ctx.db
+                  .query("bookings")
+                  .withIndex("by_start_at", (queryBuilder) =>
+                    queryBuilder.gte("startAt", args.fromAt).lte("startAt", args.toAt),
+                  )
+                  .order("desc")
+                  .paginate(args.paginationOpts)
+              : args.fromAt !== undefined
+                ? await ctx.db
+                    .query("bookings")
+                    .withIndex("by_start_at", (queryBuilder) =>
+                      queryBuilder.gte("startAt", args.fromAt),
+                    )
+                    .order("desc")
+                    .paginate(args.paginationOpts)
+                : args.toAt !== undefined
+                  ? await ctx.db
+                      .query("bookings")
+                      .withIndex("by_start_at", (queryBuilder) =>
+                        queryBuilder.lte("startAt", args.toAt),
+                      )
+                      .order("desc")
+                      .paginate(args.paginationOpts)
+                  : await ctx.db
+                      .query("bookings")
+                      .withIndex("by_start_at")
+                      .order("desc")
+                      .paginate(args.paginationOpts);
     const mapped = await Promise.all(
       result.page.map(async (booking) => {
         if (
           search &&
-          ((args.fromAt !== undefined && (booking.startAt ?? Number.NEGATIVE_INFINITY) < args.fromAt) ||
+          ((args.fromAt !== undefined &&
+            (booking.startAt ?? Number.NEGATIVE_INFINITY) < args.fromAt) ||
             (args.toAt !== undefined && (booking.startAt ?? Number.POSITIVE_INFINITY) > args.toAt))
-        ) return null;
+        )
+          return null;
         const lead = await ctx.db.get(booking.leadId);
         return { ...booking, lead };
       }),
@@ -624,16 +734,12 @@ export const adminDetail = query({
     await requireAdmin(ctx);
     const booking = await ctx.db
       .query("bookings")
-      .withIndex("by_booking_id", (queryBuilder) =>
-        queryBuilder.eq("bookingId", args.bookingId),
-      )
+      .withIndex("by_booking_id", (queryBuilder) => queryBuilder.eq("bookingId", args.bookingId))
       .unique();
     if (!booking) return null;
     const deliveries = await ctx.db
       .query("webhookDeliveries")
-      .withIndex("by_booking_id", (queryBuilder) =>
-        queryBuilder.eq("bookingId", args.bookingId),
-      )
+      .withIndex("by_booking_id", (queryBuilder) => queryBuilder.eq("bookingId", args.bookingId))
       .order("desc")
       .take(50);
     const deliveriesWithHistory = await Promise.all(
@@ -669,9 +775,7 @@ export const adminTransition = mutation({
     const admin = await requireAdmin(ctx);
     const booking = await ctx.db
       .query("bookings")
-      .withIndex("by_booking_id", (queryBuilder) =>
-        queryBuilder.eq("bookingId", args.bookingId),
-      )
+      .withIndex("by_booking_id", (queryBuilder) => queryBuilder.eq("bookingId", args.bookingId))
       .unique();
     if (!booking) throw new Error("NOT_FOUND");
     if (booking.status === args.status) return booking;
@@ -698,13 +802,9 @@ export const adminTransition = mutation({
           ? "appointment.completed"
           : null;
     if (event && lead) {
-      await enqueue(
-        ctx,
-        event,
-        { ...booking, status: args.status },
-        lead,
-        { status: { from: booking.status, to: args.status } },
-      );
+      await enqueue(ctx, event, { ...booking, status: args.status }, lead, {
+        status: { from: booking.status, to: args.status },
+      });
     }
     return { ...booking, status: args.status };
   },
@@ -715,10 +815,7 @@ export const adminRules = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const value = await rules(ctx);
-    const exceptions = await ctx.db
-      .query("availabilityExceptions")
-      .order("desc")
-      .take(100);
+    const exceptions = await ctx.db.query("availabilityExceptions").order("desc").take(100);
     return { ...value, exceptions };
   },
 });
@@ -729,15 +826,11 @@ export const adminTimestampMigrationStatus = query({
     await requireAdmin(ctx);
     const missingStart = await ctx.db
       .query("bookings")
-      .withIndex("by_start_at", (queryBuilder) =>
-        queryBuilder.eq("startAt", undefined),
-      )
+      .withIndex("by_start_at", (queryBuilder) => queryBuilder.eq("startAt", undefined))
       .first();
     const missingEnd = await ctx.db
       .query("bookings")
-      .withIndex("by_end_at", (queryBuilder) =>
-        queryBuilder.eq("endAt", undefined),
-      )
+      .withIndex("by_end_at", (queryBuilder) => queryBuilder.eq("endAt", undefined))
       .first();
     return {
       complete: missingStart === null && missingEnd === null,
@@ -761,9 +854,7 @@ export const adminSaveRules = mutation({
     assertRules(args);
     const current = await ctx.db
       .query("availabilityRules")
-      .withIndex("by_singleton", (queryBuilder) =>
-        queryBuilder.eq("singleton", "default"),
-      )
+      .withIndex("by_singleton", (queryBuilder) => queryBuilder.eq("singleton", "default"))
       .unique();
     const value = {
       ...args,
@@ -802,9 +893,7 @@ export const adminSaveException = mutation({
     }
     const current = await ctx.db
       .query("availabilityExceptions")
-      .withIndex("by_date", (queryBuilder) =>
-        queryBuilder.eq("date", args.date),
-      )
+      .withIndex("by_date", (queryBuilder) => queryBuilder.eq("date", args.date))
       .unique();
     const value = {
       ...args,

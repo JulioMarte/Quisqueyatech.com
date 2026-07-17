@@ -9,10 +9,22 @@ export async function GET(request: Request) {
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
   const verified = verifyAssessmentToken(token, "progress");
-  const trustedWorker = Boolean(process.env.ASSESSMENT_WORKER_SECRET && token === process.env.ASSESSMENT_WORKER_SECRET);
-  if ((!verified?.assessmentId || verified.assessmentId !== assessmentId) && !trustedWorker) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const stored = await convexQuery("assessments:getState", { assessmentId }) as { snapshot?: unknown; lead?: { locale?: "es" | "en"; firstName?: string } } | null;
+  const trustedWorker = Boolean(
+    process.env.ASSESSMENT_WORKER_SECRET && token === process.env.ASSESSMENT_WORKER_SECRET,
+  );
+  if ((!verified?.assessmentId || verified.assessmentId !== assessmentId) && !trustedWorker)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const stored = (await convexQuery("assessments:getState", { assessmentId })) as {
+    snapshot?: unknown;
+    lead?: { locale?: "es" | "en"; firstName?: string };
+  } | null;
   const locale = stored?.lead?.locale || "es";
   const resumeSummary = stored?.snapshot ? JSON.stringify(stored.snapshot) : undefined;
-  return NextResponse.json({ prompt: assessmentPrompt(locale, stored?.lead?.firstName || (locale === "es" ? "visitante" : "guest"), resumeSummary) });
+  return NextResponse.json({
+    prompt: assessmentPrompt(
+      locale,
+      stored?.lead?.firstName || (locale === "es" ? "visitante" : "guest"),
+      resumeSummary,
+    ),
+  });
 }

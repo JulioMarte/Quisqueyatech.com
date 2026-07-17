@@ -24,24 +24,16 @@ import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
 import { adminRequest, type AdminPage } from "@/lib/client/admin-response";
 
-const VisualMarkdownEditor = dynamic(
-  () => import("@/components/admin/visual-markdown-editor"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex min-h-[440px] items-center justify-center rounded-xl border border-line bg-white">
-        <Loader2 className="h-5 w-5 animate-spin text-tech" />
-      </div>
-    ),
-  },
-);
+const VisualMarkdownEditor = dynamic(() => import("@/components/admin/visual-markdown-editor"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[440px] items-center justify-center rounded-xl border border-line bg-white">
+      <Loader2 className="h-5 w-5 animate-spin text-tech" />
+    </div>
+  ),
+});
 
-type Status =
-  | "draft"
-  | "review_pending"
-  | "scheduled"
-  | "published"
-  | "archived";
+type Status = "draft" | "review_pending" | "scheduled" | "published" | "archived";
 type Post = {
   _id?: string;
   locale: "es" | "en";
@@ -67,14 +59,7 @@ type Post = {
 type Proposal = Partial<
   Pick<
     Post,
-    | "title"
-    | "slug"
-    | "excerpt"
-    | "category"
-    | "body"
-    | "seoTitle"
-    | "seoDescription"
-    | "imageAlt"
+    "title" | "slug" | "excerpt" | "category" | "body" | "seoTitle" | "seoDescription" | "imageAlt"
   >
 > & {
   alternativeTitles?: string[];
@@ -95,23 +80,25 @@ const emptyPost = (): Post => ({
   translationKey: crypto.randomUUID(),
 });
 
-export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty: boolean) => void; saveRef?: React.MutableRefObject<(() => Promise<boolean>) | null> }) {
+export function AdminEditor({
+  onDirtyChange,
+  saveRef,
+}: {
+  onDirtyChange?: (dirty: boolean) => void;
+  saveRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
+}) {
   const changeDialog = useRef<HTMLDialogElement>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [post, setPost] = useState<Post>(emptyPost);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "all">("all");
-  const [tab, setTab] = useState<"content" | "seo" | "preview" | "history">(
-    "content",
-  );
+  const [tab, setTab] = useState<"content" | "seo" | "preview" | "history">("content");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [brief, setBrief] = useState("");
-  const [audience, setAudience] = useState(
-    "Dueños y líderes de pequeñas y medianas empresas",
-  );
+  const [audience, setAudience] = useState("Dueños y líderes de pequeñas y medianas empresas");
   const [objective, setObjective] = useState(
     "Educar con claridad y ayudar a tomar una decisión informada",
   );
@@ -123,27 +110,45 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
   const editVersion = useRef(0);
   const createIdempotencyKey = useRef<string | null>(null);
   const objectUrl = useRef<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<{ kind: "new" } | { kind: "select"; id: string } | { kind: "archive" } | { kind: "restore"; revisionId: string } | null>(null);
-  useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
-  useEffect(() => () => { if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); }, []);
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: "new" }
+    | { kind: "select"; id: string }
+    | { kind: "archive" }
+    | { kind: "restore"; revisionId: string }
+    | null
+  >(null);
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
+  useEffect(
+    () => () => {
+      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    },
+    [],
+  );
 
   const loadPosts = useCallback(async () => {
     const params = new URLSearchParams({ limit: "50" });
     if (query.trim()) params.set("q", query.trim());
     if (statusFilter !== "all") params.set("status", statusFilter);
-    const page = await adminRequest<AdminPage<Post>>(`/api/admin/v1/posts?${params}`, { cache: "no-store" });
+    const page = await adminRequest<AdminPage<Post>>(`/api/admin/v1/posts?${params}`, {
+      cache: "no-store",
+    });
     setPosts(page.items);
   }, [query, statusFilter]);
   useEffect(() => {
     let active = true;
-    const timer = window.setTimeout(() => loadPosts().catch((error) => {
-        if (active)
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "No se pudieron cargar los recursos.",
-          );
-      }), 250);
+    const timer = window.setTimeout(
+      () =>
+        loadPosts().catch((error) => {
+          if (active)
+            setMessage(
+              error instanceof Error ? error.message : "No se pudieron cargar los recursos.",
+            );
+        }),
+      250,
+    );
     return () => {
       active = false;
       window.clearTimeout(timer);
@@ -164,16 +169,14 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
   const save = useCallback(
     async (silent = false) => {
       if (!validDraft) {
-        if (!silent)
-          setMessage(
-            "Completa título, slug, resumen y contenido antes de guardar.",
-          );
+        if (!silent) setMessage("Completa título, slug, resumen y contenido antes de guardar.");
         return false;
       }
       if (saving) return false;
       setSaving(true);
       const versionAtStart = editVersion.current;
-      if (!post._id && !createIdempotencyKey.current) createIdempotencyKey.current = crypto.randomUUID();
+      if (!post._id && !createIdempotencyKey.current)
+        createIdempotencyKey.current = crypto.randomUUID();
       if (!silent) setMessage("");
       try {
         const payload = await adminRequest<{ id: string; updatedAt: number }>(
@@ -187,16 +190,18 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
             body: JSON.stringify({ ...post, id: post._id, expectedUpdatedAt: post.updatedAt }),
           },
         );
-        setPost((current) => ({ ...current, _id: String(payload.id), updatedAt: payload.updatedAt }));
+        setPost((current) => ({
+          ...current,
+          _id: String(payload.id),
+          updatedAt: payload.updatedAt,
+        }));
         createIdempotencyKey.current = null;
         if (editVersion.current === versionAtStart) setDirty(false);
         if (!silent) setMessage("Recurso guardado correctamente.");
         await loadPosts();
         return true;
       } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : "No se pudo guardar.",
-        );
+        setMessage(error instanceof Error ? error.message : "No se pudo guardar.");
         return false;
       } finally {
         setSaving(false);
@@ -204,7 +209,12 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
     },
     [loadPosts, post, saving, validDraft],
   );
-  useEffect(() => { if (saveRef) saveRef.current = () => save(false); return () => { if (saveRef) saveRef.current = null; }; }, [save, saveRef]);
+  useEffect(() => {
+    if (saveRef) saveRef.current = () => save(false);
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [save, saveRef]);
 
   useEffect(() => {
     if (!dirty || !post._id || !validDraft || post.status !== "draft") return;
@@ -217,9 +227,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
       posts.filter(
         (item) =>
           (statusFilter === "all" || item.status === statusFilter) &&
-          `${item.title} ${item.category || ""}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
+          `${item.title} ${item.category || ""}`.toLowerCase().includes(query.toLowerCase()),
       ),
     [posts, query, statusFilter],
   );
@@ -266,11 +274,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
       });
       setProposal(payload.proposal);
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "La IA no pudo completar la solicitud.",
-      );
+      setMessage(error instanceof Error ? error.message : "La IA no pudo completar la solicitud.");
     } finally {
       setGenerating(false);
     }
@@ -281,9 +285,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
     setPost((current) => ({
       ...current,
       ...Object.fromEntries(
-        Object.entries(proposal).filter(
-          ([key, value]) => value !== undefined && key in current,
-        ),
+        Object.entries(proposal).filter(([key, value]) => value !== undefined && key in current),
       ),
     }));
     setDirty(true);
@@ -302,14 +304,38 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
     }
   }
   async function executeAction(action: NonNullable<typeof pendingAction>) {
-    if (action.kind === "new") { setPost(emptyPost()); createIdempotencyKey.current = null; setDirty(false); setTab("content"); return; }
-    if (action.kind === "archive") { await archive(); return; }
-    if (action.kind === "restore") { await restore(action.revisionId); return; }
-    try { const data = await adminRequest<{ post: Post }>(`/api/admin/v1/posts/${action.id}`); setPost(data.post); setDirty(false); setTab("content"); setProposal(null); requestAnimationFrame(() => document.getElementById("post-editor-main")?.focus()); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "No se pudo cargar el recurso."); }
+    if (action.kind === "new") {
+      setPost(emptyPost());
+      createIdempotencyKey.current = null;
+      setDirty(false);
+      setTab("content");
+      return;
+    }
+    if (action.kind === "archive") {
+      await archive();
+      return;
+    }
+    if (action.kind === "restore") {
+      await restore(action.revisionId);
+      return;
+    }
+    try {
+      const data = await adminRequest<{ post: Post }>(`/api/admin/v1/posts/${action.id}`);
+      setPost(data.post);
+      setDirty(false);
+      setTab("content");
+      setProposal(null);
+      requestAnimationFrame(() => document.getElementById("post-editor-main")?.focus());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo cargar el recurso.");
+    }
   }
   function requestAction(action: NonNullable<typeof pendingAction>) {
-    if (dirty || action.kind === "archive") { setPendingAction(action); changeDialog.current?.showModal(); return; }
+    if (dirty || action.kind === "archive") {
+      setPendingAction(action);
+      changeDialog.current?.showModal();
+      return;
+    }
     void executeAction(action);
   }
   async function confirmPending(saveFirst: boolean) {
@@ -327,14 +353,18 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
       await loadPosts();
       setMessage("Contenido inicial migrado sin duplicar recursos existentes.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo migrar el contenido inicial.");
+      setMessage(
+        error instanceof Error ? error.message : "No se pudo migrar el contenido inicial.",
+      );
     }
   }
   async function loadHistory() {
     if (!post._id) return;
     setTab("history");
     try {
-      const detail = await adminRequest<{ post: Post; revisions?: Revision[] }>(`/api/admin/v1/posts/${post._id}?include=revisions`);
+      const detail = await adminRequest<{ post: Post; revisions?: Revision[] }>(
+        `/api/admin/v1/posts/${post._id}?include=revisions`,
+      );
       setRevisions(detail.revisions || []);
     } catch (error) {
       setRevisions([]);
@@ -344,7 +374,11 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
   async function restore(revisionId: string) {
     if (!post._id) return;
     try {
-      await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revisionId, expectedUpdatedAt: post.updatedAt }) });
+      await adminRequest<{ id: string }>(`/api/admin/v1/posts/${post._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revisionId, expectedUpdatedAt: post.updatedAt }),
+      });
       const detail = await adminRequest<{ post: Post }>(`/api/admin/v1/posts/${post._id}`);
       setPost(detail.post);
       setDirty(false);
@@ -359,9 +393,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
     if (!file) return;
     if (
       file.size > 5_000_000 ||
-      !["image/jpeg", "image/png", "image/webp", "image/avif"].includes(
-        file.type,
-      )
+      !["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)
     )
       return setMessage("Usa JPG, PNG, WebP o AVIF de máximo 5 MB.");
     setUploading(true);
@@ -396,9 +428,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
         imageUrl: objectUrl.current,
       }));
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "No se pudo subir la portada.",
-      );
+      setMessage(error instanceof Error ? error.message : "No se pudo subir la portada.");
     } finally {
       setUploading(false);
     }
@@ -414,16 +444,11 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
               Centro de contenido e IA
             </h1>
             <p className="mt-2 text-text-2">
-              Crea, revisa, traduce y publica recursos bilingües con
-              trazabilidad.
+              Crea, revisa, traduce y publica recursos bilingües con trazabilidad.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => requestAction({ kind: "new" })}
-            >
+            <Button type="button" variant="outline" onClick={() => requestAction({ kind: "new" })}>
               <FilePlus2 className="h-4 w-4" />
               Nuevo
             </Button>
@@ -452,7 +477,17 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
               variant="outline"
               disabled={!post._id}
               onClick={() => {
-                setPost({ ...post, _id: undefined, updatedAt: undefined, locale: post.locale === "es" ? "en" : "es", slug: "", title: "", excerpt: "", body: "", status: "draft" });
+                setPost({
+                  ...post,
+                  _id: undefined,
+                  updatedAt: undefined,
+                  locale: post.locale === "es" ? "en" : "es",
+                  slug: "",
+                  title: "",
+                  excerpt: "",
+                  body: "",
+                  status: "draft",
+                });
                 createIdempotencyKey.current = null;
                 editVersion.current += 1;
                 setDirty(true);
@@ -461,16 +496,8 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
               <FilePlus2 className="h-4 w-4" />
               Crear traducción
             </Button>
-            <Button
-              type="button"
-              disabled={saving || !validDraft}
-              onClick={() => void save()}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
+            <Button type="button" disabled={saving || !validDraft} onClick={() => void save()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Guardar
             </Button>
           </div>
@@ -489,9 +516,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
             </div>
             <select
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as Status | "all")
-              }
+              onChange={(event) => setStatusFilter(event.target.value as Status | "all")}
               aria-label="Filtrar por estado"
               className="mt-3 min-h-10 w-full rounded-lg border border-line px-3 text-sm"
             >
@@ -519,16 +544,16 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                   onClick={() => item._id && requestAction({ kind: "select", id: item._id })}
                   className={`block min-h-11 w-full cursor-pointer rounded-xl px-3 py-2 text-left transition-colors ${item._id === post._id ? "bg-primary text-white" : "hover:bg-bg-2"}`}
                 >
-                  <span className="block line-clamp-2 text-sm font-semibold">
-                    {item.title}
-                  </span>
+                  <span className="block line-clamp-2 text-sm font-semibold">{item.title}</span>
                   <span
                     className={`mt-1 block text-xs ${item._id === post._id ? "text-white/70" : "text-mute"}`}
                   >
                     {item.locale.toUpperCase()} · {item.status}
                   </span>
                   {item.actorLabel ? (
-                    <span className={`mt-1 block text-xs ${item._id === post._id ? "text-white/70" : "text-mute"}`}>
+                    <span
+                      className={`mt-1 block text-xs ${item._id === post._id ? "text-white/70" : "text-mute"}`}
+                    >
                       Último cambio: {item.actorLabel}
                     </span>
                   ) : null}
@@ -567,9 +592,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                   <SelectField
                     label="Idioma"
                     value={post.locale}
-                    onChange={(value) =>
-                      update("locale", value as Post["locale"])
-                    }
+                    onChange={(value) => update("locale", value as Post["locale"])}
                     options={["es", "en"]}
                   />
                   <Field
@@ -626,32 +649,19 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                     label="Estado"
                     value={post.status}
                     onChange={(value) => update("status", value as Status)}
-                    options={[
-                      "draft",
-                      "review_pending",
-                      "scheduled",
-                      "published",
-                      "archived",
-                    ]}
+                    options={["draft", "review_pending", "scheduled", "published", "archived"]}
                   />
                   <Field
                     label="Fecha de publicación"
                     type="datetime-local"
-                    value={
-                      post.publishedAt ? localDateTime(post.publishedAt) : ""
-                    }
+                    value={post.publishedAt ? localDateTime(post.publishedAt) : ""}
                     onChange={(value) =>
-                      update(
-                        "publishedAt",
-                        value ? new Date(value).getTime() : undefined,
-                      )
+                      update("publishedAt", value ? new Date(value).getTime() : undefined)
                     }
                   />
                 </div>
                 <div>
-                  <span className="mb-2 block text-sm font-medium">
-                    Portada
-                  </span>
+                  <span className="mb-2 block text-sm font-medium">Portada</span>
                   <label className="flex min-h-28 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line-2 bg-bg-2 p-4 text-center text-sm font-semibold text-tech">
                     {uploading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -684,9 +694,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                   />
                 </div>
                 <div className="rounded-xl bg-bg-2 p-4">
-                  <h2 className="text-sm font-bold text-primary">
-                    Checklist de publicación
-                  </h2>
+                  <h2 className="text-sm font-bold text-primary">Checklist de publicación</h2>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {checklist.map((item) => (
                       <span
@@ -737,9 +745,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                   </h1>
                   <p className="mt-4 text-lg text-text-2">{post.excerpt}</p>
                   <div className="prose mt-8 max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {post.body}
-                    </ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body}</ReactMarkdown>
                   </div>
                 </div>
               </article>
@@ -748,9 +754,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
               <div className="mt-4 rounded-2xl border border-line bg-white p-5">
                 <div className="flex items-center gap-2">
                   <History className="h-5 w-5 text-tech" />
-                  <h2 className="font-display text-xl font-bold">
-                    Historial de revisiones
-                  </h2>
+                  <h2 className="font-display text-xl font-bold">Historial de revisiones</h2>
                 </div>
                 <div className="mt-4 divide-y divide-line">
                   {revisions.length ? (
@@ -760,9 +764,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                         className="flex min-h-14 items-center justify-between gap-4 py-2"
                       >
                         <div>
-                          <span className="block text-sm font-semibold">
-                            {revision.reason}
-                          </span>
+                          <span className="block text-sm font-semibold">{revision.reason}</span>
                           <time className="text-xs text-mute">
                             {new Date(revision.createdAt).toLocaleString()}
                           </time>
@@ -771,7 +773,9 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => requestAction({ kind: "restore", revisionId: revision._id })}
+                          onClick={() =>
+                            requestAction({ kind: "restore", revisionId: revision._id })
+                          }
                         >
                           <RefreshCw className="h-4 w-4" />
                           Restaurar
@@ -779,9 +783,7 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                       </div>
                     ))
                   ) : (
-                    <p className="py-8 text-center text-text-2">
-                      Aún no hay revisiones.
-                    </p>
+                    <p className="py-8 text-center text-text-2">Aún no hay revisiones.</p>
                   )}
                 </div>
               </div>
@@ -793,12 +795,8 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                 <Bot className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="font-display font-bold text-primary">
-                  Asistente editorial
-                </h2>
-                <p className="text-xs text-mute">
-                  Genera propuestas, nunca publica.
-                </p>
+                <h2 className="font-display font-bold text-primary">Asistente editorial</h2>
+                <p className="text-xs text-mute">Genera propuestas, nunca publica.</p>
               </div>
             </div>
             <div className="mt-5 space-y-4">
@@ -818,23 +816,9 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
                   "image-prompt",
                 ]}
               />
-              <Field
-                label="Qué quieres crear"
-                value={brief}
-                onChange={setBrief}
-                textarea
-              />
-              <Field
-                label="Audiencia"
-                value={audience}
-                onChange={setAudience}
-              />
-              <Field
-                label="Objetivo"
-                value={objective}
-                onChange={setObjective}
-                textarea
-              />
+              <Field label="Qué quieres crear" value={brief} onChange={setBrief} textarea />
+              <Field label="Audiencia" value={audience} onChange={setAudience} />
+              <Field label="Objetivo" value={objective} onChange={setObjective} textarea />
               <Field
                 label="Fuentes verificables (una URL por línea)"
                 value={sources}
@@ -857,41 +841,86 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
             </div>
             {proposal ? (
               <div className="mt-5 rounded-xl border border-tech/25 bg-larimar-soft p-4">
-                <h3 className="text-sm font-bold text-primary">
-                  Propuesta lista para revisar
-                </h3>
+                <h3 className="text-sm font-bold text-primary">Propuesta lista para revisar</h3>
                 {proposal.title ? (
                   <p className="mt-2 text-sm font-semibold">{proposal.title}</p>
                 ) : null}
-                {proposal.alternativeTitles?.length ? <div className="mt-3 space-y-2"><p className="text-xs font-semibold uppercase text-mute">Títulos alternativos</p>{proposal.alternativeTitles.map((title) => <div key={title} className="flex items-center justify-between gap-2 rounded-lg bg-white p-2 text-sm"><span>{title}</span><Button type="button" size="sm" variant="outline" onClick={() => update("title", title)}>Aplicar</Button></div>)}</div> : null}
-                {proposal.outline ? (
-                  <><ul className="mt-2 list-disc pl-5 text-sm text-text-2">
-                    {proposal.outline.map((item) => (
-                      <li key={item}>{item}</li>
+                {proposal.alternativeTitles?.length ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs font-semibold uppercase text-mute">
+                      Títulos alternativos
+                    </p>
+                    {proposal.alternativeTitles.map((title) => (
+                      <div
+                        key={title}
+                        className="flex items-center justify-between gap-2 rounded-lg bg-white p-2 text-sm"
+                      >
+                        <span>{title}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => update("title", title)}
+                        >
+                          Aplicar
+                        </Button>
+                      </div>
                     ))}
-                  </ul><Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => void navigator.clipboard.writeText(proposal.outline!.map(item => `## ${item}`).join("\n\n")).catch(() => setMessage("No se pudo copiar el outline."))}>Copiar outline</Button></>
+                  </div>
                 ) : null}
-                {proposal.imagePrompt ? <div className="mt-3 rounded-lg bg-white p-3 text-sm"><p className="font-semibold">Prompt de imagen</p><p className="mt-1 text-text-2">{proposal.imagePrompt}</p><Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => void navigator.clipboard.writeText(proposal.imagePrompt!).catch(() => setMessage("No se pudo copiar el prompt."))}>Copiar prompt</Button></div> : null}
+                {proposal.outline ? (
+                  <>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-text-2">
+                      {proposal.outline.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() =>
+                        void navigator.clipboard
+                          .writeText(proposal.outline!.map((item) => `## ${item}`).join("\n\n"))
+                          .catch(() => setMessage("No se pudo copiar el outline."))
+                      }
+                    >
+                      Copiar outline
+                    </Button>
+                  </>
+                ) : null}
+                {proposal.imagePrompt ? (
+                  <div className="mt-3 rounded-lg bg-white p-3 text-sm">
+                    <p className="font-semibold">Prompt de imagen</p>
+                    <p className="mt-1 text-text-2">{proposal.imagePrompt}</p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() =>
+                        void navigator.clipboard
+                          .writeText(proposal.imagePrompt!)
+                          .catch(() => setMessage("No se pudo copiar el prompt."))
+                      }
+                    >
+                      Copiar prompt
+                    </Button>
+                  </div>
+                ) : null}
                 {proposal.warnings?.length ? (
                   <div className="mt-3 rounded-lg bg-amber-soft p-3 text-xs text-amber-deep">
                     {proposal.warnings.join(" ")}
                   </div>
                 ) : null}
-                <Button
-                  type="button"
-                  size="sm"
-                  className="mt-4 w-full"
-                  onClick={applyProposal}
-                >
+                <Button type="button" size="sm" className="mt-4 w-full" onClick={applyProposal}>
                   Aplicar al borrador
                 </Button>
               </div>
             ) : null}
             {message ? (
-              <p
-                role="status"
-                className="mt-4 rounded-lg bg-bg-2 p-3 text-sm text-text-2"
-              >
+              <p role="status" className="mt-4 rounded-lg bg-bg-2 p-3 text-sm text-text-2">
                 {message}
               </p>
             ) : null}
@@ -911,7 +940,45 @@ export function AdminEditor({ onDirtyChange, saveRef }: { onDirtyChange?: (dirty
           </aside>
         </div>
       </Container>
-      <dialog ref={changeDialog} onCancel={() => setPendingAction(null)} className="fixed inset-0 z-50 m-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl backdrop:bg-primary/70"><h2 className="font-display text-xl font-bold text-primary">{pendingAction?.kind === "archive" ? "Archivar recurso" : "Cambios sin guardar"}</h2><p className="mt-3 text-text-2">{pendingAction?.kind === "archive" ? "El recurso dejará de estar visible. Puedes guardar primero los cambios pendientes o archivar la versión guardada." : "Guarda, descarta o cancela antes de cambiar de recurso."}</p><div className="mt-5 flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => { setPendingAction(null); changeDialog.current?.close(); }}>Cancelar</Button>{dirty ? <Button type="button" variant="outline" disabled={saving} onClick={() => void confirmPending(true)}>Guardar y continuar</Button> : null}<Button type="button" disabled={saving} onClick={() => void confirmPending(false)}>{pendingAction?.kind === "archive" ? "Archivar" : "Descartar"}</Button></div></dialog>
+      <dialog
+        ref={changeDialog}
+        onCancel={() => setPendingAction(null)}
+        className="fixed inset-0 z-50 m-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl backdrop:bg-primary/70"
+      >
+        <h2 className="font-display text-xl font-bold text-primary">
+          {pendingAction?.kind === "archive" ? "Archivar recurso" : "Cambios sin guardar"}
+        </h2>
+        <p className="mt-3 text-text-2">
+          {pendingAction?.kind === "archive"
+            ? "El recurso dejará de estar visible. Puedes guardar primero los cambios pendientes o archivar la versión guardada."
+            : "Guarda, descarta o cancela antes de cambiar de recurso."}
+        </p>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setPendingAction(null);
+              changeDialog.current?.close();
+            }}
+          >
+            Cancelar
+          </Button>
+          {dirty ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => void confirmPending(true)}
+            >
+              Guardar y continuar
+            </Button>
+          ) : null}
+          <Button type="button" disabled={saving} onClick={() => void confirmPending(false)}>
+            {pendingAction?.kind === "archive" ? "Archivar" : "Descartar"}
+          </Button>
+        </div>
+      </dialog>
     </Section>
   );
 }
@@ -935,14 +1002,10 @@ function Field({
 }) {
   const classes = `min-h-11 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-tech focus:ring-2 focus:ring-larimar/20 ${textarea ? "min-h-24 resize-y" : ""}`;
   return (
-    <label
-      className={`block text-sm font-medium ${wide ? "sm:col-span-2" : ""}`}
-    >
+    <label className={`block text-sm font-medium ${wide ? "sm:col-span-2" : ""}`}>
       <span className="mb-1.5 flex justify-between gap-2">
         <span>{label}</span>
-        {hint ? (
-          <span className="text-xs font-normal text-mute">{hint}</span>
-        ) : null}
+        {hint ? <span className="text-xs font-normal text-mute">{hint}</span> : null}
       </span>
       {textarea ? (
         <textarea

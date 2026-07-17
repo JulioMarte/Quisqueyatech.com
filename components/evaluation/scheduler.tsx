@@ -29,7 +29,9 @@ export function Scheduler({ locale }: { locale: Locale }) {
         <div>
           <Eyebrow>{es ? "Agenda tu evaluación" : "Schedule your assessment"}</Eyebrow>
           <h1 className="mt-4 font-display text-[clamp(34px,5vw,50px)] font-bold leading-tight text-primary">
-            {es ? "Elige un horario. Nosotros cuidamos el resto." : "Choose a time. We will handle the rest."}
+            {es
+              ? "Elige un horario. Nosotros cuidamos el resto."
+              : "Choose a time. We will handle the rest."}
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-text-2">
             {es
@@ -43,12 +45,22 @@ export function Scheduler({ locale }: { locale: Locale }) {
         </div>
         <div className="rounded-2xl border border-line bg-white p-6 shadow-[0_24px_60px_-44px_rgba(8,47,73,.55)] sm:p-8">
           <h2 className="font-display text-2xl font-bold text-primary">
-            {es ? "Una sola experiencia, de principio a fin" : "One consistent experience, start to finish"}
+            {es
+              ? "Una sola experiencia, de principio a fin"
+              : "One consistent experience, start to finish"}
           </h2>
           <div className="mt-5 space-y-4">
             {(es
-              ? ["Zona horaria detectada automáticamente", "Horarios verificados en vivo", "Confirmación clara antes de reservar"]
-              : ["Timezone detected automatically", "Live verified availability", "Clear confirmation before booking"]
+              ? [
+                  "Zona horaria detectada automáticamente",
+                  "Horarios verificados en vivo",
+                  "Confirmación clara antes de reservar",
+                ]
+              : [
+                  "Timezone detected automatically",
+                  "Live verified availability",
+                  "Clear confirmation before booking",
+                ]
             ).map((item) => (
               <p key={item} className="flex items-center gap-3 text-sm text-text-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success-soft text-success">

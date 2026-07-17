@@ -15,10 +15,14 @@ Deploy one worker in dev first. The production worker should only be enabled if 
 
 ## Run locally
 
+Dependencies live only in this package (not in the Next.js root `package.json`).
+
 ```bash
 cd services/livekit-agent
 npm install
 npm run dev
+# or from repo root:
+# npm run agent:dev
 ```
 
 Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET`, and `NEXT_PUBLIC_SITE_URL`. The worker retrieves session-time Gemini configuration through the authenticated server endpoint and never exposes it to the browser.

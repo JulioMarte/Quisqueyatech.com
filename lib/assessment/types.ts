@@ -2,25 +2,44 @@ export const voiceProviderIds = ["ultravox", "livekit", "gemini-live"] as const;
 export type VoiceProviderId = (typeof voiceProviderIds)[number];
 
 export type VoiceStatus =
-  | "connecting"
-  | "listening"
-  | "thinking"
-  | "speaking"
-  | "reconnecting"
-  | "ended"
-  | "error";
+  "connecting" | "listening" | "thinking" | "speaking" | "reconnecting" | "ended" | "error";
 
 export type EvidenceStatus = "confirmed" | "estimated" | "inferred" | "pending";
-export type InterviewStage = "identity" | "context" | "process" | "workflow" | "impact" | "outcome" | "confirmation" | "complete";
+export type InterviewStage =
+  | "identity"
+  | "context"
+  | "process"
+  | "workflow"
+  | "impact"
+  | "outcome"
+  | "confirmation"
+  | "complete";
 export type ProgressReason = "answer" | "correction" | "time-threshold" | "interruption" | "close";
 export type SuggestedAction = "continue" | "summarize" | "confirm-contact" | "finish";
 
 export type AssessmentFieldKey =
-  | "name" | "company" | "role" | "email" | "phone"
-  | "businessContext" | "candidateProcesses" | "priorityProcess"
-  | "trigger" | "outcome" | "owners" | "tools" | "steps" | "exceptions"
-  | "volume" | "manualWork" | "pain" | "impact"
-  | "desiredOutcome" | "successMetric" | "constraints" | "validators";
+  | "name"
+  | "company"
+  | "role"
+  | "email"
+  | "phone"
+  | "businessContext"
+  | "candidateProcesses"
+  | "priorityProcess"
+  | "trigger"
+  | "outcome"
+  | "owners"
+  | "tools"
+  | "steps"
+  | "exceptions"
+  | "volume"
+  | "manualWork"
+  | "pain"
+  | "impact"
+  | "desiredOutcome"
+  | "successMetric"
+  | "constraints"
+  | "validators";
 
 export type AssessmentEvidence = {
   field: AssessmentFieldKey;
@@ -71,17 +90,45 @@ export type ProgressOutput = {
   suggestedAction: SuggestedAction;
 };
 
-export type TranscriptTurn = { speaker: "user" | "agent"; text: string; final: boolean; timestampMs?: number };
-export type NormalizedVoiceEvent = { type: "started" | "joined" | "ended" | "error"; providerSessionId?: string; reason?: string; occurredAt: number };
+export type TranscriptTurn = {
+  speaker: "user" | "agent";
+  text: string;
+  final: boolean;
+  timestampMs?: number;
+};
+export type NormalizedVoiceEvent = {
+  type: "started" | "joined" | "ended" | "error";
+  providerSessionId?: string;
+  reason?: string;
+  occurredAt: number;
+};
 
-export type GeminiSessionConfig = { responseModalities: ["AUDIO"]; language: "es" | "en"; systemInstruction: string };
+export type GeminiSessionConfig = {
+  responseModalities: ["AUDIO"];
+  language: "es" | "en";
+  systemInstruction: string;
+};
 export type ProviderSession =
   | { provider: "ultravox"; assessmentId: string; callId: string; joinUrl: string }
   | { provider: "livekit"; assessmentId: string; roomUrl: string; token: string; roomName: string }
-  | { provider: "gemini-live"; assessmentId: string; ephemeralToken: string; model: string; sessionConfig: GeminiSessionConfig };
-export type VoiceStartSession = ProviderSession | { provider: "demo"; assessmentId: string; notice: string };
+  | {
+      provider: "gemini-live";
+      assessmentId: string;
+      ephemeralToken: string;
+      model: string;
+      sessionConfig: GeminiSessionConfig;
+    };
+export type VoiceStartSession =
+  ProviderSession | { provider: "demo"; assessmentId: string; notice: string };
 
-export type AssessmentContext = { assessmentId: string; sessionKey: string; locale: "es" | "en"; name: string; progressToken: string; resumeSummary?: string };
+export type AssessmentContext = {
+  assessmentId: string;
+  sessionKey: string;
+  locale: "es" | "en";
+  name: string;
+  progressToken: string;
+  resumeSummary?: string;
+};
 
 export interface VoiceProviderAdapter {
   readonly id: VoiceProviderId;

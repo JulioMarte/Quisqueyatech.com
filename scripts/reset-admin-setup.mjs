@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 
 function usage(message) {
   if (message) console.error(`Error: ${message}\n`);
-  console.error("Uso:\n  npm run admin:reset-setup -- --prod\n  npm run admin:reset-setup -- --deployment <nombre|referencia>");
+  console.error(
+    "Uso:\n  npm run admin:reset-setup -- --prod\n  npm run admin:reset-setup -- --deployment <nombre|referencia>",
+  );
   process.exit(2);
 }
 
@@ -33,8 +35,12 @@ function parseTarget(argv) {
 
 const target = parseTarget(process.argv.slice(2));
 const confirmation = `RESET ${target.label}`;
-console.log("\nEsta operación elimina la cuenta administrativa, credenciales, sesiones y códigos de recuperación.");
-console.log("Conserva contenido, evaluaciones, medios y agentes. El proceso puede reintentarse si se interrumpe.\n");
+console.log(
+  "\nEsta operación elimina la cuenta administrativa, credenciales, sesiones y códigos de recuperación.",
+);
+console.log(
+  "Conserva contenido, evaluaciones, medios y agentes. El proceso puede reintentarse si se interrumpe.\n",
+);
 
 if (!stdin.isTTY) usage("la confirmación requiere una terminal interactiva");
 const prompt = createInterface({ input: stdin, output: stdout });
@@ -74,7 +80,13 @@ try {
   console.log("\nInstalando autorización efímera de reset...");
   convex(["env", "set", "ADMIN_SETUP_RESET_TOKEN", `${resetToken}:${resetExpiresAt}`]);
   console.log("Revocando la identidad administrativa...");
-  convex(["run", "adminReset:resetAdminSetup", JSON.stringify({ resetToken, confirmation: "RESET_ADMIN_SETUP" }), "--typecheck", "disable"]);
+  convex([
+    "run",
+    "adminReset:resetAdminSetup",
+    JSON.stringify({ resetToken, confirmation: "RESET_ADMIN_SETUP" }),
+    "--typecheck",
+    "disable",
+  ]);
   resetCompleted = true;
   console.log("Instalando un nuevo ADMIN_SETUP_CODE...");
   convex(["env", "set", "ADMIN_SETUP_CODE", setupCode]);
@@ -86,12 +98,16 @@ try {
     convex(["env", "remove", "ADMIN_SETUP_RESET_TOKEN"], { capture: true });
   } catch (error) {
     console.error(`ADVERTENCIA: no se pudo retirar el token efímero: ${error.message}`);
-    console.error("Caduca automáticamente en cinco minutos; también puedes retirarlo con `npx convex env remove ADMIN_SETUP_RESET_TOKEN` usando el mismo destino.");
+    console.error(
+      "Caduca automáticamente en cinco minutos; también puedes retirarlo con `npx convex env remove ADMIN_SETUP_RESET_TOKEN` usando el mismo destino.",
+    );
   }
 }
 
 if (failure) {
-  console.error(`\nEl comando no terminó: ${failure instanceof Error ? failure.message : String(failure)}`);
+  console.error(
+    `\nEl comando no terminó: ${failure instanceof Error ? failure.message : String(failure)}`,
+  );
 }
 if (resetCompleted && !setupCodeInstalled) {
   console.error("\nEl reset terminó, pero no se pudo instalar el nuevo setup code.");
@@ -103,4 +119,6 @@ if (failure || !resetCompleted || !setupCodeInstalled) {
 
 console.log("\nReset completado. El deployment está listo para abrir /setup.");
 console.log(`Nuevo ADMIN_SETUP_CODE (se muestra una sola vez): ${setupCode}`);
-console.log("Después de crear la cuenta y guardar los ocho códigos de recuperación, elimina ADMIN_SETUP_CODE del deployment.");
+console.log(
+  "Después de crear la cuenta y guardar los ocho códigos de recuperación, elimina ADMIN_SETUP_CODE del deployment.",
+);

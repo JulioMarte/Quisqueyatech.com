@@ -16,12 +16,18 @@ export function adminSecret() {
 
 export async function currentAdmin(): Promise<AdminActor | null> {
   const admin = await fetchAuthQuery(api.auth.currentAdmin, {});
-  return admin ? { type: "admin", id: admin.userId, label: admin.name || admin.email, email: admin.email } : null;
+  return admin
+    ? { type: "admin", id: admin.userId, label: admin.name || admin.email, email: admin.email }
+    : null;
 }
 
 function requestIp(request: Request) {
   if (process.env.TRUST_PROXY_HEADERS !== "true") return "untrusted-proxy";
-  return (request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown").trim();
+  return (
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0] ||
+    "unknown"
+  ).trim();
 }
 
 export function loginFingerprints(request: Request, email: string) {
@@ -49,7 +55,13 @@ export async function checkSecurityRateLimit(key: string, limit: number, windowM
 export function validOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return process.env.NODE_ENV !== "production";
-  try { return new URL(origin).origin === new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin; } catch { return false; }
+  try {
+    return (
+      new URL(origin).origin === new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function requireContentAgent(request: Request, operation = "request") {
@@ -57,5 +69,14 @@ export async function requireContentAgent(request: Request, operation = "request
   if (!authorization?.startsWith("Bearer ")) return { status: "unauthorized" as const };
   const raw = authorization.slice(7).trim();
   if (!isAgentToken(raw)) return { status: "unauthorized" as const };
-  return convexMutation("auth:authenticateAgent", { secret: adminSecret(), tokenHash: tokenHash(raw), operation, now: Date.now() }) as Promise<{ status: "ok"; agent: { keyId: string; name: string } } | { status: "limited"; retryAfter: number } | { status: "unauthorized" }>;
+  return convexMutation("auth:authenticateAgent", {
+    secret: adminSecret(),
+    tokenHash: tokenHash(raw),
+    operation,
+    now: Date.now(),
+  }) as Promise<
+    | { status: "ok"; agent: { keyId: string; name: string } }
+    | { status: "limited"; retryAfter: number }
+    | { status: "unauthorized" }
+  >;
 }

@@ -12,9 +12,26 @@ function key() {
   if (value.length !== 32) throw new Error("CONFIG_ENCRYPTION_KEY must encode exactly 32 bytes");
   return value;
 }
-export function encryptSetting(value: string) { const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", key(), iv); const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]); return `v1.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${encrypted.toString("base64url")}`; }
-export function decryptSetting(value: string) { const [version, iv, tag, encrypted] = value.split("."); if (version !== "v1" || !iv || !tag || !encrypted) throw new Error("Unsupported encrypted setting"); const decipher = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv, "base64url")); decipher.setAuthTag(Buffer.from(tag, "base64url")); return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8"); }
-export function maskLastFour(value: string) { return value.slice(-4); }
+export function encryptSetting(value: string) {
+  const iv = randomBytes(12),
+    cipher = createCipheriv("aes-256-gcm", key(), iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return `v1.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${encrypted.toString("base64url")}`;
+}
+export function decryptSetting(value: string) {
+  const [version, iv, tag, encrypted] = value.split(".");
+  if (version !== "v1" || !iv || !tag || !encrypted)
+    throw new Error("Unsupported encrypted setting");
+  const decipher = createDecipheriv("aes-256-gcm", key(), Buffer.from(iv, "base64url"));
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(encrypted, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+export function maskLastFour(value: string) {
+  return value.slice(-4);
+}
 
 const forbiddenHostnames = new Set([
   "localhost",
@@ -26,7 +43,8 @@ const forbiddenHostnames = new Set([
 
 function ipv4Number(address: string) {
   const parts = address.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
+    return null;
   return (((parts[0] * 256 + parts[1]) * 256 + parts[2]) * 256 + parts[3]) >>> 0;
 }
 
@@ -63,10 +81,20 @@ export function isForbiddenExternalIp(address: string) {
   if (family === 4) {
     const value = ipv4Number(address)!;
     return [
-      ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8],
-      ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24],
-      ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24],
-      ["224.0.0.0", 4], ["240.0.0.0", 4],
+      ["0.0.0.0", 8],
+      ["10.0.0.0", 8],
+      ["100.64.0.0", 10],
+      ["127.0.0.0", 8],
+      ["169.254.0.0", 16],
+      ["172.16.0.0", 12],
+      ["192.0.0.0", 24],
+      ["192.0.2.0", 24],
+      ["192.168.0.0", 16],
+      ["198.18.0.0", 15],
+      ["198.51.100.0", 24],
+      ["203.0.113.0", 24],
+      ["224.0.0.0", 4],
+      ["240.0.0.0", 4],
     ].some(([base, prefix]) => inV4Range(value, String(base), Number(prefix)));
   }
   if (family !== 6) return true;
@@ -87,12 +115,31 @@ export function isForbiddenExternalIp(address: string) {
 
 export function assertSafeExternalUrl(raw: string) {
   let url: URL;
-  try { url = new URL(raw); } catch { throw new Error("Invalid external URL"); }
-  if (process.env.NODE_ENV === "production" && url.protocol !== "https:") throw new Error("Production URLs must use HTTPS");
-  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || !url.hostname || url.port === "0") throw new Error("Invalid external URL");
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("Invalid external URL");
+  }
+  if (process.env.NODE_ENV === "production" && url.protocol !== "https:")
+    throw new Error("Production URLs must use HTTPS");
+  if (
+    !["https:", "http:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    !url.hostname ||
+    url.port === "0"
+  )
+    throw new Error("Invalid external URL");
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
-  if (forbiddenHostnames.has(host) || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) throw new Error("Private destinations are not allowed");
-  if (isIP(host) && isForbiddenExternalIp(host)) throw new Error("Private destinations are not allowed");
+  if (
+    forbiddenHostnames.has(host) ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal")
+  )
+    throw new Error("Private destinations are not allowed");
+  if (isIP(host) && isForbiddenExternalIp(host))
+    throw new Error("Private destinations are not allowed");
   return url.toString();
 }
 
@@ -100,12 +147,17 @@ type LookupResult = { address: string; family: number };
 type LookupAll = (hostname: string) => Promise<LookupResult[]>;
 
 /** Revalidates DNS immediately before an outbound request. Mixed public/private answers are rejected. */
-export async function resolveSafeExternalUrl(raw: string, resolver: LookupAll = async (hostname) => lookup(hostname, { all: true, verbatim: true })) {
+export async function resolveSafeExternalUrl(
+  raw: string,
+  resolver: LookupAll = async (hostname) => lookup(hostname, { all: true, verbatim: true }),
+) {
   const normalized = assertSafeExternalUrl(raw);
   const url = new URL(normalized);
-  if (isIP(url.hostname)) return { url: normalized, addresses: [{ address: url.hostname, family: isIP(url.hostname) }] };
+  if (isIP(url.hostname))
+    return { url: normalized, addresses: [{ address: url.hostname, family: isIP(url.hostname) }] };
   const addresses = await resolver(url.hostname);
-  if (!addresses.length || addresses.some((item) => isForbiddenExternalIp(item.address))) throw new Error("Private destinations are not allowed");
+  if (!addresses.length || addresses.some((item) => isForbiddenExternalIp(item.address)))
+    throw new Error("Private destinations are not allowed");
   return { url: normalized, addresses };
 }
 
@@ -113,53 +165,109 @@ export function signWebhookBody(secret: string, body: string) {
   return createHmac("sha256", secret).update(body, "utf8").digest("hex");
 }
 
-export type WebhookPostResult = { success: boolean; statusCode?: number; error?: string; durationMs: number };
+export type WebhookPostResult = {
+  success: boolean;
+  statusCode?: number;
+  error?: string;
+  durationMs: number;
+};
 
 export type SafeExternalRequestResult = WebhookPostResult & { body?: string };
 
 /** Performs a small outbound HTTP request without redirects and pins DNS to an address already checked for SSRF. */
 export async function requestExternalSafely(
   rawUrl: string,
-  options: { method?: "GET" | "POST"; headers?: Record<string, string>; body?: string; timeoutMs?: number; maxResponseBytes?: number } = {},
+  options: {
+    method?: "GET" | "POST";
+    headers?: Record<string, string>;
+    body?: string;
+    timeoutMs?: number;
+    maxResponseBytes?: number;
+  } = {},
 ): Promise<SafeExternalRequestResult> {
   const startedAt = Date.now();
   try {
     const resolved = await resolveSafeExternalUrl(rawUrl);
     const url = new URL(resolved.url);
     const preferred = resolved.addresses.find((item) => item.family === 4) ?? resolved.addresses[0];
-    const pinnedLookup: LookupFunction = ((_hostname, _lookupOptions, callback) => callback(null, preferred.address, preferred.family)) as LookupFunction;
+    const pinnedLookup: LookupFunction = ((_hostname, _lookupOptions, callback) =>
+      callback(null, preferred.address, preferred.family)) as LookupFunction;
     const response = await new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
       const send = url.protocol === "https:" ? httpsRequest : httpRequest;
       const body = options.body;
       const headers = { ...options.headers };
       if (body !== undefined) headers["Content-Length"] = String(Buffer.byteLength(body));
-      const req = send(url, { method: options.method ?? "GET", headers, lookup: pinnedLookup, timeout: options.timeoutMs ?? 10_000 }, (incoming) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        const maximum = options.maxResponseBytes ?? 32_768;
-        incoming.on("data", (chunk: Buffer) => {
-          received += chunk.length;
-          if (received > maximum) return incoming.destroy(new Error("RESPONSE_TOO_LARGE"));
-          chunks.push(chunk);
-        });
-        incoming.on("end", () => resolve({ statusCode: incoming.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") }));
-        incoming.on("error", reject);
-      });
+      const req = send(
+        url,
+        {
+          method: options.method ?? "GET",
+          headers,
+          lookup: pinnedLookup,
+          timeout: options.timeoutMs ?? 10_000,
+        },
+        (incoming) => {
+          const chunks: Buffer[] = [];
+          let received = 0;
+          const maximum = options.maxResponseBytes ?? 32_768;
+          incoming.on("data", (chunk: Buffer) => {
+            received += chunk.length;
+            if (received > maximum) return incoming.destroy(new Error("RESPONSE_TOO_LARGE"));
+            chunks.push(chunk);
+          });
+          incoming.on("end", () =>
+            resolve({
+              statusCode: incoming.statusCode ?? 0,
+              body: Buffer.concat(chunks).toString("utf8"),
+            }),
+          );
+          incoming.on("error", reject);
+        },
+      );
       req.on("timeout", () => req.destroy(new Error("TIMEOUT")));
       req.on("error", reject);
       req.end(body);
     });
     const success = response.statusCode >= 200 && response.statusCode < 300;
-    return { success, statusCode: response.statusCode, body: response.body, error: success ? undefined : `HTTP ${response.statusCode}`, durationMs: Date.now() - startedAt };
+    return {
+      success,
+      statusCode: response.statusCode,
+      body: response.body,
+      error: success ? undefined : `HTTP ${response.statusCode}`,
+      durationMs: Date.now() - startedAt,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    const sanitized = /private destinations/i.test(message) ? "DESTINATION_BLOCKED" : message === "TIMEOUT" ? "TIMEOUT" : message === "RESPONSE_TOO_LARGE" ? "RESPONSE_TOO_LARGE" : /invalid external url|https/i.test(message) ? "INVALID_DESTINATION" : "NETWORK_ERROR";
+    const sanitized = /private destinations/i.test(message)
+      ? "DESTINATION_BLOCKED"
+      : message === "TIMEOUT"
+        ? "TIMEOUT"
+        : message === "RESPONSE_TOO_LARGE"
+          ? "RESPONSE_TOO_LARGE"
+          : /invalid external url|https/i.test(message)
+            ? "INVALID_DESTINATION"
+            : "NETWORK_ERROR";
     return { success: false, error: sanitized, durationMs: Date.now() - startedAt };
   }
 }
 
 /** Sends without redirects and pins the request to a DNS answer already checked for SSRF. */
-export async function postWebhookSafely(rawUrl: string, body: string, headers: Record<string, string>, timeoutMs = 10_000): Promise<WebhookPostResult> {
-  const result = await requestExternalSafely(rawUrl, { method: "POST", body, headers, timeoutMs, maxResponseBytes: 1_024 });
-  return { success: result.success, statusCode: result.statusCode, error: result.error, durationMs: result.durationMs };
+export async function postWebhookSafely(
+  rawUrl: string,
+  body: string,
+  headers: Record<string, string>,
+  timeoutMs = 10_000,
+): Promise<WebhookPostResult> {
+  const result = await requestExternalSafely(rawUrl, {
+    method: "POST",
+    body,
+    headers,
+    timeoutMs,
+    maxResponseBytes: 1_024,
+  });
+  return {
+    success: result.success,
+    statusCode: result.statusCode,
+    error: result.error,
+    durationMs: result.durationMs,
+  };
 }

@@ -23,9 +23,20 @@ import {
 } from "../lib/scheduling/timezone";
 
 test("browser timezone detection validates and falls back safely", () => {
-  assert.equal(detectBrowserTimeZone(() => "America/New_York"), "America/New_York");
-  assert.equal(detectBrowserTimeZone(() => "Not/A_Real_Zone"), DEFAULT_TIME_ZONE);
-  assert.equal(detectBrowserTimeZone(() => { throw new Error("Intl unavailable"); }), DEFAULT_TIME_ZONE);
+  assert.equal(
+    detectBrowserTimeZone(() => "America/New_York"),
+    "America/New_York",
+  );
+  assert.equal(
+    detectBrowserTimeZone(() => "Not/A_Real_Zone"),
+    DEFAULT_TIME_ZONE,
+  );
+  assert.equal(
+    detectBrowserTimeZone(() => {
+      throw new Error("Intl unavailable");
+    }),
+    DEFAULT_TIME_ZONE,
+  );
   assert.equal(isValidTimeZone("America/Santo_Domingo"), true);
   assert.equal(isValidTimeZone("invalid"), false);
 });
@@ -53,10 +64,7 @@ test("localized paths round-trip", () => {
   assert.equal(withLocale("en", "/evaluacion"), "/en/evaluacion");
   assert.equal(alternatePath("/en/about"), "/nosotros");
   assert.equal(alternatePath("/nosotros"), "/en/about");
-  assert.equal(
-    alternatePath("/soluciones/agentes-de-ia"),
-    "/en/solutions/ai-agents",
-  );
+  assert.equal(alternatePath("/soluciones/agentes-de-ia"), "/en/solutions/ai-agents");
 });
 
 test("assessment intake requires international mobile and both consents", () => {
@@ -73,13 +81,9 @@ test("assessment intake requires international mobile and both consents", () => 
     recordingConsent: true,
   };
   assert.equal(assessmentIntakeSchema.safeParse(valid).success, true);
+  assert.equal(assessmentIntakeSchema.safeParse({ ...valid, phone: "8095551234" }).success, false);
   assert.equal(
-    assessmentIntakeSchema.safeParse({ ...valid, phone: "8095551234" }).success,
-    false,
-  );
-  assert.equal(
-    assessmentIntakeSchema.safeParse({ ...valid, recordingConsent: false })
-      .success,
+    assessmentIntakeSchema.safeParse({ ...valid, recordingConsent: false }).success,
     false,
   );
   assert.equal(
@@ -128,9 +132,7 @@ test("seed resources have bilingual counterparts", () => {
   const spanish = postsForLocale("es");
   const english = postsForLocale("en");
   assert.ok(spanish.length > 0);
-  assert.ok(
-    english.some((post) => post.translationKey === spanish[0].translationKey),
-  );
+  assert.ok(english.some((post) => post.translationKey === spanish[0].translationKey));
   assert.equal(findPost("es", spanish[0].slug)?.title, spanish[0].title);
 });
 
@@ -148,49 +150,120 @@ test("production navigation has no direct WhatsApp contact", async () => {
 });
 
 test("editorial content requires complete scheduled publishing data", () => {
-  const base = { locale: "es", slug: "guia-practica", title: "Guía práctica", excerpt: "Un resumen suficientemente descriptivo.", body: "## Contenido\n\nUna explicación completa y verificable.", status: "draft" };
+  const base = {
+    locale: "es",
+    slug: "guia-practica",
+    title: "Guía práctica",
+    excerpt: "Un resumen suficientemente descriptivo.",
+    body: "## Contenido\n\nUna explicación completa y verificable.",
+    status: "draft",
+  };
   assert.equal(postInputSchema.safeParse(base).success, true);
   assert.equal(postInputSchema.safeParse({ ...base, status: "scheduled" }).success, false);
-  assert.equal(postInputSchema.safeParse({ ...base, status: "scheduled", publishedAt: Date.now() + 60_000 }).success, true);
-  assert.equal(postInputSchema.safeParse({ ...base, status: "scheduled", publishedAt: Date.now() - 60_000 }).success, false);
-  assert.equal(postInputSchema.safeParse({ ...base, status: "published", imageId: "storage-id" }).success, false);
-  assert.equal(postInputSchema.safeParse({ ...base, status: "published", imageId: "storage-id", imageAlt: "Equipo colaborando frente a una pantalla" }).success, true);
+  assert.equal(
+    postInputSchema.safeParse({ ...base, status: "scheduled", publishedAt: Date.now() + 60_000 })
+      .success,
+    true,
+  );
+  assert.equal(
+    postInputSchema.safeParse({ ...base, status: "scheduled", publishedAt: Date.now() - 60_000 })
+      .success,
+    false,
+  );
+  assert.equal(
+    postInputSchema.safeParse({ ...base, status: "published", imageId: "storage-id" }).success,
+    false,
+  );
+  assert.equal(
+    postInputSchema.safeParse({
+      ...base,
+      status: "published",
+      imageId: "storage-id",
+      imageAlt: "Equipo colaborando frente a una pantalla",
+    }).success,
+    true,
+  );
   assert.equal(postInputSchema.safeParse({ ...base, slug: "Slug Inválido" }).success, false);
 });
 
 test("AI editorial actions require a useful brief and valid sources", () => {
-  assert.equal(aiActionSchema.safeParse({ action: "draft", locale: "es", brief: "Crear una guía sobre automatización", sources: ["https://example.com/source"] }).success, true);
-  assert.equal(aiActionSchema.safeParse({ action: "draft", locale: "es", brief: "x", sources: [] }).success, false);
-  assert.equal(aiActionSchema.safeParse({ action: "draft", locale: "es", brief: "Contenido válido", sources: ["not-a-url"] }).success, false);
+  assert.equal(
+    aiActionSchema.safeParse({
+      action: "draft",
+      locale: "es",
+      brief: "Crear una guía sobre automatización",
+      sources: ["https://example.com/source"],
+    }).success,
+    true,
+  );
+  assert.equal(
+    aiActionSchema.safeParse({ action: "draft", locale: "es", brief: "x", sources: [] }).success,
+    false,
+  );
+  assert.equal(
+    aiActionSchema.safeParse({
+      action: "draft",
+      locale: "es",
+      brief: "Contenido válido",
+      sources: ["not-a-url"],
+    }).success,
+    false,
+  );
 });
 
 test("Easy!Appointments is documented as external infrastructure", async () => {
   await assert.rejects(readFile("infra/easy-appointments/compose.yml", "utf8"));
-  assert.match(await readFile("infra/easy-appointments/README.md", "utf8"), /servicio independiente en el VPS/i);
+  assert.match(
+    await readFile("infra/easy-appointments/README.md", "utf8"),
+    /servicio independiente en el VPS/i,
+  );
 });
 
 test("the provider-neutral interview engine produces a complete deterministic snapshot", () => {
   const engine = new AssessmentInterviewEngine();
   const fields: AssessmentFieldKey[] = [
-    "name", "company", "role", "email", "phone", "businessContext",
-    "candidateProcesses", "priorityProcess", "trigger", "outcome", "owners",
-    "tools", "steps", "exceptions", "volume", "manualWork", "pain", "impact",
-    "desiredOutcome", "successMetric", "constraints", "validators",
+    "name",
+    "company",
+    "role",
+    "email",
+    "phone",
+    "businessContext",
+    "candidateProcesses",
+    "priorityProcess",
+    "trigger",
+    "outcome",
+    "owners",
+    "tools",
+    "steps",
+    "exceptions",
+    "volume",
+    "manualWork",
+    "pain",
+    "impact",
+    "desiredOutcome",
+    "successMetric",
+    "constraints",
+    "validators",
   ];
   const updates: AssessmentEvidence[] = fields.map((field) => ({
     field,
-    value: field === "email" ? "ana@example.com" : field === "phone" ? "+18095551234" : `value-${field}`,
+    value:
+      field === "email" ? "ana@example.com" : field === "phone" ? "+18095551234" : `value-${field}`,
     evidence: `evidence-${field}`,
     status: "confirmed",
     confidence: 0.95,
   }));
-  const output = engine.advance(createAssessmentSnapshot("es", 1), {
-    assessmentId: "assessment-1",
-    eventId: "00000000-0000-4000-8000-000000000001",
-    reason: "answer",
-    elapsedSeconds: 720,
-    updates,
-  }, 2);
+  const output = engine.advance(
+    createAssessmentSnapshot("es", 1),
+    {
+      assessmentId: "assessment-1",
+      eventId: "00000000-0000-4000-8000-000000000001",
+      reason: "answer",
+      elapsedSeconds: 720,
+      updates,
+    },
+    2,
+  );
   assert.equal(output.coverageScore, 100);
   assert.equal(output.snapshot.complete, true);
   assert.deepEqual(output.essentialMissing, []);
@@ -201,13 +274,25 @@ test("interview engine caps confidence, elapsed time, and probes", () => {
   const engine = new AssessmentInterviewEngine();
   let snapshot = createAssessmentSnapshot("en", 1);
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    snapshot = engine.advance(snapshot, {
-      assessmentId: "assessment-2",
-      eventId: `00000000-0000-4000-8000-${String(attempt + 1).padStart(12, "0")}`,
-      reason: "answer",
-      elapsedSeconds: 1_000,
-      updates: [{ field: "email", value: "unclear", evidence: "unclear", status: "pending", confidence: 5 }],
-    }, attempt + 2).snapshot;
+    snapshot = engine.advance(
+      snapshot,
+      {
+        assessmentId: "assessment-2",
+        eventId: `00000000-0000-4000-8000-${String(attempt + 1).padStart(12, "0")}`,
+        reason: "answer",
+        elapsedSeconds: 1_000,
+        updates: [
+          {
+            field: "email",
+            value: "unclear",
+            evidence: "unclear",
+            status: "pending",
+            confidence: 5,
+          },
+        ],
+      },
+      attempt + 2,
+    ).snapshot;
   }
   assert.equal(snapshot.probeCounts.email, 2);
   assert.equal(snapshot.fields.email?.confidence, 1);
@@ -215,13 +300,27 @@ test("interview engine caps confidence, elapsed time, and probes", () => {
 });
 
 test("guidance scheduler emits every crossed threshold exactly once per interval", () => {
-  assert.deepEqual(crossedThresholds(299, 601).map(({ key }) => key), ["process-selected", "workflow-impact"]);
+  assert.deepEqual(
+    crossedThresholds(299, 601).map(({ key }) => key),
+    ["process-selected", "workflow-impact"],
+  );
   assert.deepEqual(crossedThresholds(600, 779), []);
-  assert.deepEqual(crossedThresholds(869, 900).map(({ key }) => key), ["close", "hard-stop"]);
+  assert.deepEqual(
+    crossedThresholds(869, 900).map(({ key }) => key),
+    ["close", "hard-stop"],
+  );
 });
 
 test("sensitive values are redacted before they reach the assessment snapshot", () => {
-  const result = enforceAssessmentDataPolicy([{ field: "constraints", value: "API key: abcdefghijklmnop", evidence: "The password: super-secret", status: "confirmed", confidence: 1 }]);
+  const result = enforceAssessmentDataPolicy([
+    {
+      field: "constraints",
+      value: "API key: abcdefghijklmnop",
+      evidence: "The password: super-secret",
+      status: "confirmed",
+      confidence: 1,
+    },
+  ]);
   assert.equal(result.updates[0].status, "pending");
   assert.doesNotMatch(result.updates[0].value, /abcdefghijklmnop/);
   assert.doesNotMatch(result.updates[0].evidence, /super-secret/);
@@ -232,9 +331,34 @@ test("sensitive values are redacted before they reach the assessment snapshot", 
 test("invalid contact cannot become confirmed and exhausted probes no longer block the interview", () => {
   const engine = new AssessmentInterviewEngine();
   let snapshot = createAssessmentSnapshot("es", 1);
-  const identity: AssessmentEvidence[] = ["name", "company", "role", "phone"].map((field) => ({ field: field as AssessmentFieldKey, value: field === "phone" ? "+18095551234" : field, evidence: field, status: "confirmed", confidence: 1 }));
+  const identity: AssessmentEvidence[] = ["name", "company", "role", "phone"].map((field) => ({
+    field: field as AssessmentFieldKey,
+    value: field === "phone" ? "+18095551234" : field,
+    evidence: field,
+    status: "confirmed",
+    confidence: 1,
+  }));
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    snapshot = engine.advance(snapshot, { assessmentId: "assessment-3", eventId: `00000000-0000-4000-8000-${String(attempt + 20).padStart(12, "0")}`, reason: "answer", elapsedSeconds: 30, updates: [...(attempt === 0 ? identity : []), { field: "email", value: "not-an-email", evidence: "not-an-email", status: "confirmed", confidence: 1 }] }, attempt + 2).snapshot;
+    snapshot = engine.advance(
+      snapshot,
+      {
+        assessmentId: "assessment-3",
+        eventId: `00000000-0000-4000-8000-${String(attempt + 20).padStart(12, "0")}`,
+        reason: "answer",
+        elapsedSeconds: 30,
+        updates: [
+          ...(attempt === 0 ? identity : []),
+          {
+            field: "email",
+            value: "not-an-email",
+            evidence: "not-an-email",
+            status: "confirmed",
+            confidence: 1,
+          },
+        ],
+      },
+      attempt + 2,
+    ).snapshot;
   }
   assert.equal(snapshot.fields.email?.status, "pending");
   assert.equal(snapshot.probeCounts.email, 2);
@@ -250,14 +374,26 @@ test("provider states normalize to the UI contract", () => {
 });
 
 test("production boundaries require assessment authorization", async () => {
-  assert.match(await readFile("app/api/assessment/complete/route.ts", "utf8"), /verifyAssessmentToken/);
-  assert.match(await readFile("convex/assessments.ts", "utf8"), /requireService\(args\.serviceSecret\)/);
+  assert.match(
+    await readFile("app/api/assessment/complete/route.ts", "utf8"),
+    /verifyAssessmentToken/,
+  );
+  assert.match(
+    await readFile("convex/assessments.ts", "utf8"),
+    /requireService\(args\.serviceSecret\)/,
+  );
   assert.match(await readFile("lib/server/assessment-tokens.ts", "utf8"), /required in production/);
 });
 
 test("agent content input rejects privileged editorial fields", async () => {
   const { agentPostSchema, transitionSchema } = await import("../lib/validations/content-agent");
-  const base = { locale: "es", slug: "borrador-agente", title: "Borrador del agente", excerpt: "Un resumen suficientemente descriptivo.", body: "## Contenido\n\nUna explicación completa para revisión humana." };
+  const base = {
+    locale: "es",
+    slug: "borrador-agente",
+    title: "Borrador del agente",
+    excerpt: "Un resumen suficientemente descriptivo.",
+    body: "## Contenido\n\nUna explicación completa para revisión humana.",
+  };
   assert.equal(agentPostSchema.safeParse(base).success, true);
   assert.equal(agentPostSchema.safeParse({ ...base, status: "published" }).success, false);
   assert.equal(agentPostSchema.safeParse({ ...base, publishedAt: Date.now() }).success, false);

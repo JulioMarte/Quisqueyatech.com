@@ -104,19 +104,13 @@ export function ScheduleModalProvider({
     [isOpen, source, locale, open, close],
   );
 
-  return (
-    <ScheduleModalContext.Provider value={value}>
-      {children}
-    </ScheduleModalContext.Provider>
-  );
+  return <ScheduleModalContext.Provider value={value}>{children}</ScheduleModalContext.Provider>;
 }
 
 export function useScheduleModal(): ScheduleModalContextValue {
   const ctx = useContext(ScheduleModalContext);
   if (!ctx) {
-    throw new Error(
-      "useScheduleModal must be used within <ScheduleModalProvider>",
-    );
+    throw new Error("useScheduleModal must be used within <ScheduleModalProvider>");
   }
   return ctx;
 }

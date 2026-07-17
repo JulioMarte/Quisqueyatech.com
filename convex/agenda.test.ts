@@ -50,9 +50,7 @@ test("server-authorized agenda stores canonical timestamps and optional profile 
   const start = nextWeekdayAtTen();
   await t.mutation(api.agenda.create, input(crypto.randomUUID(), start));
   const booking = await t.run((ctx) => ctx.db.query("bookings").first());
-  const lead = booking
-    ? await t.run((ctx) => ctx.db.get(booking.leadId))
-    : null;
+  const lead = booking ? await t.run((ctx) => ctx.db.get(booking.leadId)) : null;
   expect(booking?.startAt).toBe(Date.parse(start));
   expect(booking?.endAt).toBe(Date.parse(start) + 15 * 60_000);
   expect(booking?.start).toBe(start);
@@ -122,9 +120,9 @@ test("timestamp index prevents two active bookings for the same instant", async 
   const t = convexTest(schema, modules);
   const start = nextWeekdayAtTen();
   await t.mutation(api.agenda.create, input(crypto.randomUUID(), start));
-  await expect(
-    t.mutation(api.agenda.create, input(crypto.randomUUID(), start)),
-  ).rejects.toThrow("SLOT_UNAVAILABLE");
+  await expect(t.mutation(api.agenda.create, input(crypto.randomUUID(), start))).rejects.toThrow(
+    "SLOT_UNAVAILABLE",
+  );
 });
 
 test("availability is bounded to the visitor civil date across agenda dates", async () => {
@@ -188,9 +186,7 @@ test("invalid stored weekly rules fail closed", async () => {
       bufferMinutes: 0,
       minimumNoticeHours: 0,
       horizonDays: 60,
-      weekly: [
-        { weekday: 1, enabled: true, start: "17:00", end: "09:00" },
-      ],
+      weekly: [{ weekday: 1, enabled: true, start: "17:00", end: "09:00" }],
       updatedBy: "test@example.com",
       updatedAt: Date.now(),
     });

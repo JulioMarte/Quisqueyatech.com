@@ -1,11 +1,20 @@
 import { GoogleGenAI } from "@google/genai";
 import { AccessToken } from "livekit-server-sdk";
 import { z } from "zod";
-import { adminException, adminFailure, adminJson, authorizeContentRequest, readAdminJson, requestId } from "@/lib/server/admin-content";
+import {
+  adminException,
+  adminFailure,
+  adminJson,
+  authorizeContentRequest,
+  readAdminJson,
+  requestId,
+} from "@/lib/server/admin-content";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { requestExternalSafely } from "@/lib/server/secure-config";
 
-const requestSchema = z.object({ provider: z.enum(["ultravox", "livekit", "gemini-live"]) }).strict();
+const requestSchema = z
+  .object({ provider: z.enum(["ultravox", "livekit", "gemini-live"]) })
+  .strict();
 
 export async function POST(request: Request) {
   const trace = requestId(request);
@@ -17,22 +26,57 @@ export async function POST(request: Request) {
     const startedAt = Date.now();
 
     if (parsed.data.provider === "gemini-live") {
-      if (!config.geminiApiKey) return adminFailure(trace, "Gemini no tiene una API key configurada.", 503, "CONFIGURATION_ERROR");
-      const model = String(config.geminiLiveModel || "gemini-2.5-flash-native-audio-preview-12-2025");
+      if (!config.geminiApiKey)
+        return adminFailure(
+          trace,
+          "Gemini no tiene una API key configurada.",
+          503,
+          "CONFIGURATION_ERROR",
+        );
+      const model = String(
+        config.geminiLiveModel || "gemini-2.5-flash-native-audio-preview-12-2025",
+      );
       await new GoogleGenAI({ apiKey: String(config.geminiApiKey) }).models.get({ model });
-      return adminJson(trace, { provider: parsed.data.provider, success: true, durationMs: Date.now() - startedAt });
+      return adminJson(trace, {
+        provider: parsed.data.provider,
+        success: true,
+        durationMs: Date.now() - startedAt,
+      });
     }
 
     if (parsed.data.provider === "ultravox") {
-      if (!config.ultravoxApiKey || !config.ultravoxApiUrl) return adminFailure(trace, "Ultravox no está configurado completamente.", 503, "CONFIGURATION_ERROR");
+      if (!config.ultravoxApiKey || !config.ultravoxApiUrl)
+        return adminFailure(
+          trace,
+          "Ultravox no está configurado completamente.",
+          503,
+          "CONFIGURATION_ERROR",
+        );
       const result = await requestExternalSafely(String(config.ultravoxApiUrl), {
         headers: { "X-API-Key": String(config.ultravoxApiKey), Accept: "application/json" },
       });
-      if (!result.success) return adminFailure(trace, `Ultravox rechazó la prueba (${result.error || "UPSTREAM_ERROR"}).`, 502, "UPSTREAM_ERROR");
-      return adminJson(trace, { provider: parsed.data.provider, success: true, statusCode: result.statusCode, durationMs: result.durationMs });
+      if (!result.success)
+        return adminFailure(
+          trace,
+          `Ultravox rechazó la prueba (${result.error || "UPSTREAM_ERROR"}).`,
+          502,
+          "UPSTREAM_ERROR",
+        );
+      return adminJson(trace, {
+        provider: parsed.data.provider,
+        success: true,
+        statusCode: result.statusCode,
+        durationMs: result.durationMs,
+      });
     }
 
-    if (!config.livekitUrl || !config.livekitApiKey || !config.livekitApiSecret) return adminFailure(trace, "LiveKit no está configurado completamente.", 503, "CONFIGURATION_ERROR");
+    if (!config.livekitUrl || !config.livekitApiKey || !config.livekitApiSecret)
+      return adminFailure(
+        trace,
+        "LiveKit no está configurado completamente.",
+        503,
+        "CONFIGURATION_ERROR",
+      );
     const livekitUrl = new URL(String(config.livekitUrl));
     livekitUrl.protocol = "https:";
     livekitUrl.pathname = "/twirp/livekit.RoomService/ListRooms";
@@ -41,11 +85,25 @@ export async function POST(request: Request) {
     token.addGrant({ roomList: true });
     const result = await requestExternalSafely(livekitUrl.toString(), {
       method: "POST",
-      headers: { Authorization: `Bearer ${await token.toJwt()}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${await token.toJwt()}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ names: [] }),
     });
-    if (!result.success) return adminFailure(trace, `LiveKit rechazó la prueba (${result.error || "UPSTREAM_ERROR"}).`, 502, "UPSTREAM_ERROR");
-    return adminJson(trace, { provider: parsed.data.provider, success: true, statusCode: result.statusCode, durationMs: result.durationMs });
+    if (!result.success)
+      return adminFailure(
+        trace,
+        `LiveKit rechazó la prueba (${result.error || "UPSTREAM_ERROR"}).`,
+        502,
+        "UPSTREAM_ERROR",
+      );
+    return adminJson(trace, {
+      provider: parsed.data.provider,
+      success: true,
+      statusCode: result.statusCode,
+      durationMs: result.durationMs,
+    });
   } catch (error) {
     return adminException(trace, "configuration.provider-test", error);
   }

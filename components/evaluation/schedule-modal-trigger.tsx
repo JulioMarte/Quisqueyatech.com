@@ -13,7 +13,10 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { useScheduleModal, type ScheduleSource } from "@/components/evaluation/schedule-modal-context";
+import {
+  useScheduleModal,
+  type ScheduleSource,
+} from "@/components/evaluation/schedule-modal-context";
 import { cn } from "@/lib/utils";
 
 const triggerVariants = cva(
@@ -21,17 +24,12 @@ const triggerVariants = cva(
   {
     variants: {
       variant: {
-        primary:
-          "bg-amber text-white shadow-sm hover:bg-amber-deep hover:shadow-md",
-        ghost:
-          "bg-transparent border border-line-2 text-text hover:border-primary hover:bg-white",
+        primary: "bg-amber text-white shadow-sm hover:bg-amber-deep hover:shadow-md",
+        ghost: "bg-transparent border border-line-2 text-text hover:border-primary hover:bg-white",
         dark: "bg-primary text-white hover:bg-primary-2",
-        outline:
-          "border border-line bg-white text-text hover:border-larimar-deep",
-        "on-dark-primary":
-          "bg-amber text-white shadow-sm hover:bg-amber-deep hover:shadow-md",
-        "on-dark-outline":
-          "border border-white/25 bg-white/10 text-white hover:bg-white/15",
+        outline: "border border-line bg-white text-text hover:border-larimar-deep",
+        "on-dark-primary": "bg-amber text-white shadow-sm hover:bg-amber-deep hover:shadow-md",
+        "on-dark-outline": "border border-white/25 bg-white/10 text-white hover:bg-white/15",
       },
       size: {
         default: "h-11 px-5 py-3",
@@ -48,7 +46,8 @@ const triggerVariants = cva(
 );
 
 export interface ScheduleModalTriggerProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type">,
+  extends
+    Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type">,
     VariantProps<typeof triggerVariants> {
   /** Tag used for analytics. Defaults to "unknown". */
   source?: ScheduleSource;

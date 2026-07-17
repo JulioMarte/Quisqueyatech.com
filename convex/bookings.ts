@@ -1,21 +1,9 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-
-function constantTimeEqual(left: string, right: string) {
-  const size = Math.max(left.length, right.length);
-  let difference = left.length ^ right.length;
-  for (let index = 0; index < size; index += 1) {
-    difference |=
-      (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
-  }
-  return difference === 0;
-}
+import { requireAdminApiSecret } from "./lib/security";
 
 function requireServer(secret: string) {
-  const expected = process.env.ADMIN_API_SECRET?.trim();
-  if (!expected || !constantTimeEqual(secret, expected)) {
-    throw new Error("UNAUTHORIZED");
-  }
+  requireAdminApiSecret(secret);
 }
 
 function assertTimeZone(timezone: string) {
@@ -43,9 +31,7 @@ export const byBookingId = query({
     requireServer(args.secret);
     return ctx.db
       .query("bookings")
-      .withIndex("by_booking_id", (queryBuilder) =>
-        queryBuilder.eq("bookingId", args.bookingId),
-      )
+      .withIndex("by_booking_id", (queryBuilder) => queryBuilder.eq("bookingId", args.bookingId))
       .unique();
   },
 });
@@ -79,9 +65,7 @@ export const upsert = mutation({
     if (!Number.isFinite(startAt)) throw new Error("INVALID_BOOKING_START");
     const current = await ctx.db
       .query("bookings")
-      .withIndex("by_booking_id", (queryBuilder) =>
-        queryBuilder.eq("bookingId", args.bookingId),
-      )
+      .withIndex("by_booking_id", (queryBuilder) => queryBuilder.eq("bookingId", args.bookingId))
       .unique();
     if (current) {
       await ctx.db.patch(current._id, {
@@ -159,9 +143,7 @@ export const fromWebhook = mutation({
     }
     const duplicate = await ctx.db
       .query("webhookEvents")
-      .withIndex("by_event_id", (queryBuilder) =>
-        queryBuilder.eq("eventId", args.eventId),
-      )
+      .withIndex("by_event_id", (queryBuilder) => queryBuilder.eq("eventId", args.eventId))
       .unique();
     if (duplicate) return { duplicate: true };
     const now = Date.now();
@@ -185,15 +167,11 @@ export const fromWebhook = mutation({
     } catch {
       throw new Error("INVALID_WEBHOOK_PAYLOAD");
     }
-    const externalId = String(
-      payload.appointment?.id ?? payload.id ?? "",
-    ).slice(0, 160);
+    const externalId = String(payload.appointment?.id ?? payload.id ?? "").slice(0, 160);
     if (!externalId) return { ignored: true };
     const booking = await ctx.db
       .query("bookings")
-      .withIndex("by_external_id", (queryBuilder) =>
-        queryBuilder.eq("externalId", externalId),
-      )
+      .withIndex("by_external_id", (queryBuilder) => queryBuilder.eq("externalId", externalId))
       .unique();
     if (booking) {
       await ctx.db.patch(booking._id, {
@@ -227,9 +205,7 @@ export const updateCall = mutation({
     const eventId = `${args.callSid}:${args.status}`;
     const duplicate = await ctx.db
       .query("webhookEvents")
-      .withIndex("by_event_id", (queryBuilder) =>
-        queryBuilder.eq("eventId", eventId),
-      )
+      .withIndex("by_event_id", (queryBuilder) => queryBuilder.eq("eventId", eventId))
       .unique();
     if (duplicate) return null;
     const now = Date.now();
@@ -244,9 +220,7 @@ export const updateCall = mutation({
     });
     const booking = await ctx.db
       .query("bookings")
-      .withIndex("by_call_sid", (queryBuilder) =>
-        queryBuilder.eq("callSid", args.callSid),
-      )
+      .withIndex("by_call_sid", (queryBuilder) => queryBuilder.eq("callSid", args.callSid))
       .unique();
     // Call lifecycle is not an appointment lifecycle. Preserve the appointment
     // state and retain the provider event in webhookEvents for diagnostics.

@@ -68,14 +68,40 @@ export const resetAdminSetup = action({
 
     await ctx.runMutation(internal.adminReset.lockAdminSetup, { now: Date.now() });
 
-    const remove = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user" | "jwks") =>
-      deleteEveryPage(() => ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-        input: { model },
-        paginationOpts: { numItems: 100, cursor: null },
-      }) as Promise<DeletePage>);
+    const remove = (
+      model:
+        | "session"
+        | "account"
+        | "twoFactor"
+        | "oauthAccessToken"
+        | "oauthConsent"
+        | "oauthApplication"
+        | "verification"
+        | "rateLimit"
+        | "user"
+        | "jwks",
+    ) =>
+      deleteEveryPage(
+        () =>
+          ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+            input: { model },
+            paginationOpts: { numItems: 100, cursor: null },
+          }) as Promise<DeletePage>,
+      );
 
-    const findRemaining = (model: "session" | "account" | "twoFactor" | "oauthAccessToken" | "oauthConsent" | "oauthApplication" | "verification" | "rateLimit" | "user" | "jwks") =>
-      ctx.runQuery(components.betterAuth.adapter.findOne, { model }) as Promise<unknown | null>;
+    const findRemaining = (
+      model:
+        | "session"
+        | "account"
+        | "twoFactor"
+        | "oauthAccessToken"
+        | "oauthConsent"
+        | "oauthApplication"
+        | "verification"
+        | "rateLimit"
+        | "user"
+        | "jwks",
+    ) => ctx.runQuery(components.betterAuth.adapter.findOne, { model }) as Promise<unknown | null>;
 
     // Revoke access before removing credentials and the user record.
     const deleted = {
@@ -93,10 +119,24 @@ export const resetAdminSetup = action({
       setupRateLimits: 0,
     };
 
-    const identityModels = ["session", "account", "twoFactor", "oauthAccessToken", "oauthConsent", "oauthApplication", "verification", "rateLimit", "user", "jwks"] as const;
+    const identityModels = [
+      "session",
+      "account",
+      "twoFactor",
+      "oauthAccessToken",
+      "oauthConsent",
+      "oauthApplication",
+      "verification",
+      "rateLimit",
+      "user",
+      "jwks",
+    ] as const;
     for (const model of identityModels) {
       if (await findRemaining(model)) {
-        throw new ConvexError({ code: "CONFLICT", message: `Better Auth cleanup incomplete: ${model}` });
+        throw new ConvexError({
+          code: "CONFLICT",
+          message: `Better Auth cleanup incomplete: ${model}`,
+        });
       }
     }
 
@@ -108,7 +148,9 @@ export const resetAdminSetup = action({
     } while (!applicationPage.isDone);
 
     await ctx.runMutation(internal.adminReset.finishAdminReset, {});
-    console.info(JSON.stringify({ scope: "auth", operation: "reset-admin-setup", result: "success", deleted }));
+    console.info(
+      JSON.stringify({ scope: "auth", operation: "reset-admin-setup", result: "success", deleted }),
+    );
     return { status: "uninitialized" as const, deleted };
   },
 });
@@ -125,16 +167,21 @@ export const repairAdminJwks = action({
       throw new ConvexError({ code: "VALIDATION_ERROR", message: "Invalid repair confirmation" });
     }
 
-    const deleted = await deleteEveryPage(() => ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-      input: { model: "jwks" },
-      paginationOpts: { numItems: 100, cursor: null },
-    }) as Promise<DeletePage>);
+    const deleted = await deleteEveryPage(
+      () =>
+        ctx.runMutation(components.betterAuth.adapter.deleteMany, {
+          input: { model: "jwks" },
+          paginationOpts: { numItems: 100, cursor: null },
+        }) as Promise<DeletePage>,
+    );
     const remaining = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "jwks" });
     if (remaining) {
       throw new ConvexError({ code: "CONFLICT", message: "JWKS cleanup is incomplete" });
     }
 
-    console.info(JSON.stringify({ scope: "auth", operation: "repair-admin-jwks", result: "success", deleted }));
+    console.info(
+      JSON.stringify({ scope: "auth", operation: "repair-admin-jwks", result: "success", deleted }),
+    );
     return { status: "ready_for_regeneration" as const, deleted };
   },
 });
@@ -142,7 +189,10 @@ export const repairAdminJwks = action({
 export const lockAdminSetup = internalMutation({
   args: { now: v.number() },
   handler: async (ctx, args) => {
-    const row = await ctx.db.query("adminInstallation").withIndex("by_singleton", q => q.eq("singleton", "admin")).unique();
+    const row = await ctx.db
+      .query("adminInstallation")
+      .withIndex("by_singleton", (q) => q.eq("singleton", "admin"))
+      .unique();
     const locked = {
       status: "configured" as const,
       claimExpiresAt: undefined,
@@ -165,7 +215,7 @@ export const clearAdminSetupPage = internalMutation({
 
     const setupRateLimits = await ctx.db
       .query("authSecurityRateLimits")
-      .withIndex("by_key", q => q.gte("key", "setup:").lt("key", "setup;"))
+      .withIndex("by_key", (q) => q.gte("key", "setup:").lt("key", "setup;"))
       .take(100);
     for (const rate of setupRateLimits) await ctx.db.delete(rate._id);
 
@@ -183,12 +233,15 @@ export const finishAdminReset = internalMutation({
     const remainingCode = await ctx.db.query("adminRecoveryCodes").first();
     const remainingSetupLimit = await ctx.db
       .query("authSecurityRateLimits")
-      .withIndex("by_key", q => q.gte("key", "setup:").lt("key", "setup;"))
+      .withIndex("by_key", (q) => q.gte("key", "setup:").lt("key", "setup;"))
       .first();
     if (remainingCode || remainingSetupLimit) {
       throw new ConvexError({ code: "CONFLICT", message: "Admin reset cleanup is incomplete" });
     }
-    const row = await ctx.db.query("adminInstallation").withIndex("by_singleton", q => q.eq("singleton", "admin")).unique();
+    const row = await ctx.db
+      .query("adminInstallation")
+      .withIndex("by_singleton", (q) => q.eq("singleton", "admin"))
+      .unique();
     if (row) await ctx.db.delete(row._id);
     return null;
   },

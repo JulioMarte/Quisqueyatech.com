@@ -130,7 +130,9 @@ En desarrollo ambos comandos usan `CONVEX_DEPLOYMENT` desde `.env.local`. Reinic
 
 ### Agentes de contenido
 
-Las tablas `adminSessions` y `authLoginAttempts` pertenecen al sistema anterior. Se conservan temporalmente para rollback, pero la aplicación no las lee ni escribe. Antes de eliminarlas en una versión posterior, exporta su contenido y confirma durante una versión completa que sus fechas y cantidades no cambian.
+Las tablas legacy `adminSessions` y `authLoginAttempts` se eliminaron del esquema. Si aún aparecen filas huérfanas en un deployment antiguo, puedes borrarlas desde el dashboard de Convex; la aplicación ya no las referencia.
+
+La configuración cifrada de runtime (`/machine/runtime` en `*.convex.site`) solo se expone al BFF de Next con `Authorization: Bearer ADMIN_API_SECRET`. No uses queries públicas para secretos.
 
 Dentro de `/admin`, abre la sección **Agentes** para crear, rotar o revocar credenciales. Cada clave se muestra una sola vez y solamente autentica `/api/content/v1`; los agentes pueden trabajar con borradores y enviarlos a revisión, pero no publicar.
 

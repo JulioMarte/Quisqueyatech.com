@@ -16,8 +16,7 @@ export function alternatePath(pathname: string): string {
     "/soluciones": "/en/solutions",
     "/soluciones/automatizacion": "/en/solutions/automation",
     "/soluciones/agentes-de-ia": "/en/solutions/ai-agents",
-    "/soluciones/software-e-integraciones":
-      "/en/solutions/software-and-integrations",
+    "/soluciones/software-e-integraciones": "/en/solutions/software-and-integrations",
     "/soluciones/clinicas": "/en/solutions/clinics",
     "/como-trabajamos": "/en/how-we-work",
     "/evaluacion": "/en/assessment",
@@ -28,9 +27,7 @@ export function alternatePath(pathname: string): string {
     "/privacidad": "/en/privacy",
   };
   if (pairs[pathname]) return pairs[pathname];
-  const reverse = Object.fromEntries(
-    Object.entries(pairs).map(([es, en]) => [en, es]),
-  );
+  const reverse = Object.fromEntries(Object.entries(pairs).map(([es, en]) => [en, es]));
   if (reverse[pathname]) return reverse[pathname];
   return localeFromPath(pathname) === "en"
     ? pathname.replace(/^\/en(?=\/|$)/, "") || "/"

@@ -79,6 +79,37 @@ npx convex env remove ADMIN_SETUP_CODE
 npx convex env remove --prod ADMIN_SETUP_CODE
 ```
 
+### Resetear la instalación administrativa
+
+Si necesitas reemplazar completamente la única cuenta administrativa, despliega primero esta versión y ejecuta uno de estos comandos desde una terminal interactiva:
+
+```powershell
+# Deployment de desarrollo seleccionado
+npm run admin:reset-setup -- --deployment dev
+
+# Producción (exige escribir RESET PRODUCTION)
+npm run admin:reset-setup -- --prod
+```
+
+El comando nunca infiere el destino. Crea una autorización de reset aleatoria que caduca en cinco minutos, revoca sesiones, elimina la identidad Better Auth y los códigos de recuperación, y configura un `ADMIN_SETUP_CODE` nuevo que muestra una sola vez. Conserva contenido, evaluaciones, medios y credenciales de agentes. Si se interrumpe, se puede ejecutar de nuevo con seguridad.
+
+Abre `/setup`, crea la nueva cuenta, guarda los ocho códigos de recuperación y elimina inmediatamente el setup code:
+
+```powershell
+npx convex env remove ADMIN_SETUP_CODE --deployment dev
+npx convex env remove ADMIN_SETUP_CODE --prod
+```
+
+Si el login crea sesiones pero `/api/auth/convex/token` falla porque cambió `BETTER_AUTH_SECRET`, regenera únicamente JWKS sin borrar la cuenta:
+
+```powershell
+npm run admin:repair-auth -- --deployment dev
+# Producción, solo si presenta el mismo error:
+npm run admin:repair-auth -- --prod
+```
+
+El comando conserva usuario, contraseña, sesiones y códigos de recuperación. Necesita al menos una sesión existente para validar la emisión JWT; si no existe, intenta iniciar sesión una vez y repite el comando. Mantén `BETTER_AUTH_SECRET` estable después de la reparación.
+
 Si la página carga indefinidamente o devuelve 503, confirma que:
 
 - `NEXT_PUBLIC_CONVEX_URL` apunta al deployment de desarrollo correcto.
@@ -99,6 +130,10 @@ En desarrollo ambos comandos usan `CONVEX_DEPLOYMENT` desde `.env.local`. Reinic
 
 ### Agentes de contenido
 
+Las tablas legacy `adminSessions` y `authLoginAttempts` se eliminaron del esquema. Si aún aparecen filas huérfanas en un deployment antiguo, puedes borrarlas desde el dashboard de Convex; la aplicación ya no las referencia.
+
+La configuración cifrada de runtime (`/machine/runtime` en `*.convex.site`) solo se expone al BFF de Next con `Authorization: Bearer ADMIN_API_SECRET`. No uses queries públicas para secretos.
+
 Dentro de `/admin`, abre la sección **Agentes** para crear, rotar o revocar credenciales. Cada clave se muestra una sola vez y solamente autentica `/api/content/v1`; los agentes pueden trabajar con borradores y enviarlos a revisión, pero no publicar.
 
 ## Evaluación de voz
@@ -107,9 +142,9 @@ Dentro de `/admin`, abre la sección **Agentes** para crear, rotar o revocar cre
 
 LiveKit necesita además un worker de Agents conectado a Gemini Live. El sitio crea la sala y el token; el worker se despliega independientemente en LiveKit Cloud o Coolify.
 
-## Easy!Appointments
+## Agenda interna y compatibilidad con Easy!Appointments
 
-Easy!Appointments 1.6.0 vive como servicio independiente en el VPS. La UI pública nunca enlaza al frontend predeterminado: consulta disponibilidad y crea reservas mediante su API HTTPS desde el servidor. Este repositorio conserva únicamente la guía de interoperabilidad en `infra/easy-appointments/README.md`.
+La disponibilidad y las reservas nuevas usan la agenda transaccional interna de Convex. Easy!Appointments queda fuera del camino activo y se conserva temporalmente como referencia histórica y para diagnóstico de webhooks heredados; `externalId` no es la fuente de verdad de una cita nueva.
 
 Configura un webhook hacia:
 
@@ -125,12 +160,48 @@ El workflow `.github/workflows/deploy.yml` valida el proyecto, despliega Convex 
 
 Variables públicas de Next.js deben configurarse como build arguments en Coolify. Los secretos de Easy!Appointments, voz, telefonía y correo son variables runtime y nunca deben incluirse en la imagen.
 
-Para producción ejecuta `npx convex deploy` con la credencial del deployment de producción y comprueba el contrato publicado con `npx convex function-spec --prod` antes de activar Coolify. Convex debe desplegarse primero; después se reconstruye y reinicia Next.js en Coolify. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina inmediatamente `ADMIN_SETUP_CODE` del deployment de producción. No copies `BETTER_AUTH_SECRET` a Coolify.
+Para producción ejecuta `npx convex deploy` con la credencial del deployment de producción y comprueba el contrato publicado con `npx convex function-spec --prod` antes de activar Coolify. Convex debe desplegarse primero; después se reconstruye y reinicia Next.js en Coolify. `SITE_URL` debe ser exactamente `https://www.quisqueyatech.com`, sin retorno de carro. Abre `/setup` una sola vez, guarda los códigos de recuperación y elimina inmediatamente `ADMIN_SETUP_CODE` del deployment de producción. No copies `BETTER_AUTH_SECRET` a Coolify.
+
+Después de desplegar el esquema ampliado, clasifica los medios históricos por lotes. Ejecuta primero el dry-run y solo después la migración real:
+
+```bash
+npx convex run migrations:classifyExistingMedia '{"dryRun":true}' --prod
+npx convex run migrations:classifyExistingMedia --prod
+```
+
+La agenda usa una migración widen–migrate–narrow para reemplazar fechas ISO almacenadas por timestamps numéricos. Después de desplegar la fase ampliada, ejecuta:
+
+```bash
+npx convex run migrations:backfillBookingTimestamps '{"dryRun":true}' --prod
+npx convex run migrations:backfillBookingTimestamps --prod
+npx convex run migrations:backfillBookingSearchText '{"dryRun":true}' --prod
+npx convex run migrations:backfillBookingSearchText --prod
+```
+
+No elimines todavía `start`, `end` ni sus índices antiguos. Primero confirma desde el panel o con `agenda:adminTimestampMigrationStatus` que no quede ninguna cita sin `startAt` o `endAt`; el estrechamiento del esquema requiere un despliegue posterior y solo debe realizarse después de una verificación exitosa en producción.
+
+Las credenciales de agentes se preparan y se activan en dos pasos. Una clave pendiente no autentica y la clave anterior continúa activa hasta confirmar la activación. Si se pierde la respuesta, deja expirar la pendiente o revócala; no rote repetidamente.
 
 ## Verificación
 
 ```bash
+npm test
 npm run lint
+npx tsc --noEmit
 npm run build
 docker build -t quisqueyatech-coolify .
 ```
+
+Las pruebas E2E anónimas no necesitan credenciales. La suite completa es destructiva (crea contenido y agentes, cambia la contraseña y consume un código), por lo que solo debe ejecutarse contra un deployment preview aislado. Si el preview está vacío usa `E2E_ADMIN_SETUP_CODE`; si ya está configurado proporciona además la cuenta y un código de recuperación:
+
+```powershell
+$env:E2E_BASE_URL="https://preview.example.com"
+$env:E2E_ADMIN_SETUP_CODE="código-efímero-del-preview"
+# Para un preview ya configurado:
+$env:E2E_ADMIN_EMAIL="admin-de-prueba@ejemplo.com"
+$env:E2E_ADMIN_PASSWORD="contraseña-efímera"
+$env:E2E_ADMIN_RECOVERY_CODE="código-de-recuperación-efímero"
+npm run test:e2e
+```
+
+No guardes esas variables en `.env.local`, CI ni el repositorio. En producción ejecuta primero el smoke test anónimo; crea la cuenta mediante `/setup`, elimina `ADMIN_SETUP_CODE` y solo entonces ejecuta el flujo autenticado.

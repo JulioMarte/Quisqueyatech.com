@@ -1,27 +1,444 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const locale = v.union(v.literal("es"), v.literal("en"));
+const postStatus = v.union(
+  v.literal("draft"),
+  v.literal("review_pending"),
+  v.literal("scheduled"),
+  v.literal("published"),
+  v.literal("archived"),
+);
+const actorType = v.optional(v.union(v.literal("admin"), v.literal("agent"), v.literal("system")));
+
 export default defineSchema({
-  leads: defineTable({ assessmentId: v.optional(v.string()), bookingId: v.optional(v.string()), firstName: v.string(), lastName: v.string(), company: v.string(), role: v.string(), country: v.string(), locale: v.union(v.literal("es"), v.literal("en")), email: v.string(), phone: v.string(), source: v.string(), status: v.string(), processingConsentAt: v.number(), leadExpiresAt: v.number(), createdAt: v.number(), updatedAt: v.number() }).index("by_assessment", ["assessmentId"]).index("by_booking", ["bookingId"]).index("by_email", ["email"]),
-  assessments: defineTable({ assessmentId: v.string(), leadId: v.id("leads"), provider: v.optional(v.string()), providerSessionId: v.optional(v.string()), providerModel: v.optional(v.string()), providerVoice: v.optional(v.string()), frameworkVersion: v.optional(v.string()), mode: v.string(), status: v.string(), stage: v.optional(v.string()), coverageScore: v.optional(v.number()), snapshot: v.optional(v.any()), completionReason: v.optional(v.string()), resumeTokenHash: v.optional(v.string()), resumeExpiresAt: v.optional(v.number()), finalizationStartedAt: v.optional(v.number()), reportDraft: v.optional(v.any()), reportStatus: v.optional(v.string()), reportRevision: v.optional(v.number()), reviewedBy: v.optional(v.string()), reviewedAt: v.optional(v.number()), sentAt: v.optional(v.number()), sendError: v.optional(v.string()), recordingConsentAt: v.number(), consentVersion: v.optional(v.string()), audioStorageId: v.optional(v.id("_storage")), audioExpiresAt: v.number(), transcript: v.optional(v.string()), transcriptExpiresAt: v.number(), result: v.optional(v.any()), durationSeconds: v.optional(v.number()), createdAt: v.number(), completedAt: v.optional(v.number()) }).index("by_assessment_id", ["assessmentId"]).index("by_provider_session", ["providerSessionId"]).index("by_audio_expiry", ["audioExpiresAt"]).index("by_report_status", ["reportStatus"]),
-  assessmentSessions: defineTable({ sessionKey: v.string(), assessmentId: v.string(), provider: v.string(), providerSessionId: v.optional(v.string()), model: v.optional(v.string()), voice: v.optional(v.string()), frameworkVersion: v.string(), status: v.string(), startedAt: v.number(), endedAt: v.optional(v.number()), durationSeconds: v.optional(v.number()), completionReason: v.optional(v.string()), canonicalTranscript: v.optional(v.string()), report: v.optional(v.any()) }).index("by_session_key", ["sessionKey"]).index("by_assessment", ["assessmentId", "startedAt"]).index("by_provider_session", ["providerSessionId"]),
-  assessmentEvents: defineTable({ assessmentId: v.string(), eventId: v.string(), sessionKey: v.optional(v.string()), reason: v.string(), input: v.any(), output: v.any(), createdAt: v.number() }).index("by_assessment_event", ["assessmentId", "eventId"]).index("by_assessment_time", ["assessmentId", "createdAt"]),
-  assessmentRateLimits: defineTable({ key: v.string(), count: v.number(), resetAt: v.number() }).index("by_key", ["key"]),
-  bookings: defineTable({ bookingId: v.string(), externalId: v.optional(v.string()), leadId: v.id("leads"), start: v.string(), timezone: v.string(), channel: v.union(v.literal("web"), v.literal("phone")), status: v.string(), recordingConsentAt: v.optional(v.number()), createdAt: v.number(), updatedAt: v.number(), callSid: v.optional(v.string()), callAttempts: v.optional(v.number()) }).index("by_booking_id", ["bookingId"]).index("by_external_id", ["externalId"]).index("by_call_sid", ["callSid"]),
-  webhookEvents: defineTable({ eventId: v.string(), provider: v.string(), event: v.string(), payload: v.string(), status: v.string(), attempts: v.number(), error: v.optional(v.string()), requestId: v.optional(v.string()), receivedAt: v.number(), processedAt: v.optional(v.number()) }).index("by_event_id", ["eventId"]),
-  voiceMetrics: defineTable({ assessmentId: v.string(), provider: v.string(), completion: v.boolean(), extractionScore: v.optional(v.number()), latencyMs: v.optional(v.number()), languageScore: v.optional(v.number()), costUsd: v.optional(v.number()), createdAt: v.number() }).index("by_provider", ["provider"]),
-  posts: defineTable({ locale: v.union(v.literal("es"), v.literal("en")), slug: v.string(), translationKey: v.optional(v.string()), title: v.string(), excerpt: v.string(), categoryId: v.optional(v.id("categories")), category: v.optional(v.string()), body: v.string(), imageId: v.optional(v.id("_storage")), imageAlt: v.optional(v.string()), seoTitle: v.optional(v.string()), seoDescription: v.optional(v.string()), readingMinutes: v.optional(v.number()), featured: v.optional(v.boolean()), status: v.union(v.literal("draft"), v.literal("review_pending"), v.literal("scheduled"), v.literal("published"), v.literal("archived")), publishedAt: v.optional(v.number()), authorEmail: v.string(), actorType: v.optional(v.union(v.literal("admin"), v.literal("agent"), v.literal("system"))), actorId: v.optional(v.string()), actorLabel: v.optional(v.string()), createdAt: v.number(), updatedAt: v.number() }).index("by_locale_slug", ["locale", "slug"]).index("by_status_published", ["status", "publishedAt"]).index("by_translation", ["translationKey", "locale"]),
-  categories: defineTable({ locale: v.union(v.literal("es"), v.literal("en")), name: v.string(), slug: v.string() }).index("by_locale_slug", ["locale", "slug"]),
-  media: defineTable({ storageId: v.id("_storage"), filename: v.string(), contentType: v.string(), purpose: v.string(), ownerEmail: v.string(), expiresAt: v.optional(v.number()), createdAt: v.number() }).index("by_expiry", ["expiresAt"]),
-  postRevisions: defineTable({ postId: v.id("posts"), snapshot: v.any(), reason: v.string(), actorEmail: v.string(), actorType: v.optional(v.union(v.literal("admin"), v.literal("agent"), v.literal("system"))), actorId: v.optional(v.string()), actorLabel: v.optional(v.string()), createdAt: v.number() }).index("by_post_created", ["postId", "createdAt"]),
-  aiRuns: defineTable({ postId: v.optional(v.id("posts")), action: v.string(), provider: v.string(), model: v.string(), status: v.string(), warnings: v.array(v.string()), inputTokens: v.optional(v.number()), outputTokens: v.optional(v.number()), durationMs: v.number(), actorEmail: v.string(), createdAt: v.number() }).index("by_post_created", ["postId", "createdAt"]),
-  apiIdempotency: defineTable({ scope: v.string(), key: v.string(), value: v.any(), expiresAt: v.number(), createdAt: v.number() }).index("by_scope_key", ["scope", "key"]).index("by_expiry", ["expiresAt"]),
-  funnelEvents: defineTable({ sessionId: v.string(), locale: v.union(v.literal("es"), v.literal("en")), name: v.string(), assessmentId: v.optional(v.string()), bookingId: v.optional(v.string()), path: v.optional(v.string()), createdAt: v.number() }).index("by_name_time", ["name", "createdAt"]),
-  systemSettings: defineTable({ key: v.string(), value: v.any(), updatedBy: v.string(), updatedAt: v.number() }).index("by_key", ["key"]),
-  adminSessions: defineTable({ tokenHash: v.string(), email: v.string(), version: v.string(), createdAt: v.number(), expiresAt: v.number(), lastSeenAt: v.number(), revokedAt: v.optional(v.number()) }).index("by_token_hash", ["tokenHash"]).index("by_expiry", ["expiresAt"]),
-  authLoginAttempts: defineTable({ key: v.string(), count: v.number(), windowStartedAt: v.number(), blockedUntil: v.optional(v.number()), updatedAt: v.number() }).index("by_key", ["key"]).index("by_updated_at", ["updatedAt"]),
-  adminInstallation: defineTable({ singleton: v.string(), status: v.union(v.literal("provisioning"), v.literal("configured")), claimExpiresAt: v.optional(v.number()), adminUserId: v.optional(v.string()), adminEmail: v.optional(v.string()), adminName: v.optional(v.string()), configuredAt: v.optional(v.number()), updatedAt: v.number() }).index("by_singleton", ["singleton"]),
-  adminRecoveryCodes: defineTable({ userId: v.string(), codeHash: v.string(), createdAt: v.number(), claimedAt: v.optional(v.number()), consumedAt: v.optional(v.number()) }).index("by_code_hash", ["codeHash"]).index("by_user_id", ["userId"]),
-  contentAgents: defineTable({ keyId: v.string(), name: v.string(), tokenHash: v.string(), prefix: v.string(), status: v.union(v.literal("active"), v.literal("revoked")), requestLimit: v.number(), uploadLimit: v.number(), createdBy: v.string(), createdAt: v.number(), rotatedAt: v.optional(v.number()), revokedAt: v.optional(v.number()), lastUsedAt: v.optional(v.number()) }).index("by_key_id", ["keyId"]).index("by_token_hash", ["tokenHash"]),
-  contentAgentRateLimits: defineTable({ key: v.string(), count: v.number(), resetAt: v.number() }).index("by_key", ["key"]).index("by_reset_at", ["resetAt"]),
+  leads: defineTable({
+    assessmentId: v.optional(v.string()),
+    bookingId: v.optional(v.string()),
+    firstName: v.string(),
+    lastName: v.string(),
+    company: v.optional(v.string()),
+    role: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    country: v.string(),
+    locale,
+    email: v.string(),
+    phone: v.string(),
+    source: v.string(),
+    status: v.string(),
+    processingConsentAt: v.number(),
+    leadExpiresAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_assessment", ["assessmentId"])
+    .index("by_booking", ["bookingId"])
+    .index("by_email", ["email"])
+    .index("by_lead_expires", ["leadExpiresAt"]),
+
+  assessments: defineTable({
+    assessmentId: v.string(),
+    leadId: v.id("leads"),
+    provider: v.optional(v.string()),
+    providerSessionId: v.optional(v.string()),
+    providerModel: v.optional(v.string()),
+    providerVoice: v.optional(v.string()),
+    frameworkVersion: v.optional(v.string()),
+    mode: v.string(),
+    status: v.string(),
+    stage: v.optional(v.string()),
+    coverageScore: v.optional(v.number()),
+    snapshot: v.optional(v.any()),
+    completionReason: v.optional(v.string()),
+    resumeTokenHash: v.optional(v.string()),
+    resumeExpiresAt: v.optional(v.number()),
+    finalizationStartedAt: v.optional(v.number()),
+    reportDraft: v.optional(v.any()),
+    reportStatus: v.optional(v.string()),
+    reportRevision: v.optional(v.number()),
+    reportContentHash: v.optional(v.string()),
+    reportSendKey: v.optional(v.string()),
+    reportSendClaimId: v.optional(v.string()),
+    reportSendClaimExpiresAt: v.optional(v.number()),
+    reportSendMessageId: v.optional(v.string()),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+    sendError: v.optional(v.string()),
+    recordingConsentAt: v.number(),
+    consentVersion: v.optional(v.string()),
+    audioStorageId: v.optional(v.id("_storage")),
+    audioExpiresAt: v.number(),
+    transcript: v.optional(v.string()),
+    transcriptExpiresAt: v.number(),
+    result: v.optional(v.any()),
+    durationSeconds: v.optional(v.number()),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_assessment_id", ["assessmentId"])
+    .index("by_provider_session", ["providerSessionId"])
+    .index("by_audio_expiry", ["audioExpiresAt"])
+    .index("by_transcript_expiry", ["transcriptExpiresAt"])
+    .index("by_report_status", ["reportStatus"]),
+
+  assessmentSessions: defineTable({
+    sessionKey: v.string(),
+    assessmentId: v.string(),
+    provider: v.string(),
+    providerSessionId: v.optional(v.string()),
+    model: v.optional(v.string()),
+    voice: v.optional(v.string()),
+    frameworkVersion: v.string(),
+    status: v.string(),
+    startedAt: v.number(),
+    endedAt: v.optional(v.number()),
+    durationSeconds: v.optional(v.number()),
+    completionReason: v.optional(v.string()),
+    canonicalTranscript: v.optional(v.string()),
+    report: v.optional(v.any()),
+  })
+    .index("by_session_key", ["sessionKey"])
+    .index("by_assessment", ["assessmentId", "startedAt"])
+    .index("by_provider_session", ["providerSessionId"]),
+
+  assessmentEvents: defineTable({
+    assessmentId: v.string(),
+    eventId: v.string(),
+    sessionKey: v.optional(v.string()),
+    reason: v.string(),
+    input: v.any(),
+    output: v.any(),
+    createdAt: v.number(),
+  })
+    .index("by_assessment_event", ["assessmentId", "eventId"])
+    .index("by_assessment_time", ["assessmentId", "createdAt"]),
+
+  assessmentRateLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    resetAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  bookings: defineTable({
+    bookingId: v.string(),
+    externalId: v.optional(v.string()),
+    leadId: v.id("leads"),
+    searchText: v.optional(v.string()),
+    start: v.string(),
+    end: v.optional(v.string()),
+    startAt: v.optional(v.number()),
+    endAt: v.optional(v.number()),
+    timezone: v.string(),
+    channel: v.union(v.literal("web"), v.literal("phone")),
+    status: v.string(),
+    previousStart: v.optional(v.string()),
+    previousStartAt: v.optional(v.number()),
+    recordingConsentAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    callSid: v.optional(v.string()),
+    callAttempts: v.optional(v.number()),
+  })
+    .index("by_booking_id", ["bookingId"])
+    .index("by_external_id", ["externalId"])
+    .index("by_call_sid", ["callSid"])
+    .index("by_start", ["start"])
+    .index("by_status_and_start", ["status", "start"])
+    .index("by_start_at", ["startAt"])
+    .index("by_end_at", ["endAt"])
+    .index("by_channel_and_start_at", ["channel", "startAt"])
+    .index("by_status_and_start_at", ["status", "startAt"])
+    .index("by_status_and_channel_and_start_at", ["status", "channel", "startAt"])
+    .searchIndex("search_appointments", {
+      searchField: "searchText",
+      filterFields: ["status", "channel"],
+    }),
+
+  availabilityRules: defineTable({
+    singleton: v.string(),
+    timezone: v.string(),
+    durationMinutes: v.number(),
+    bufferMinutes: v.number(),
+    minimumNoticeHours: v.number(),
+    horizonDays: v.number(),
+    weekly: v.array(
+      v.object({
+        weekday: v.number(),
+        enabled: v.boolean(),
+        start: v.string(),
+        end: v.string(),
+      }),
+    ),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  }).index("by_singleton", ["singleton"]),
+
+  availabilityExceptions: defineTable({
+    date: v.string(),
+    available: v.boolean(),
+    start: v.optional(v.string()),
+    end: v.optional(v.string()),
+    reason: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index("by_date", ["date"]),
+
+  bookingAudit: defineTable({
+    bookingId: v.string(),
+    action: v.string(),
+    actorEmail: v.string(),
+    before: v.optional(v.any()),
+    after: v.optional(v.any()),
+    createdAt: v.number(),
+  }).index("by_booking_and_created_at", ["bookingId", "createdAt"]),
+
+  secretSettings: defineTable({
+    key: v.string(),
+    ciphertext: v.string(),
+    lastFour: v.string(),
+    version: v.number(),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  webhookDeliveries: defineTable({
+    eventId: v.string(),
+    type: v.string(),
+    bookingId: v.optional(v.string()),
+    payload: v.any(),
+    status: v.string(),
+    attempts: v.number(),
+    nextAttemptAt: v.optional(v.number()),
+    lastStatusCode: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    leaseId: v.optional(v.string()),
+    leaseExpiresAt: v.optional(v.number()),
+    lastAttemptAt: v.optional(v.number()),
+    createdAt: v.number(),
+    deliveredAt: v.optional(v.number()),
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_status_and_next_attempt_at", ["status", "nextAttemptAt"])
+    .index("by_booking_id", ["bookingId"]),
+
+  webhookDeliveryAttempts: defineTable({
+    deliveryId: v.id("webhookDeliveries"),
+    eventId: v.string(),
+    attempt: v.number(),
+    manual: v.boolean(),
+    requestedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    success: v.optional(v.boolean()),
+    statusCode: v.optional(v.number()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    leaseId: v.string(),
+  })
+    .index("by_delivery_id_and_attempt", ["deliveryId", "attempt"])
+    .index("by_event_id_and_requested_at", ["eventId", "requestedAt"]),
+
+  configurationAudit: defineTable({
+    actorEmail: v.string(),
+    changedFields: v.array(v.string()),
+    changedSecretKeys: v.array(v.string()),
+    createdAt: v.number(),
+  }).index("by_created_at", ["createdAt"]),
+
+  webhookEvents: defineTable({
+    eventId: v.string(),
+    provider: v.string(),
+    event: v.string(),
+    payload: v.string(),
+    status: v.string(),
+    attempts: v.number(),
+    error: v.optional(v.string()),
+    requestId: v.optional(v.string()),
+    receivedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_received_at", ["receivedAt"]),
+
+  voiceMetrics: defineTable({
+    assessmentId: v.string(),
+    provider: v.string(),
+    completion: v.boolean(),
+    extractionScore: v.optional(v.number()),
+    latencyMs: v.optional(v.number()),
+    languageScore: v.optional(v.number()),
+    costUsd: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_provider", ["provider"])
+    .index("by_assessment", ["assessmentId"]),
+
+  posts: defineTable({
+    locale,
+    slug: v.string(),
+    translationKey: v.optional(v.string()),
+    title: v.string(),
+    excerpt: v.string(),
+    categoryId: v.optional(v.id("categories")),
+    category: v.optional(v.string()),
+    body: v.string(),
+    imageId: v.optional(v.id("_storage")),
+    imageAlt: v.optional(v.string()),
+    seoTitle: v.optional(v.string()),
+    seoDescription: v.optional(v.string()),
+    readingMinutes: v.optional(v.number()),
+    featured: v.optional(v.boolean()),
+    status: postStatus,
+    publishedAt: v.optional(v.number()),
+    authorEmail: v.string(),
+    actorType,
+    actorId: v.optional(v.string()),
+    actorLabel: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_locale_slug", ["locale", "slug"])
+    .index("by_locale_and_updated_at", ["locale", "updatedAt"])
+    .index("by_status_published", ["status", "publishedAt"])
+    .index("by_locale_status_and_published", ["locale", "status", "publishedAt"])
+    .index("by_translation_and_locale", ["translationKey", "locale"])
+    .index("by_image_id", ["imageId"])
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["locale", "status"],
+    }),
+
+  categories: defineTable({
+    locale,
+    name: v.string(),
+    slug: v.string(),
+  }).index("by_locale_slug", ["locale", "slug"]),
+
+  media: defineTable({
+    storageId: v.id("_storage"),
+    filename: v.string(),
+    contentType: v.string(),
+    purpose: v.string(),
+    ownerEmail: v.string(),
+    lifecycle: v.optional(
+      v.union(v.literal("temporary"), v.literal("permanent"), v.literal("orphaned")),
+    ),
+    associatedPostId: v.optional(v.id("posts")),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_storage_id", ["storageId"])
+    .index("by_expiry", ["expiresAt"]),
+
+  postRevisions: defineTable({
+    postId: v.id("posts"),
+    snapshot: v.any(),
+    reason: v.string(),
+    actorEmail: v.string(),
+    actorType,
+    actorId: v.optional(v.string()),
+    actorLabel: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_post_created", ["postId", "createdAt"]),
+
+  aiRuns: defineTable({
+    postId: v.optional(v.id("posts")),
+    action: v.string(),
+    provider: v.string(),
+    model: v.string(),
+    status: v.string(),
+    warnings: v.array(v.string()),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    durationMs: v.number(),
+    actorEmail: v.string(),
+    createdAt: v.number(),
+  }).index("by_post_created", ["postId", "createdAt"]),
+
+  apiIdempotency: defineTable({
+    scope: v.string(),
+    key: v.string(),
+    value: v.any(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_scope_key", ["scope", "key"])
+    .index("by_expiry", ["expiresAt"]),
+
+  funnelEvents: defineTable({
+    sessionId: v.string(),
+    locale,
+    name: v.string(),
+    assessmentId: v.optional(v.string()),
+    bookingId: v.optional(v.string()),
+    path: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_name_time", ["name", "createdAt"]),
+
+  systemSettings: defineTable({
+    key: v.string(),
+    value: v.any(),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  adminInstallation: defineTable({
+    singleton: v.string(),
+    status: v.union(v.literal("provisioning"), v.literal("configured")),
+    claimExpiresAt: v.optional(v.number()),
+    adminUserId: v.optional(v.string()),
+    adminEmail: v.optional(v.string()),
+    adminName: v.optional(v.string()),
+    configuredAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_singleton", ["singleton"]),
+
+  adminRecoveryCodes: defineTable({
+    userId: v.string(),
+    codeHash: v.string(),
+    createdAt: v.number(),
+    claimedAt: v.optional(v.number()),
+    claimExpiresAt: v.optional(v.number()),
+    consumedAt: v.optional(v.number()),
+  })
+    .index("by_code_hash", ["codeHash"])
+    .index("by_user_id", ["userId"]),
+
+  contentAgents: defineTable({
+    keyId: v.string(),
+    name: v.string(),
+    tokenHash: v.string(),
+    prefix: v.string(),
+    status: v.union(v.literal("pending"), v.literal("active"), v.literal("revoked")),
+    requestLimit: v.number(),
+    uploadLimit: v.number(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    rotatedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    lastUsedAt: v.optional(v.number()),
+    pendingTokenHash: v.optional(v.string()),
+    pendingPrefix: v.optional(v.string()),
+    pendingActivationId: v.optional(v.string()),
+    pendingExpiresAt: v.optional(v.number()),
+  })
+    .index("by_key_id", ["keyId"])
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_pending_expiry", ["pendingExpiresAt"]),
+
+  contentAgentRateLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    resetAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_reset_at", ["resetAt"]),
+
+  authSecurityRateLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    resetAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_reset_at", ["resetAt"]),
 });

@@ -5,25 +5,36 @@ import {
   type AssessmentIntake,
 } from "@/lib/validations/assessment";
 import { convexMutation } from "@/lib/server/convex";
-import { convexQuery } from "@/lib/server/convex";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
 import { createAssessmentSnapshot } from "@/lib/assessment/engine";
-import { voiceProviderIds, type AssessmentSnapshot, type VoiceProviderId } from "@/lib/assessment/types";
+import {
+  voiceProviderIds,
+  type AssessmentSnapshot,
+  type VoiceProviderId,
+} from "@/lib/assessment/types";
 import { createVoiceSession, interviewFrameworkVersion } from "@/lib/server/voice";
-import { assessmentTokenHash, progressToken, resumeToken, verifyAssessmentToken } from "@/lib/server/assessment-tokens";
+import {
+  assessmentTokenHash,
+  progressToken,
+  resumeToken,
+  verifyAssessmentToken,
+} from "@/lib/server/assessment-tokens";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!allowRequest(`assessment:${ip}`, 5)) {
+    const ip =
+      request.headers.get("cf-connecting-ip") ||
+      request.headers.get("x-real-ip") ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "unknown";
+    if (!(await allowRequest(`assessment:${ip}`, 5))) {
       return NextResponse.json(
         { error: "Too many assessment attempts. Please try again later." },
         { status: 429 },
       );
     }
-    const distributedAllowed = await convexMutation("assessments:checkRateLimit", { key: `start:${ip}`, limit: 5, windowMs: 60 * 60_000, now: Date.now() });
-    if (distributedAllowed === false) return NextResponse.json({ error: "Too many assessment attempts. Please try again later." }, { status: 429 });
 
     const body = await request.json();
     const conferenceStart = body?.mode === "conference";
@@ -70,7 +81,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid submission" }, { status: 400 });
       }
       turnstileToken = parsed.data.turnstileToken;
-      const { website: _website, turnstileToken: _turnstileToken, ...submittedIntake } = parsed.data;
+      const {
+        website: _website,
+        turnstileToken: _turnstileToken,
+        ...submittedIntake
+      } = parsed.data;
       void _website;
       void _turnstileToken;
       intake = submittedIntake;
@@ -80,14 +95,39 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
     }
 
-    const resume = conferenceStart && body.resumeToken ? verifyAssessmentToken(body.resumeToken, "resume") : null;
+    const resume =
+      conferenceStart && body.resumeToken
+        ? verifyAssessmentToken(body.resumeToken, "resume")
+        : null;
     const assessmentId = resume?.assessmentId || crypto.randomUUID();
-    const override = conferenceStart && body.providerOverrideToken ? verifyAssessmentToken(body.providerOverrideToken, "provider-override") : null;
-    const configuredDefault = await convexQuery("assessments:getDefaultProvider", {}) as VoiceProviderId | null;
-    const candidateProvider = override?.provider || configuredDefault || process.env.VOICE_PROVIDER || "ultravox";
-    const provider: VoiceProviderId = voiceProviderIds.includes(candidateProvider as VoiceProviderId) ? candidateProvider as VoiceProviderId : "ultravox";
-    const previous = resume?.assessmentId ? await convexMutation("assessments:consumeResumeCredential", { assessmentId, tokenHash: assessmentTokenHash(body.resumeToken), now: Date.now() }) as { snapshot?: AssessmentSnapshot; lead?: { locale?: "es" | "en"; firstName?: string } } | null : null;
-    if (resume?.assessmentId && !previous) return NextResponse.json({ error: "This resume link is invalid, expired, or has already been used." }, { status: 401 });
+    const override =
+      conferenceStart && body.providerOverrideToken
+        ? verifyAssessmentToken(body.providerOverrideToken, "provider-override")
+        : null;
+    const dynamicConfig = await runtimeConfig();
+    const configuredDefault = dynamicConfig.defaultProvider as VoiceProviderId | undefined;
+    const candidateProvider =
+      override?.provider || configuredDefault || process.env.VOICE_PROVIDER || "ultravox";
+    const provider: VoiceProviderId = voiceProviderIds.includes(
+      candidateProvider as VoiceProviderId,
+    )
+      ? (candidateProvider as VoiceProviderId)
+      : "ultravox";
+    const previous = resume?.assessmentId
+      ? ((await convexMutation("assessments:consumeResumeCredential", {
+          assessmentId,
+          tokenHash: assessmentTokenHash(body.resumeToken),
+          now: Date.now(),
+        })) as {
+          snapshot?: AssessmentSnapshot;
+          lead?: { locale?: "es" | "en"; firstName?: string };
+        } | null)
+      : null;
+    if (resume?.assessmentId && !previous)
+      return NextResponse.json(
+        { error: "This resume link is invalid, expired, or has already been used." },
+        { status: 401 },
+      );
     const snapshot = previous?.snapshot || createAssessmentSnapshot(intake.locale);
     await convexMutation("assessments:create", {
       assessmentId,
@@ -103,23 +143,66 @@ export async function POST(request: Request) {
       resumeExpiresAt: Date.now() + 24 * 60 * 60_000,
       consentVersion: "voice-assessment-2026-07-v1",
     });
-    const resumeSummary = previous?.snapshot ? JSON.stringify({ fields: previous.snapshot.fields, essentialMissing: previous.snapshot.essentialMissing, coverageScore: previous.snapshot.coverageScore }) : undefined;
+    const resumeSummary = previous?.snapshot
+      ? JSON.stringify({
+          fields: previous.snapshot.fields,
+          essentialMissing: previous.snapshot.essentialMissing,
+          coverageScore: previous.snapshot.coverageScore,
+        })
+      : undefined;
     const sessionProgressToken = progressToken(assessmentId);
     const sessionKey = crypto.randomUUID();
-    const session = await createVoiceSession(provider, { assessmentId, sessionKey, locale: intake.locale, name: previous?.lead?.firstName || intake.firstName, progressToken: sessionProgressToken, resumeSummary });
-    const providerSessionId = session.provider === "ultravox" ? session.callId : session.provider === "livekit" ? session.roomName : session.provider === "gemini-live" ? sessionKey : undefined;
-    const providerModel = session.provider === "gemini-live" ? session.model : provider === "livekit" ? process.env.GEMINI_LIVE_MODEL : process.env.ULTRAVOX_MODEL;
-    const providerVoice = provider === "ultravox" ? process.env.ULTRAVOX_VOICE : process.env.GEMINI_LIVE_VOICE;
-    await convexMutation("assessments:setProviderSession", { assessmentId, sessionKey, provider: session.provider === "demo" ? provider : session.provider, providerSessionId, providerModel, providerVoice, frameworkVersion: interviewFrameworkVersion, startedAt: Date.now() });
-    const nextResumeToken = resumeToken(assessmentId);
-    await convexMutation("assessments:setResumeCredential", { assessmentId, tokenHash: assessmentTokenHash(nextResumeToken), expiresAt: Date.now() + 24 * 60 * 60_000 });
-    await convexMutation("funnel:track", {
-      sessionId: assessmentId,
-      locale: intake.locale,
-      name: "assessment_started",
+    const session = await createVoiceSession(provider, {
       assessmentId,
-      createdAt: Date.now(),
+      sessionKey,
+      locale: intake.locale,
+      name: previous?.lead?.firstName || intake.firstName,
+      progressToken: sessionProgressToken,
+      resumeSummary,
     });
+    const providerSessionId =
+      session.provider === "ultravox"
+        ? session.callId
+        : session.provider === "livekit"
+          ? session.roomName
+          : session.provider === "gemini-live"
+            ? sessionKey
+            : undefined;
+    const providerModel =
+      session.provider === "gemini-live"
+        ? session.model
+        : provider === "livekit"
+          ? dynamicConfig.geminiLiveModel
+          : dynamicConfig.ultravoxModel;
+    const providerVoice =
+      provider === "ultravox" ? dynamicConfig.ultravoxVoice : dynamicConfig.geminiLiveVoice;
+    await convexMutation("assessments:setProviderSession", {
+      assessmentId,
+      sessionKey,
+      provider: session.provider === "demo" ? provider : session.provider,
+      providerSessionId,
+      providerModel,
+      providerVoice,
+      frameworkVersion: interviewFrameworkVersion,
+      startedAt: Date.now(),
+    });
+    const nextResumeToken = resumeToken(assessmentId);
+    await convexMutation("assessments:setResumeCredential", {
+      assessmentId,
+      tokenHash: assessmentTokenHash(nextResumeToken),
+      expiresAt: Date.now() + 24 * 60 * 60_000,
+    });
+    const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
+    if (adminApiSecret) {
+      await convexMutation("funnel:track", {
+        serviceSecret: adminApiSecret,
+        sessionId: assessmentId,
+        locale: intake.locale,
+        name: "assessment_started",
+        assessmentId,
+        createdAt: Date.now(),
+      });
+    }
     return NextResponse.json({
       ...session,
       contactEmail: conferenceStart ? undefined : intake.email,
@@ -131,9 +214,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[assessment:start]", error);
-    return NextResponse.json(
-      { error: "The assessment could not be started." },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: "The assessment could not be started." }, { status: 502 });
   }
 }

@@ -3,7 +3,13 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { VoiceProviderId } from "@/lib/assessment/types";
 
 type TokenPurpose = "progress" | "resume" | "provider-override";
-type TokenPayload = { purpose: TokenPurpose; assessmentId?: string; provider?: VoiceProviderId; exp: number; nonce: string };
+type TokenPayload = {
+  purpose: TokenPurpose;
+  assessmentId?: string;
+  provider?: VoiceProviderId;
+  exp: number;
+  nonce: string;
+};
 
 function secret() {
   const value = process.env.ASSESSMENT_TOKEN_SECRET;
@@ -12,8 +18,12 @@ function secret() {
   throw new Error("ASSESSMENT_TOKEN_SECRET is required in production");
 }
 
-function encode(value: string) { return Buffer.from(value).toString("base64url"); }
-function sign(value: string) { return createHmac("sha256", secret()).update(value).digest("base64url"); }
+function encode(value: string) {
+  return Buffer.from(value).toString("base64url");
+}
+function sign(value: string) {
+  return createHmac("sha256", secret()).update(value).digest("base64url");
+}
 
 export function createAssessmentToken(payload: Omit<TokenPayload, "nonce">) {
   const body = encode(JSON.stringify({ ...payload, nonce: crypto.randomUUID() }));
@@ -30,15 +40,25 @@ export function verifyAssessmentToken(token: string, purpose: TokenPurpose): Tok
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as TokenPayload;
     return payload.purpose === purpose && payload.exp > Date.now() ? payload : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function progressToken(assessmentId: string) {
-  return createAssessmentToken({ purpose: "progress", assessmentId, exp: Date.now() + 20 * 60_000 });
+  return createAssessmentToken({
+    purpose: "progress",
+    assessmentId,
+    exp: Date.now() + 20 * 60_000,
+  });
 }
 
 export function resumeToken(assessmentId: string) {
-  return createAssessmentToken({ purpose: "resume", assessmentId, exp: Date.now() + 24 * 60 * 60_000 });
+  return createAssessmentToken({
+    purpose: "resume",
+    assessmentId,
+    exp: Date.now() + 24 * 60 * 60_000,
+  });
 }
 
 export function assessmentTokenHash(token: string) {
@@ -46,5 +66,9 @@ export function assessmentTokenHash(token: string) {
 }
 
 export function providerOverrideToken(provider: VoiceProviderId) {
-  return createAssessmentToken({ purpose: "provider-override", provider, exp: Date.now() + 24 * 60 * 60_000 });
+  return createAssessmentToken({
+    purpose: "provider-override",
+    provider,
+    exp: Date.now() + 24 * 60 * 60_000,
+  });
 }

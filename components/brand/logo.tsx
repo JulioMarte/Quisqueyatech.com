@@ -44,8 +44,7 @@ export function BrandLockup({
   priority?: boolean;
   showDescriptor?: boolean;
 }) {
-  const textSize =
-    size === "sm" ? "text-base" : size === "lg" ? "text-lg" : "text-[17px]";
+  const textSize = size === "sm" ? "text-base" : size === "lg" ? "text-lg" : "text-[17px]";
 
   return (
     <span className="inline-flex items-center gap-2.5">

@@ -1,15 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  Check,
-  Clock3,
-  Headphones,
-  Loader2,
-  Mic2,
-  Radio,
-  ShieldCheck,
-} from "lucide-react";
+import { Check, Clock3, Headphones, Loader2, Mic2, Radio, ShieldCheck } from "lucide-react";
 import { VoiceSession } from "@/components/evaluation/voice-session";
 import { TurnstileField } from "@/components/security/turnstile-field";
 import { Button } from "@/components/ui/button";
@@ -29,7 +21,11 @@ type SessionData = {
   token?: string;
   ephemeralToken?: string;
   model?: string;
-  sessionConfig?: { responseModalities: ["AUDIO"]; language: "es" | "en"; systemInstruction: string };
+  sessionConfig?: {
+    responseModalities: ["AUDIO"];
+    language: "es" | "en";
+    systemInstruction: string;
+  };
   progressToken: string;
   resumeToken: string;
   snapshot: AssessmentSnapshot;
@@ -62,8 +58,10 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
           turnstileToken,
           processingConsent: true,
           recordingConsent: true,
-          providerOverrideToken: new URLSearchParams(window.location.search).get("provider") || undefined,
-          resumeToken: new URLSearchParams(window.location.hash.replace(/^#/, "")).get("resume") || undefined,
+          providerOverrideToken:
+            new URLSearchParams(window.location.search).get("provider") || undefined,
+          resumeToken:
+            new URLSearchParams(window.location.hash.replace(/^#/, "")).get("resume") || undefined,
         }),
       });
       const result = await response.json();
@@ -135,8 +133,14 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
 
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
               <div className="relative">
-                <div className="absolute inset-[-28px] rounded-full border border-larimar/10" aria-hidden="true" />
-                <div className="absolute inset-[-14px] rounded-full border border-larimar/20" aria-hidden="true" />
+                <div
+                  className="absolute inset-[-28px] rounded-full border border-larimar/10"
+                  aria-hidden="true"
+                />
+                <div
+                  className="absolute inset-[-14px] rounded-full border border-larimar/20"
+                  aria-hidden="true"
+                />
                 <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-larimar to-tech shadow-[0_0_55px_rgba(56,189,248,.28)]">
                   <Headphones className="h-12 w-12 text-white" aria-hidden="true" />
                 </div>
@@ -179,7 +183,10 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
 
             <div className="mt-6 space-y-3">
               {checklist.map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-3 rounded-xl bg-white/[.06] px-4 py-3 text-sm text-white/80">
+                <div
+                  key={label}
+                  className="flex items-center gap-3 rounded-xl bg-white/[.06] px-4 py-3 text-sm text-white/80"
+                >
                   <Icon className="h-4 w-4 shrink-0 text-larimar" aria-hidden="true" />
                   <span>{label}</span>
                 </div>
@@ -196,8 +203,15 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               <span>
                 {es
                   ? "Acepto el procesamiento: audio hasta 30 días, transcripción hasta 90 días y ficha de contacto hasta 12 meses."
-                  : "I consent to processing: audio up to 30 days, transcript up to 90 days, and contact record up to 12 months."}
-                {" "}<a className="underline" href={es ? "/privacidad" : "/en/privacy"} target="_blank" rel="noreferrer">{es ? "Ver privacidad" : "View privacy policy"}</a>
+                  : "I consent to processing: audio up to 30 days, transcript up to 90 days, and contact record up to 12 months."}{" "}
+                <a
+                  className="underline"
+                  href={es ? "/privacidad" : "/en/privacy"}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {es ? "Ver privacidad" : "View privacy policy"}
+                </a>
               </span>
             </label>
 
@@ -216,7 +230,11 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               onClick={startConference}
               className="mt-6 w-full"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic2 className="h-4 w-4" />}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mic2 className="h-4 w-4" />
+              )}
               {loading
                 ? es
                   ? "Abriendo sala…"

@@ -5,20 +5,13 @@ import { useEffect, useRef } from "react";
 declare global {
   interface Window {
     turnstile?: {
-      render: (
-        element: HTMLElement,
-        options: Record<string, unknown>,
-      ) => string;
+      render: (element: HTMLElement, options: Record<string, unknown>) => string;
       remove: (widgetId: string) => void;
     };
   }
 }
 
-export function TurnstileField({
-  onToken,
-}: {
-  onToken: (token: string) => void;
-}) {
+export function TurnstileField({ onToken }: { onToken: (token: string) => void }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const container = useRef<HTMLDivElement>(null);
 
@@ -40,8 +33,7 @@ export function TurnstileField({
     if (existing) render();
     else {
       const script = document.createElement("script");
-      script.src =
-        "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
       script.async = true;
       script.defer = true;
       script.dataset.quisqueyaTurnstile = "true";
@@ -56,11 +48,5 @@ export function TurnstileField({
   }, [onToken, siteKey]);
 
   if (!siteKey) return null;
-  return (
-    <div
-      ref={container}
-      className="mt-5 min-h-[65px]"
-      aria-label="Human verification"
-    />
-  );
+  return <div ref={container} className="mt-5 min-h-[65px]" aria-label="Human verification" />;
 }

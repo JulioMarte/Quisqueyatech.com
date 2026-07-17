@@ -1,11 +1,26 @@
-import { NextResponse } from "next/server";
+import { api } from "@/convex/_generated/api";
 import { seedPosts } from "@/lib/content";
-import { authorizeContentRequest, requestId } from "@/lib/server/admin-content";
-import { convexMutation } from "@/lib/server/convex";
+import {
+  adminException,
+  adminFailure,
+  adminJson,
+  authorizeContentRequest,
+  requestId,
+} from "@/lib/server/admin-content";
+import { fetchAuthMutation } from "@/lib/server/auth-server";
 
 export async function POST(request: Request) {
   const trace = requestId(request);
-  if (!(await authorizeContentRequest(request))) return NextResponse.json({ data: null, error: "Unauthorized", requestId: trace }, { status: 401 });
-  try { const data = await convexMutation("posts:serverSeed", { posts: seedPosts.map((post) => ({ ...post, publishedAt: new Date(post.publishedAt).getTime() })) }); return NextResponse.json({ data, error: null, requestId: trace }); }
-  catch (error) { return NextResponse.json({ data: null, error: error instanceof Error ? error.message : "Could not migrate seed content", requestId: trace }, { status: 503 }); }
+  try {
+    if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
+    const data = await fetchAuthMutation(api.posts.adminSeed, {
+      posts: seedPosts.map((post) => ({
+        ...post,
+        publishedAt: new Date(post.publishedAt).getTime(),
+      })),
+    });
+    return adminJson(trace, data);
+  } catch (error) {
+    return adminException(trace, "posts.seed", error);
+  }
 }

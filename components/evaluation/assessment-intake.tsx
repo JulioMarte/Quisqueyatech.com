@@ -28,13 +28,14 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
     turnstileRequired ? "loading" : "verified",
   );
   const [loading, setLoading] = useState(false);
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
   const [error, setError] = useState("");
   const handleTurnstileToken = useCallback((token: string) => {
     setTurnstileToken(token);
   }, []);
 
   async function startConference() {
-    if (!consent) return;
+    if (!consent || (turnstileRequired && turnstileStatus !== "verified")) return;
     setError("");
     setLoading(true);
     try {
@@ -62,6 +63,8 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
       }
       setSession(result);
     } catch (reason) {
+      setTurnstileToken("");
+      setTurnstileResetSignal((value) => value + 1);
       setError(reason instanceof Error ? reason.message : "Error");
     } finally {
       setLoading(false);
@@ -206,21 +209,12 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               locale={locale}
               onToken={handleTurnstileToken}
               onStatus={setTurnstileStatus}
+              resetSignal={turnstileResetSignal}
             />
 
-            {turnstileRequired && turnstileStatus !== "verified" ? (
+            {turnstileRequired && turnstileStatus === "loading" ? (
               <p className="mt-3 text-sm text-white/60" role="status">
-                {turnstileStatus === "error"
-                  ? es
-                    ? "No pudimos cargar la verificación. Recarga la página e inténtalo de nuevo."
-                    : "We could not load verification. Reload the page and try again."
-                  : turnstileStatus === "expired"
-                    ? es
-                      ? "La verificación expiró. Complétala nuevamente."
-                      : "Verification expired. Please complete it again."
-                    : es
-                      ? "Cargando verificación segura…"
-                      : "Loading secure verification…"}
+                {es ? "Cargando verificación segura…" : "Loading secure verification…"}
               </p>
             ) : null}
 

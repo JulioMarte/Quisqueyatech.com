@@ -206,6 +206,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(
     turnstileRequired ? "loading" : "verified",
   );
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [calMonth, setCalMonth] = useState(() => {
@@ -593,6 +594,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
 
   const submitAll = useCallback(async () => {
     if (!selectedDate || !selectedTime || !timezone) return;
+    if (turnstileRequired && turnstileStatus !== "verified") return;
     if (submitInFlightRef.current) return;
     submitInFlightRef.current = true;
     setSubmitting(true);
@@ -659,6 +661,8 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
       setStep(4);
       clearDraft();
     } else {
+      setTurnstileToken("");
+      setTurnstileResetSignal((value) => value + 1);
       if (result.code === "validation" && result.field) {
         stepRef.current = 1;
         setStep(1);
@@ -711,6 +715,8 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     turnstileToken,
     es,
     source,
+    turnstileRequired,
+    turnstileStatus,
   ]);
 
   const goNext = useCallback(async () => {
@@ -842,7 +848,10 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                 type="button"
                 onClick={() => void goNext()}
                 disabled={
-                  submitting || (loadingAvailability && step === 2) || (step === 3 && !selectedTime)
+                  submitting ||
+                  (loadingAvailability && step === 2) ||
+                  (step === 3 &&
+                    (!selectedTime || (turnstileRequired && turnstileStatus !== "verified")))
                 }
                 aria-label={
                   step === 3
@@ -999,20 +1008,12 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                           locale={locale}
                           onToken={setTurnstileToken}
                           onStatus={setTurnstileStatus}
+                          resetSignal={turnstileResetSignal}
+                          tone="light"
                         />
-                        {turnstileStatus !== "verified" ? (
+                        {turnstileStatus === "loading" ? (
                           <p className="mt-2 text-sm text-mute" role="status">
-                            {turnstileStatus === "error"
-                              ? es
-                                ? "No pudimos cargar la verificación. Recarga la página."
-                                : "We could not load verification. Reload the page."
-                              : turnstileStatus === "expired"
-                                ? es
-                                  ? "La verificación expiró. Complétala nuevamente."
-                                  : "Verification expired. Please complete it again."
-                                : es
-                                  ? "Cargando verificación segura…"
-                                  : "Loading secure verification…"}
+                            {es ? "Cargando verificación segura…" : "Loading secure verification…"}
                           </p>
                         ) : null}
                       </div>

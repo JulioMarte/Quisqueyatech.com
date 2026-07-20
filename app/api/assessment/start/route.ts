@@ -194,6 +194,7 @@ export async function POST(request: Request) {
       sessionKey,
       provider: session.provider === "demo" ? provider : session.provider,
       providerSessionId,
+      supportId: session.provider === "livekit" ? session.supportId : undefined,
       providerModel,
       providerVoice,
       frameworkVersion: interviewFrameworkVersion,

@@ -12,6 +12,15 @@ export const cleanup = internalMutation({
     let deletedWebhooks = 0;
     let deletedMedia = 0;
     let deletedIdempotency = 0;
+    let deletedTelemetry = 0;
+
+    for (const event of await ctx.db
+      .query("assessmentTelemetry")
+      .withIndex("by_expires_at", (q) => q.lte("expiresAt", now))
+      .take(BATCH)) {
+      await ctx.db.delete(event._id);
+      deletedTelemetry += 1;
+    }
 
     // Audio scrub: indexed expiry, bounded batch.
     for (const assessment of await ctx.db
@@ -74,6 +83,14 @@ export const cleanup = internalMutation({
             .take(20)) {
             await ctx.db.delete(metric._id);
           }
+          for (const event of await ctx.db
+            .query("assessmentTelemetry")
+            .withIndex("by_assessment_id_and_created_at", (q) =>
+              q.eq("assessmentId", assessment.assessmentId),
+            )
+            .take(200)) {
+            await ctx.db.delete(event._id);
+          }
           if (assessment.audioStorageId) await ctx.storage.delete(assessment.audioStorageId);
           await ctx.db.delete(assessment._id);
         }
@@ -115,6 +132,7 @@ export const cleanup = internalMutation({
       deletedWebhooks,
       deletedMedia,
       deletedIdempotency,
+      deletedTelemetry,
     };
   },
 });

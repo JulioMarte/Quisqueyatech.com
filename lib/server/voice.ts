@@ -184,6 +184,7 @@ class LiveKitAdapter extends BaseAdapter {
       sessionKey: context.sessionKey,
       locale: context.locale,
       frameworkVersion: interviewFrameworkVersion,
+      supportId,
     });
     const readiness = await dispatchAssessmentAgent({ config, roomName, metadata, supportId });
     const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret), {
@@ -208,6 +209,41 @@ class LiveKitAdapter extends BaseAdapter {
       dispatchId: readiness.dispatch.id,
     };
   }
+}
+
+export async function issueLiveKitParticipantToken({
+  assessmentId,
+  sessionKey,
+  locale,
+  name,
+  roomName,
+}: {
+  assessmentId: string;
+  sessionKey: string;
+  locale: "es" | "en";
+  name: string;
+  roomName: string;
+}) {
+  const config = await runtimeConfig();
+  const metadata = JSON.stringify({
+    assessmentId,
+    sessionKey,
+    locale,
+    frameworkVersion: interviewFrameworkVersion,
+  });
+  const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret), {
+    identity: `lead-${assessmentId}`,
+    name,
+    metadata,
+  });
+  token.addGrant({
+    room: roomName,
+    roomJoin: true,
+    canPublish: true,
+    canSubscribe: true,
+    canPublishData: true,
+  });
+  return { roomUrl: String(config.livekitUrl), token: await token.toJwt() };
 }
 
 class GeminiLiveAdapter extends BaseAdapter {

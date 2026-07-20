@@ -4,6 +4,7 @@ import { redactSensitiveText } from "@/lib/assessment/data-policy";
 import type { AssessmentSnapshot } from "@/lib/assessment/types";
 import { buildAssessmentReport } from "@/lib/server/assessment-report";
 import { convexMutation, convexQuery } from "@/lib/server/convex";
+import { shouldFinalizeProviderSession } from "@/lib/assessment/finalization";
 
 const schema = z.object({
   assessmentId: z.string().uuid(),
@@ -13,6 +14,7 @@ const schema = z.object({
   sessionReport: z.unknown(),
   durationSeconds: z.number().int().min(0).max(1_000),
   completionReason: z.string().max(200),
+  finalizeAssessment: z.boolean(),
 });
 
 export async function POST(request: Request) {
@@ -23,6 +25,20 @@ export async function POST(request: Request) {
   if (!parsed.success)
     return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
   const transcript = redactSensitiveText(parsed.data.transcript).text;
+  const finalizationState = (await convexQuery("assessments:getFinalizationState", {
+    assessmentId: parsed.data.assessmentId,
+    sessionKey: parsed.data.sessionKey,
+  })) as {
+    assessmentStatus: string;
+    completionReason?: string;
+    sessionStatus: string;
+  } | null;
+  const recovering = finalizationState?.sessionStatus === "recovering";
+  const finalizeAssessment = shouldFinalizeProviderSession({
+    requested: parsed.data.finalizeAssessment,
+    sessionStatus: finalizationState?.sessionStatus,
+    completionReason: finalizationState?.completionReason,
+  });
   await convexMutation("assessments:storeSessionReport", {
     sessionKey: parsed.data.sessionKey,
     transcript,
@@ -30,7 +46,9 @@ export async function POST(request: Request) {
     endedAt: Date.now(),
     durationSeconds: parsed.data.durationSeconds,
     completionReason: parsed.data.completionReason,
+    status: finalizeAssessment ? "ended" : recovering ? "recovered" : "interrupted",
   });
+  if (!finalizeAssessment) return NextResponse.json({ ok: true, interrupted: true });
   const claimed = await convexMutation("assessments:claimFinalization", {
     assessmentId: parsed.data.assessmentId,
     now: Date.now(),

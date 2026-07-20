@@ -41,6 +41,7 @@ export default defineSchema({
     leadId: v.id("leads"),
     provider: v.optional(v.string()),
     providerSessionId: v.optional(v.string()),
+    supportId: v.optional(v.string()),
     providerModel: v.optional(v.string()),
     providerVoice: v.optional(v.string()),
     frameworkVersion: v.optional(v.string()),
@@ -87,6 +88,7 @@ export default defineSchema({
     assessmentId: v.string(),
     provider: v.string(),
     providerSessionId: v.optional(v.string()),
+    supportId: v.optional(v.string()),
     model: v.optional(v.string()),
     voice: v.optional(v.string()),
     frameworkVersion: v.string(),
@@ -95,12 +97,34 @@ export default defineSchema({
     endedAt: v.optional(v.number()),
     durationSeconds: v.optional(v.number()),
     completionReason: v.optional(v.string()),
+    recoveryKey: v.optional(v.string()),
+    replacementSessionKey: v.optional(v.string()),
     canonicalTranscript: v.optional(v.string()),
     report: v.optional(v.any()),
   })
     .index("by_session_key", ["sessionKey"])
     .index("by_assessment", ["assessmentId", "startedAt"])
     .index("by_provider_session", ["providerSessionId"]),
+
+  assessmentTelemetry: defineTable({
+    eventId: v.string(),
+    assessmentId: v.string(),
+    supportId: v.string(),
+    sessionKey: v.string(),
+    source: v.union(v.literal("worker"), v.literal("client"), v.literal("server")),
+    event: v.string(),
+    turnId: v.optional(v.string()),
+    state: v.optional(v.string()),
+    code: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    recoverable: v.optional(v.boolean()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_event_id", ["eventId"])
+    .index("by_assessment_id_and_created_at", ["assessmentId", "createdAt"])
+    .index("by_support_id_and_created_at", ["supportId", "createdAt"])
+    .index("by_expires_at", ["expiresAt"]),
 
   assessmentEvents: defineTable({
     assessmentId: v.string(),

@@ -8,6 +8,7 @@ const valid = {
   roomName: "assessment-00000000-0000-4000-8000-000000000002-00000000-0000-4000-8000-000000000003",
   playbackState: "playing",
   client: "Firefox / Android",
+  sessionKey: "00000000-0000-4000-8000-000000000003",
 };
 
 test("accepts a bounded audio diagnostic payload", () => {
@@ -18,6 +19,20 @@ test("rejects unknown events, invalid support IDs, and oversized client strings"
   assert.equal(parseClientDiagnostic({ ...valid, event: "transcript" }), null);
   assert.equal(parseClientDiagnostic({ ...valid, supportId: "support-1" }), null);
   assert.equal(parseClientDiagnostic({ ...valid, client: "x".repeat(181) }), null);
+  assert.equal(parseClientDiagnostic({ ...valid, sessionKey: "not-a-session" }), null);
+  assert.equal(parseClientDiagnostic({ ...valid, durationMs: 120_001 }), null);
+});
+
+test("accepts bounded turn watchdog diagnostics without transcript content", () => {
+  const payload = {
+    ...valid,
+    event: "turn_stalled",
+    turnId: "turn-1",
+    state: "model-stalled",
+    code: "model_stalled",
+    durationMs: 14_000,
+  };
+  assert.deepEqual(parseClientDiagnostic(payload), payload);
 });
 
 test("reduces user agents to coarse browser and platform labels", () => {

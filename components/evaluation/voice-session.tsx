@@ -55,6 +55,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const [error, setError] = useState("");
   const [audioNotice, setAudioNotice] = useState("");
   const [resumeUrl, setResumeUrl] = useState("");
+  const [replacementSession, setReplacementSession] = useState<Session | null>(null);
+  const [recovering, setRecovering] = useState(false);
   const started = useRef(0);
   const controller = useRef<{
     enableAudio: () => Promise<void>;
@@ -67,12 +69,22 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const audioPlayingRef = useRef(false);
   const lastThresholdSeconds = useRef(0);
   const finishing = useRef(false);
+  const recoveryKey = useRef(crypto.randomUUID());
+  const clientTurnId = useRef<string | undefined>(undefined);
+  const clientTurnStartedAt = useRef(0);
+  const clientTurnTimer = useRef<number | undefined>(undefined);
+  const clientRecoveryTimer = useRef<number | undefined>(undefined);
+  const clientTurnStalled = useRef(false);
   const supportSuffix = es
     ? ` Código de soporte: ${session.supportId}`
     : ` Support code: ${session.supportId}`;
 
   const reportDiagnostic = useCallback(
-    (event: ClientDiagnosticEvent, playbackState: PlaybackState) => {
+    (
+      event: ClientDiagnosticEvent,
+      playbackState: PlaybackState,
+      details: { turnId?: string; state?: string; code?: string; durationMs?: number } = {},
+    ) => {
       const client = describeClient(navigator.userAgent);
       void fetch("/api/assessment/client-diagnostic", {
         method: "POST",
@@ -87,11 +99,66 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           roomName: session.roomName,
           playbackState,
           client,
+          sessionKey: session.sessionKey,
+          ...details,
         }),
       }).catch(() => undefined);
     },
-    [session.progressToken, session.roomName, session.supportId],
+    [session.progressToken, session.roomName, session.sessionKey, session.supportId],
   );
+
+  const clearClientTurnTimers = useCallback(() => {
+    if (clientTurnTimer.current) window.clearTimeout(clientTurnTimer.current);
+    if (clientRecoveryTimer.current) window.clearTimeout(clientRecoveryTimer.current);
+    clientTurnTimer.current = undefined;
+    clientRecoveryTimer.current = undefined;
+  }, []);
+
+  const resolveClientTurn = useCallback(() => {
+    if (!clientTurnId.current) return;
+    const turnId = clientTurnId.current;
+    const durationMs = Date.now() - clientTurnStartedAt.current;
+    reportDiagnostic("turn_response", "ready", { turnId, durationMs });
+    if (clientTurnStalled.current)
+      reportDiagnostic("turn_recovered", "ready", { turnId, durationMs });
+    clearClientTurnTimers();
+    clientTurnId.current = undefined;
+    clientTurnStalled.current = false;
+  }, [clearClientTurnTimers, reportDiagnostic]);
+
+  const armClientTurnWatchdog = useCallback(() => {
+    clearClientTurnTimers();
+    const turnId = crypto.randomUUID();
+    clientTurnId.current = turnId;
+    clientTurnStartedAt.current = Date.now();
+    clientTurnStalled.current = false;
+    reportDiagnostic("turn_user_final", "ready", { turnId });
+    clientTurnTimer.current = window.setTimeout(() => {
+      if (clientTurnId.current !== turnId || finishing.current) return;
+      clientTurnStalled.current = true;
+      setStatus("model-stalled");
+      setAudioNotice(
+        (es
+          ? "El agente tardó demasiado. Di “continuar” o recupera la conexión."
+          : "The agent is taking too long. Say “continue” or recover the connection.") +
+          supportSuffix,
+      );
+      reportDiagnostic("turn_stalled", "ready", {
+        turnId,
+        state: "model-stalled",
+        code: "model_stalled",
+      });
+      clientRecoveryTimer.current = window.setTimeout(() => {
+        if (clientTurnId.current !== turnId || finishing.current) return;
+        setStatus("recovery-required");
+        reportDiagnostic("recovery_required", "ready", {
+          turnId,
+          state: "recovery-required",
+          code: "recovery_required",
+        });
+      }, 18_000);
+    }, 14_000);
+  }, [clearClientTurnTimers, es, reportDiagnostic, supportSuffix]);
 
   const saveProgress = useCallback(
     async (
@@ -222,6 +289,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           });
           room.on(RoomEvent.TrackUnsubscribed, (track) => {
             if (track.kind !== "audio") return;
+            reportDiagnostic("track_unsubscribed", room.canPlaybackAudio ? "ready" : "blocked");
             const trackKey = track.sid || track.mediaStreamTrack.id;
             const element = audioElements.get(trackKey);
             if (!element) return;
@@ -241,6 +309,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             }
           });
           room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+            if (speakers.some((speaker) => !speaker.isLocal)) resolveClientTurn();
             if (!disposed && audioUnlockedRef.current)
               setStatus(
                 speakers.some((speaker) => speaker.isLocal)
@@ -265,6 +334,39 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             setResumeUrl(resumeLink(session.resumeToken));
             setStatus("error");
           });
+          room.on(RoomEvent.ParticipantMetadataChanged, (metadata, participant) => {
+            if (participant.identity === room.localParticipant.identity) return;
+            try {
+              const parsed = JSON.parse(metadata || "{}") as {
+                state?: string;
+                turnId?: string;
+                recoveryCode?: string;
+              };
+              reportDiagnostic("agent_metadata", "ready", {
+                turnId: parsed.turnId,
+                state: parsed.state,
+                code: parsed.recoveryCode,
+              });
+              if (parsed.state === "recovery_required" || parsed.state === "recovery_available") {
+                clientTurnStalled.current = true;
+                setStatus(
+                  parsed.state === "recovery_available" ? "recovery-required" : "model-stalled",
+                );
+                setAudioNotice(
+                  (es
+                    ? "El agente tardó demasiado. Di “continuar” o recupera la conexión."
+                    : "The agent is taking too long. Say “continue” or recover the connection.") +
+                    supportSuffix,
+                );
+              } else if (parsed.state === "speaking") {
+                resolveClientTurn();
+              } else if (parsed.state && activeStatuses.has(parsed.state)) {
+                setStatus(parsed.state);
+              }
+            } catch {
+              // Ignore metadata from participants that do not use the assessment contract.
+            }
+          });
           room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
             const fromAgent =
               !participant || participant.identity !== room.localParticipant.identity;
@@ -275,6 +377,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 text: segment.text,
               }));
             if (final.length) setTranscript((current) => [...current, ...final]);
+            if (final.length && fromAgent) resolveClientTurn();
+            if (final.length && !fromAgent) armClientTurnWatchdog();
             if (fromAgent && final.length && !audioPlayingRef.current && !agentAudioTimer) {
               agentAudioTimer = window.setTimeout(() => {
                 agentAudioTimer = undefined;
@@ -290,10 +394,17 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
               }, 5_000);
             }
           });
-          room.on(RoomEvent.Reconnecting, () => setStatus("reconnecting"));
-          room.on(RoomEvent.Reconnected, () => setStatus("listening"));
+          room.on(RoomEvent.Reconnecting, () => {
+            setStatus("reconnecting");
+            reportDiagnostic("room_reconnecting", "unknown");
+          });
+          room.on(RoomEvent.Reconnected, () => {
+            setStatus("listening");
+            reportDiagnostic("room_reconnected", room.canPlaybackAudio ? "ready" : "blocked");
+          });
           room.on(RoomEvent.Disconnected, () => {
             if (!disposed && !finishing.current) {
+              reportDiagnostic("room_disconnected", "unknown");
               setStatus("ended");
               setResumeUrl(resumeLink(session.resumeToken));
               void saveProgress("interruption");
@@ -409,22 +520,32 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     void connect();
     return () => {
       disposed = true;
+      clearClientTurnTimers();
       if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
       if (agentAudioTimer) window.clearTimeout(agentAudioTimer);
       void controller.current?.disconnect();
     };
-  }, [es, reportDiagnostic, saveProgress, session, supportSuffix]);
+  }, [
+    armClientTurnWatchdog,
+    clearClientTurnTimers,
+    es,
+    reportDiagnostic,
+    resolveClientTurn,
+    saveProgress,
+    session,
+    supportSuffix,
+  ]);
 
   async function finish() {
     if (finishing.current) return;
     finishing.current = true;
     setStatus("finishing");
-    await controller.current?.disconnect();
     try {
       await saveProgress("close");
     } catch {
       /* completion still attempts to preserve the transcript */
     }
+    await controller.current?.disconnect();
     try {
       setResult({ reviewPending: true });
       setStatus("complete");
@@ -435,6 +556,59 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       setStatus("error");
     }
   }
+
+  async function recoverAgent() {
+    if (recovering || finishing.current) return;
+    setRecovering(true);
+    setError("");
+    reportDiagnostic("recovery_started", "ready", {
+      turnId: clientTurnId.current,
+      state: status,
+    });
+    try {
+      const response = await fetch("/api/assessment/recover", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.progressToken}`,
+        },
+        body: JSON.stringify({
+          roomName: session.roomName,
+          sessionKey: session.sessionKey,
+          idempotencyKey: recoveryKey.current,
+        }),
+      });
+      const payload = (await response.json()) as Partial<Session> & { error?: string };
+      if (!response.ok || !payload.roomName || !payload.token || !payload.sessionKey)
+        throw new Error(
+          payload.error ||
+            (es ? "No se pudo recuperar el agente." : "The agent could not be recovered."),
+        );
+      clearClientTurnTimers();
+      await controller.current?.disconnect();
+      setReplacementSession({ ...session, ...payload } as Session);
+    } catch (reason) {
+      setRecovering(false);
+      setStatus("recovery-required");
+      setError(
+        `${reason instanceof Error ? reason.message : es ? "No se pudo recuperar el agente." : "The agent could not be recovered."}${supportSuffix}`,
+      );
+      reportDiagnostic("recovery_failed", "failed", {
+        turnId: clientTurnId.current,
+        state: "recovery-required",
+        code: "recovery_failed",
+      });
+    }
+  }
+
+  if (replacementSession)
+    return (
+      <VoiceSession
+        key={replacementSession.sessionKey}
+        locale={locale}
+        session={replacementSession}
+      />
+    );
 
   if (result) return <AssessmentResult locale={locale} result={result} />;
 
@@ -449,6 +623,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
         idle: "Preparando el agente",
         listening: "Te está escuchando",
         thinking: "Analizando tu respuesta",
+        "model-stalled": "El agente tardó demasiado",
+        "recovery-required": "Recuperación disponible",
         speaking: "El agente está hablando",
         reconnecting: "Reconectando…",
         ended: "Conferencia finalizada",
@@ -468,6 +644,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
         idle: "Preparing the agent",
         listening: "Listening to you",
         thinking: "Considering your answer",
+        "model-stalled": "The agent is taking too long",
+        "recovery-required": "Recovery available",
         speaking: "The agent is speaking",
         reconnecting: "Reconnecting…",
         ended: "Conference ended",
@@ -574,6 +752,28 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 >
                   {audioNotice}
                 </p>
+              ) : null}
+
+              {status === "model-stalled" || status === "recovery-required" ? (
+                <Button
+                  type="button"
+                  onClick={() => void recoverAgent()}
+                  disabled={recovering}
+                  className="mt-4 min-h-12 bg-amber text-ink hover:bg-amber-300"
+                >
+                  {recovering ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Radio className="h-5 w-5" />
+                  )}
+                  {recovering
+                    ? es
+                      ? "Recuperando agente…"
+                      : "Recovering agent…"
+                    : es
+                      ? "Recuperar agente"
+                      : "Recover agent"}
+                </Button>
               ) : null}
 
               {error ? (

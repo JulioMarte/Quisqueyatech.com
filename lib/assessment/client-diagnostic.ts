@@ -1,11 +1,6 @@
-export const clientDiagnosticEvents = [
-  "audio_blocked",
-  "audio_unlocked",
-  "track_subscribed",
-  "play_rejected",
-  "audio_playing",
-  "audio_failed",
-] as const;
+import { assessmentTelemetryEvents } from "@/lib/assessment/telemetry";
+
+export const clientDiagnosticEvents = assessmentTelemetryEvents;
 
 export type ClientDiagnosticEvent = (typeof clientDiagnosticEvents)[number];
 
@@ -19,6 +14,11 @@ export type ClientDiagnosticPayload = {
   roomName: string;
   playbackState: PlaybackState;
   client: string;
+  sessionKey: string;
+  turnId?: string;
+  state?: string;
+  code?: string;
+  durationMs?: number;
 };
 
 export function describeClient(userAgent: string) {
@@ -64,7 +64,20 @@ export function parseClientDiagnostic(value: unknown): ClientDiagnosticPayload |
     !playbackStates.includes(candidate.playbackState as PlaybackState) ||
     typeof candidate.client !== "string" ||
     candidate.client.length < 1 ||
-    candidate.client.length > 180
+    candidate.client.length > 180 ||
+    typeof candidate.sessionKey !== "string" ||
+    !uuidPattern.test(candidate.sessionKey) ||
+    (candidate.turnId !== undefined &&
+      (typeof candidate.turnId !== "string" || candidate.turnId.length > 80)) ||
+    (candidate.state !== undefined &&
+      (typeof candidate.state !== "string" || candidate.state.length > 80)) ||
+    (candidate.code !== undefined &&
+      (typeof candidate.code !== "string" || candidate.code.length > 80)) ||
+    (candidate.durationMs !== undefined &&
+      (typeof candidate.durationMs !== "number" ||
+        !Number.isFinite(candidate.durationMs) ||
+        candidate.durationMs < 0 ||
+        candidate.durationMs > 120_000))
   )
     return null;
   return candidate as ClientDiagnosticPayload;

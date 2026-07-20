@@ -148,6 +148,7 @@ export const setProviderSession = mutation({
     sessionKey: v.string(),
     provider: v.string(),
     providerSessionId: v.optional(v.string()),
+    supportId: v.optional(v.string()),
     providerModel: v.optional(v.string()),
     providerVoice: v.optional(v.string()),
     frameworkVersion: v.string(),
@@ -159,6 +160,7 @@ export const setProviderSession = mutation({
     await ctx.db.patch(item._id, {
       provider: args.provider,
       providerSessionId: args.providerSessionId,
+      supportId: args.supportId,
       providerModel: args.providerModel,
       providerVoice: args.providerVoice,
       frameworkVersion: args.frameworkVersion,
@@ -169,6 +171,7 @@ export const setProviderSession = mutation({
       assessmentId: args.assessmentId,
       provider: args.provider,
       providerSessionId: args.providerSessionId,
+      supportId: args.supportId,
       model: args.providerModel,
       voice: args.providerVoice,
       frameworkVersion: args.frameworkVersion,
@@ -264,6 +267,7 @@ export const storeSessionReport = mutation({
     endedAt: v.number(),
     durationSeconds: v.number(),
     completionReason: v.string(),
+    status: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     requireService(args.serviceSecret);
@@ -273,7 +277,7 @@ export const storeSessionReport = mutation({
       .unique();
     if (!session) throw new Error("Session not found");
     await ctx.db.patch(session._id, {
-      status: "ended",
+      status: args.status || "ended",
       canonicalTranscript: args.transcript,
       report: args.report,
       endedAt: args.endedAt,
@@ -281,6 +285,107 @@ export const storeSessionReport = mutation({
       completionReason: args.completionReason,
     });
     return session.assessmentId;
+  },
+});
+
+export const getFinalizationState = query({
+  args: { ...serviceArgs, assessmentId: v.string(), sessionKey: v.string() },
+  handler: async (ctx, args) => {
+    requireService(args.serviceSecret);
+    const assessment = await assessmentById(ctx, args.assessmentId);
+    const session = await ctx.db
+      .query("assessmentSessions")
+      .withIndex("by_session_key", (q) => q.eq("sessionKey", args.sessionKey))
+      .unique();
+    if (!session || session.assessmentId !== args.assessmentId) return null;
+    return {
+      assessmentStatus: assessment.status,
+      completionReason: assessment.completionReason,
+      sessionStatus: session.status,
+    };
+  },
+});
+
+export const getSessionByKey = query({
+  args: { ...serviceArgs, assessmentId: v.string(), sessionKey: v.string() },
+  handler: async (ctx, args) => {
+    requireService(args.serviceSecret);
+    const session = await ctx.db
+      .query("assessmentSessions")
+      .withIndex("by_session_key", (q) => q.eq("sessionKey", args.sessionKey))
+      .unique();
+    return session?.assessmentId === args.assessmentId ? session : null;
+  },
+});
+
+export const beginSessionRecovery = mutation({
+  args: {
+    ...serviceArgs,
+    assessmentId: v.string(),
+    sessionKey: v.string(),
+    recoveryKey: v.string(),
+    replacementSessionKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    requireService(args.serviceSecret);
+    const session = await ctx.db
+      .query("assessmentSessions")
+      .withIndex("by_session_key", (q) => q.eq("sessionKey", args.sessionKey))
+      .unique();
+    if (!session || session.assessmentId !== args.assessmentId)
+      throw new Error("Session not found");
+    if (session.recoveryKey) {
+      if (session.recoveryKey !== args.recoveryKey) throw new Error("Session already recovered");
+      return { claimed: false, replacementSessionKey: session.replacementSessionKey };
+    }
+    await ctx.db.patch(session._id, {
+      status: "recovering",
+      recoveryKey: args.recoveryKey,
+      replacementSessionKey: args.replacementSessionKey,
+    });
+    return { claimed: true, replacementSessionKey: args.replacementSessionKey };
+  },
+});
+
+export const recordTelemetry = mutation({
+  args: {
+    ...serviceArgs,
+    eventId: v.string(),
+    assessmentId: v.string(),
+    supportId: v.string(),
+    sessionKey: v.string(),
+    source: v.union(v.literal("worker"), v.literal("client"), v.literal("server")),
+    event: v.string(),
+    turnId: v.optional(v.string()),
+    state: v.optional(v.string()),
+    code: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    recoverable: v.optional(v.boolean()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    requireService(args.serviceSecret);
+    const existing = await ctx.db
+      .query("assessmentTelemetry")
+      .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
+      .unique();
+    if (existing) return existing._id;
+    return ctx.db.insert("assessmentTelemetry", {
+      eventId: args.eventId,
+      assessmentId: args.assessmentId,
+      supportId: args.supportId,
+      sessionKey: args.sessionKey,
+      source: args.source,
+      event: args.event,
+      turnId: args.turnId,
+      state: args.state,
+      code: args.code,
+      durationMs: args.durationMs,
+      recoverable: args.recoverable,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    });
   },
 });
 
@@ -481,7 +586,35 @@ export const adminGetState = query({
     await requireAdminIdentity(ctx);
     const item = await assessmentByIdOrNull(ctx, args.assessmentId);
     if (!item) return null;
-    return { ...item, lead: await ctx.db.get(item.leadId) };
+    const telemetry = await ctx.db
+      .query("assessmentTelemetry")
+      .withIndex("by_assessment_id_and_created_at", (q) => q.eq("assessmentId", args.assessmentId))
+      .order("desc")
+      .take(200);
+    const latest = telemetry[0];
+    const durations = telemetry
+      .filter((event) => event.event === "turn_response" && event.durationMs !== undefined)
+      .map((event) => event.durationMs!)
+      .sort((a, b) => a - b);
+    const percentile = (ratio: number) =>
+      durations.length
+        ? durations[Math.min(durations.length - 1, Math.floor(durations.length * ratio))]
+        : undefined;
+    return {
+      ...item,
+      lead: await ctx.db.get(item.leadId),
+      telemetry,
+      telemetrySummary: {
+        lastState: latest?.state,
+        lastEvent: latest?.event,
+        stalledTurns: telemetry.filter((event) => event.event === "turn_stalled").length,
+        recoveredTurns: telemetry.filter((event) => event.event === "turn_recovered").length,
+        toolErrors: telemetry.filter((event) => event.event === "tool_failed").length,
+        modelErrors: telemetry.filter((event) => event.code === "model_error").length,
+        responseP50Ms: percentile(0.5),
+        responseP95Ms: percentile(0.95),
+      },
+    };
   },
 });
 export const adminReview = mutation({

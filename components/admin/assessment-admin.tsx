@@ -49,6 +49,27 @@ type Detail = Summary & {
   reportDraft?: Report;
   sendError?: string;
   reportSendMessageId?: string;
+  telemetry?: {
+    eventId: string;
+    source: "worker" | "client" | "server";
+    event: string;
+    turnId?: string;
+    state?: string;
+    code?: string;
+    durationMs?: number;
+    recoverable?: boolean;
+    createdAt: number;
+  }[];
+  telemetrySummary?: {
+    lastState?: string;
+    lastEvent?: string;
+    stalledTurns: number;
+    recoveredTurns: number;
+    toolErrors: number;
+    modelErrors: number;
+    responseP50Ms?: number;
+    responseP95Ms?: number;
+  };
 };
 export function AssessmentAdmin() {
   const confirmRef = useRef<HTMLDialogElement>(null);
@@ -279,6 +300,7 @@ export function AssessmentAdmin() {
                     Último envío fallido: {selected.sendError}
                   </p>
                 ) : null}
+                <AssessmentTelemetry detail={selected} />
                 <div className="grid gap-5 lg:grid-cols-2">
                   <Evidence detail={selected} />
                   <div className="space-y-5">
@@ -366,6 +388,79 @@ export function AssessmentAdmin() {
       </dialog>
     </Section>
   );
+}
+
+function AssessmentTelemetry({ detail }: { detail: Detail }) {
+  const summary = detail.telemetrySummary;
+  const events = detail.telemetry || [];
+  return (
+    <section
+      className="rounded-2xl border border-line bg-white p-5"
+      aria-labelledby="telemetry-title"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="telemetry-title" className="font-display text-xl font-bold">
+            Salud de la conversación
+          </h2>
+          <p className="mt-1 text-sm text-text-2">
+            Estados y tiempos técnicos; no contiene audio, transcript ni argumentos de herramientas.
+          </p>
+        </div>
+        <span className="rounded-full bg-bg-2 px-3 py-1 text-xs font-semibold">
+          {summary?.lastEvent || "Sin telemetría"}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Metric label="Último estado" value={summary?.lastState || "—"} />
+        <Metric label="Bloqueos" value={String(summary?.stalledTurns || 0)} />
+        <Metric label="Recuperados" value={String(summary?.recoveredTurns || 0)} />
+        <Metric label="Errores tool" value={String(summary?.toolErrors || 0)} />
+        <Metric label="Respuesta p50" value={formatDuration(summary?.responseP50Ms)} />
+        <Metric label="Respuesta p95" value={formatDuration(summary?.responseP95Ms)} />
+      </div>
+      <div className="mt-4 max-h-72 overflow-auto rounded-xl border border-line">
+        {events.length ? (
+          <table className="w-full min-w-[720px] text-left text-xs">
+            <thead className="sticky top-0 bg-bg-2">
+              <tr>
+                <th className="p-2">Hora</th>
+                <th className="p-2">Origen</th>
+                <th className="p-2">Evento</th>
+                <th className="p-2">Estado/código</th>
+                <th className="p-2">Duración</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.eventId} className="border-t border-line">
+                  <td className="p-2 tabular-nums">
+                    {new Date(event.createdAt).toLocaleTimeString("es-DO")}
+                  </td>
+                  <td className="p-2">{event.source}</td>
+                  <td className="p-2 font-medium">{event.event}</td>
+                  <td className="p-2">{event.code || event.state || "—"}</td>
+                  <td className="p-2 tabular-nums">{formatDuration(event.durationMs)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="p-4 text-sm text-text-2">
+            Esta evaluación todavía no tiene eventos técnicos.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function formatDuration(value?: number) {
+  return value === undefined
+    ? "—"
+    : value >= 1000
+      ? `${(value / 1000).toFixed(1)} s`
+      : `${value} ms`;
 }
 
 function Evidence({ detail }: { detail: Detail }) {

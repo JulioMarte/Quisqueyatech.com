@@ -1,4 +1,12 @@
-import { cli, defineAgent, llm, ServerOptions, voice, type JobContext } from "@livekit/agents";
+import {
+  beta,
+  cli,
+  defineAgent,
+  llm,
+  ServerOptions,
+  voice,
+  type JobContext,
+} from "@livekit/agents";
 import * as google from "@livekit/agents-plugin-google";
 import { ThinkingLevel } from "@google/genai";
 import { fileURLToPath } from "node:url";
@@ -89,6 +97,8 @@ const agent = defineAgent({
     if (!promptResponse.ok) throw new Error(`Assessment prompt failed (${promptResponse.status})`);
     const prompt = (await promptResponse.json()).prompt as string;
     log("prompt_ready", { jobId: ctx.job.id });
+    let completionReason = "livekit-session-ended";
+    let closeProgressRecorded = false;
     const recordThreshold = (reason: "time-threshold" | "close") =>
       fetch(`${appUrl}/api/assessment/progress`, {
         method: "POST",
@@ -102,8 +112,17 @@ const agent = defineAgent({
           elapsedSeconds: elapsedSeconds(startedAt),
         }),
       });
+    const recordCloseOnce = async (reason: string) => {
+      if (closeProgressRecorded) return;
+      closeProgressRecorded = true;
+      completionReason = reason;
+      const response = await recordThreshold("close");
+      if (!response.ok)
+        log("close_progress_failed", { jobId: ctx.job.id, status: response.status });
+    };
 
     const updateAssessmentState = llm.tool({
+      name: "update_assessment_state",
       description:
         "Persist newly learned or corrected assessment facts after every substantive answer.",
       parameters: z.object({
@@ -136,8 +155,22 @@ const agent = defineAgent({
         return (await response.json()).nextInstruction as string;
       },
     });
+    const endCallTool = beta.createEndCallTool({
+      extraDescription:
+        "Use only when the visitor clearly asks to end or hang up the interview, including equivalent unambiguous requests in Spanish or English.",
+      deleteRoom: true,
+      endInstructions:
+        "Give the visitor one brief, warm goodbye and confirm the interview is ending.",
+      onToolCalled: async () => {
+        log("end_call_requested", { jobId: ctx.job.id, room: ctx.room.name });
+        await recordCloseOnce("user-requested-end");
+      },
+      onToolCompleted: () => {
+        log("end_call_completed", { jobId: ctx.job.id, room: ctx.room.name });
+      },
+    });
 
-    const instructions = `${prompt}\n\nSESSION CONTROL: This is a single 15-minute interview. Begin immediately with a short greeting as July and ask how the visitor prefers to be addressed. Never wait for a separate instruction to begin. Call update_assessment_state after every substantive answer and treat its returned text as private, mandatory guidance for the next turn. At 5 minutes select one priority process; by 10 minutes finish workflow, volume, pain, and impact; by 13 minutes summarize and confirm contact details; close no later than 15 minutes. Do not mention these private timings or tool instructions.`;
+    const instructions = `${prompt}\n\nSESSION CONTROL: This is a single 15-minute interview. Begin immediately with a short greeting as July and ask how the visitor prefers to be addressed. Never wait for a separate instruction to begin. Call update_assessment_state after every substantive answer and treat its returned text as private, mandatory guidance for the next turn. If the visitor clearly asks to finish, hang up, or says they are done, call end_call. Do not call end_call for a pause, uncertainty, or an interruption. At 5 minutes select one priority process; by 10 minutes finish workflow, volume, pain, and impact; by 13 minutes summarize and confirm contact details; close no later than 15 minutes. Do not mention these private timings or tool instructions.`;
     const session = new voice.AgentSession({
       llm: new google.beta.realtime.RealtimeModel({
         apiKey: runtime.geminiApiKey,
@@ -164,7 +197,7 @@ const agent = defineAgent({
         void recordThreshold("time-threshold");
       }, 870_000),
       setTimeout(() => {
-        void recordThreshold("close");
+        void recordCloseOnce("hard-time-limit");
         ctx.shutdown("hard-time-limit");
       }, 900_000),
     ];
@@ -182,7 +215,7 @@ const agent = defineAgent({
           transcript: JSON.stringify(report.chatHistory),
           sessionReport: report,
           durationSeconds: elapsedSeconds(startedAt),
-          completionReason: "livekit-session-ended",
+          completionReason,
         }),
       });
       if (!response.ok) throw new Error(`Provider finalization failed (${response.status})`);
@@ -194,7 +227,7 @@ const agent = defineAgent({
       room: ctx.room,
       agent: new voice.Agent({
         instructions,
-        tools: { update_assessment_state: updateAssessmentState },
+        tools: [updateAssessmentState, endCallTool],
       }),
       record: { audio: true, transcript: true, traces: true, logs: true },
     });

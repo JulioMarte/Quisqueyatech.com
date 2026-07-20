@@ -19,6 +19,13 @@ import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
 import type { AssessmentEvidence } from "@/lib/assessment/types";
 import { crossedThresholds } from "@/lib/assessment/scheduler";
+import type { ClientDiagnosticEvent, PlaybackState } from "@/lib/assessment/client-diagnostic";
+import { describeClient } from "@/lib/assessment/client-diagnostic";
+import {
+  attemptAudioPlayback,
+  playbackFailureStatus,
+  prepareAudioElement,
+} from "@/lib/livekit/audio-playback";
 
 type Session = {
   provider: "livekit";
@@ -35,7 +42,7 @@ type Session = {
 type TranscriptLine = { speaker: string; text: string };
 type Result = { reviewPending: true };
 
-const activeStatuses = new Set(["idle", "listening", "thinking", "speaking"]);
+const activeStatuses = new Set(["audio-ready", "idle", "listening", "thinking", "speaking"]);
 
 export function VoiceSession({ locale, session }: { locale: Locale; session: Session }) {
   const es = locale === "es";
@@ -46,18 +53,45 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
+  const [audioNotice, setAudioNotice] = useState("");
   const [resumeUrl, setResumeUrl] = useState("");
   const started = useRef(0);
   const controller = useRef<{
-    leave: () => Promise<void>;
+    enableAudio: () => Promise<void>;
+    disconnect: () => Promise<void>;
     muteMic: (value: boolean) => void;
     muteSpeaker: (value: boolean) => void;
   } | null>(null);
+  const speakerMutedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
+  const audioPlayingRef = useRef(false);
   const lastThresholdSeconds = useRef(0);
   const finishing = useRef(false);
   const supportSuffix = es
     ? ` Código de soporte: ${session.supportId}`
     : ` Support code: ${session.supportId}`;
+
+  const reportDiagnostic = useCallback(
+    (event: ClientDiagnosticEvent, playbackState: PlaybackState) => {
+      const client = describeClient(navigator.userAgent);
+      void fetch("/api/assessment/client-diagnostic", {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.progressToken}`,
+        },
+        body: JSON.stringify({
+          supportId: session.supportId,
+          event,
+          roomName: session.roomName,
+          playbackState,
+          client,
+        }),
+      }).catch(() => undefined);
+    },
+    [session.progressToken, session.roomName, session.supportId],
+  );
 
   const saveProgress = useCallback(
     async (
@@ -133,31 +167,81 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   useEffect(() => {
     let disposed = false;
     let agentWaitTimer: number | undefined;
+    let agentAudioTimer: number | undefined;
 
     async function connect() {
       try {
         if (session.roomUrl && session.token) {
           const { Room, RoomEvent } = await import("livekit-client");
           const room = new Room({ adaptiveStream: true, dynacast: true });
-          const audioElements = new Set<HTMLMediaElement>();
+          const audioElements = new Map<string, HTMLMediaElement>();
+          const clearAgentAudioTimer = () => {
+            if (agentAudioTimer) window.clearTimeout(agentAudioTimer);
+            agentAudioTimer = undefined;
+          };
+          const markAudioBlocked = () => {
+            if (disposed || finishing.current || audioUnlockedRef.current) return;
+            setStatus("audio-unlock-required");
+            setAudioNotice(
+              es
+                ? "Tu navegador bloqueó el audio. Toca el botón para activar el audio y el micrófono."
+                : "Your browser blocked audio. Tap the button to enable audio and microphone.",
+            );
+          };
+          const markAudioPlaying = () => {
+            if (audioPlayingRef.current) return;
+            audioPlayingRef.current = true;
+            clearAgentAudioTimer();
+            setAudioNotice("");
+            reportDiagnostic("audio_playing", "playing");
+          };
           room.on(RoomEvent.TrackSubscribed, (track) => {
             if (track.kind === "audio") {
               const element = track.attach();
+              const trackKey = track.sid || track.mediaStreamTrack.id;
+              prepareAudioElement(element, speakerMutedRef.current);
               element.hidden = true;
               document.body.appendChild(element);
-              audioElements.add(element);
+              audioElements.set(trackKey, element);
+              reportDiagnostic("track_subscribed", room.canPlaybackAudio ? "ready" : "blocked");
+              element.addEventListener("playing", markAudioPlaying);
               element.addEventListener(
                 "ended",
                 () => {
-                  audioElements.delete(element);
+                  audioElements.delete(trackKey);
                   element.remove();
                 },
                 { once: true },
               );
+              void attemptAudioPlayback(element).then((outcome) => {
+                if (outcome === "playing") return;
+                reportDiagnostic("play_rejected", "blocked");
+                markAudioBlocked();
+              });
+            }
+          });
+          room.on(RoomEvent.TrackUnsubscribed, (track) => {
+            if (track.kind !== "audio") return;
+            const trackKey = track.sid || track.mediaStreamTrack.id;
+            const element = audioElements.get(trackKey);
+            if (!element) return;
+            audioElements.delete(trackKey);
+            element.removeEventListener("playing", markAudioPlaying);
+            element.remove();
+          });
+          room.on(RoomEvent.AudioPlaybackStatusChanged, (canPlay) => {
+            if (canPlay) {
+              audioUnlockedRef.current = true;
+              setAudioNotice("");
+              reportDiagnostic("audio_unlocked", "ready");
+            } else {
+              audioUnlockedRef.current = false;
+              reportDiagnostic("audio_blocked", "blocked");
+              markAudioBlocked();
             }
           });
           room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-            if (!disposed)
+            if (!disposed && audioUnlockedRef.current)
               setStatus(
                 speakers.some((speaker) => speaker.isLocal)
                   ? "listening"
@@ -168,7 +252,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           });
           room.on(RoomEvent.ParticipantConnected, () => {
             if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
-            setStatus("listening");
+            setStatus(audioUnlockedRef.current ? "listening" : "audio-unlock-required");
           });
           room.on(RoomEvent.ParticipantDisconnected, () => {
             if (disposed || finishing.current) return;
@@ -182,13 +266,29 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             setStatus("error");
           });
           room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
+            const fromAgent =
+              !participant || participant.identity !== room.localParticipant.identity;
             const final = segments
               .filter((segment) => segment.final)
               .map((segment) => ({
-                speaker: participant?.identity || "agent",
+                speaker: fromAgent ? "agent" : participant?.identity || "visitor",
                 text: segment.text,
               }));
             if (final.length) setTranscript((current) => [...current, ...final]);
+            if (fromAgent && final.length && !audioPlayingRef.current && !agentAudioTimer) {
+              agentAudioTimer = window.setTimeout(() => {
+                agentAudioTimer = undefined;
+                if (disposed || audioPlayingRef.current || finishing.current) return;
+                setStatus(playbackFailureStatus(room.canPlaybackAudio));
+                setAudioNotice(
+                  (es
+                    ? "Recibimos la respuesta del agente, pero no se confirmó la reproducción. Activa el audio e inténtalo otra vez."
+                    : "The agent replied, but audio playback was not confirmed. Enable audio and try again.") +
+                    supportSuffix,
+                );
+                reportDiagnostic("audio_failed", room.canPlaybackAudio ? "failed" : "blocked");
+              }, 5_000);
+            }
           });
           room.on(RoomEvent.Reconnecting, () => setStatus("reconnecting"));
           room.on(RoomEvent.Reconnected, () => setStatus("listening"));
@@ -201,9 +301,12 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           });
           setStatus("waiting-agent");
           await room.connect(session.roomUrl, session.token);
-          setStatus("requesting-microphone");
-          await room.localParticipant.setMicrophoneEnabled(true);
-          setStatus(room.remoteParticipants.size ? "listening" : "waiting-agent");
+          setStatus("audio-unlock-required");
+          setAudioNotice(
+            es
+              ? "Toca el botón para activar el audio y permitir el micrófono."
+              : "Tap the button to enable audio and allow microphone access.",
+          );
           if (!room.remoteParticipants.size) {
             agentWaitTimer = window.setTimeout(() => {
               if (disposed || room.remoteParticipants.size) return;
@@ -219,7 +322,48 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             }, 20_000);
           }
           controller.current = {
-            leave: async () => {
+            enableAudio: async () => {
+              setStatus("requesting-microphone");
+              setAudioNotice("");
+              try {
+                await room.startAudio();
+                audioUnlockedRef.current = room.canPlaybackAudio;
+                if (!room.canPlaybackAudio) throw new Error("audio-playback-blocked");
+                reportDiagnostic("audio_unlocked", "ready");
+                await Promise.all(
+                  [...audioElements.values()].map((element) =>
+                    attemptAudioPlayback(element).then((outcome) => {
+                      if (outcome === "blocked") throw new Error("audio-playback-blocked");
+                    }),
+                  ),
+                );
+              } catch {
+                audioUnlockedRef.current = false;
+                setStatus("audio-unlock-required");
+                setAudioNotice(
+                  (es
+                    ? "Firefox bloqueó la salida de audio. Toca nuevamente para permitirla."
+                    : "Firefox blocked audio output. Tap again to allow it.") + supportSuffix,
+                );
+                reportDiagnostic("audio_blocked", "blocked");
+                return;
+              }
+              try {
+                await room.localParticipant.setMicrophoneEnabled(true);
+                setMuted(false);
+                setStatus(room.remoteParticipants.size ? "listening" : "waiting-agent");
+              } catch {
+                setStatus("audio-ready");
+                setAudioNotice(
+                  (es
+                    ? "El audio está activo, pero el navegador negó el micrófono. Habilítalo en los permisos del sitio."
+                    : "Audio is active, but the browser denied microphone access. Enable it in site permissions.") +
+                    supportSuffix,
+                );
+              }
+            },
+            disconnect: async () => {
+              clearAgentAudioTimer();
               audioElements.forEach((element) => element.remove());
               audioElements.clear();
               return room.disconnect();
@@ -232,6 +376,19 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 element.muted = value;
               }),
           };
+
+          const checkPlaybackAfterResume = () => {
+            if (document.visibilityState === "visible" && !room.canPlaybackAudio) {
+              audioUnlockedRef.current = false;
+              markAudioBlocked();
+            }
+          };
+          document.addEventListener("visibilitychange", checkPlaybackAfterResume);
+          window.addEventListener("pageshow", checkPlaybackAfterResume);
+          room.once(RoomEvent.Disconnected, () => {
+            document.removeEventListener("visibilitychange", checkPlaybackAfterResume);
+            window.removeEventListener("pageshow", checkPlaybackAfterResume);
+          });
           return;
         }
         throw new Error(
@@ -253,15 +410,16 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     return () => {
       disposed = true;
       if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
-      void controller.current?.leave();
+      if (agentAudioTimer) window.clearTimeout(agentAudioTimer);
+      void controller.current?.disconnect();
     };
-  }, [es, saveProgress, session, supportSuffix]);
+  }, [es, reportDiagnostic, saveProgress, session, supportSuffix]);
 
   async function finish() {
     if (finishing.current) return;
     finishing.current = true;
     setStatus("finishing");
-    await controller.current?.leave();
+    await controller.current?.disconnect();
     try {
       await saveProgress("close");
     } catch {
@@ -283,6 +441,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const statusCopy: Record<string, string> = es
     ? {
         connecting: "Conectando…",
+        "audio-unlock-required": "Activa audio y micrófono",
+        "audio-ready": "Audio activo; revisa el micrófono",
+        "audio-failed": "No se confirmó el audio",
         "requesting-microphone": "Solicitando micrófono…",
         "waiting-agent": "Esperando al agente…",
         idle: "Preparando el agente",
@@ -299,6 +460,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       }
     : {
         connecting: "Connecting…",
+        "audio-unlock-required": "Enable audio and microphone",
+        "audio-ready": "Audio ready; check microphone",
+        "audio-failed": "Audio playback was not confirmed",
         "requesting-microphone": "Requesting microphone…",
         "waiting-agent": "Waiting for the agent…",
         idle: "Preparing the agent",
@@ -392,6 +556,26 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 </p>
               ) : null}
 
+              {status === "audio-unlock-required" || status === "audio-failed" ? (
+                <Button
+                  type="button"
+                  onClick={() => void controller.current?.enableAudio()}
+                  className="mt-6 min-h-12 bg-larimar text-ink hover:bg-sky-300"
+                >
+                  <Volume2 className="h-5 w-5" aria-hidden="true" />
+                  {es ? "Activar audio y micrófono" : "Enable audio and microphone"}
+                </Button>
+              ) : null}
+
+              {audioNotice ? (
+                <p
+                  role={status === "audio-failed" ? "alert" : "status"}
+                  className="mt-4 max-w-lg rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-50"
+                >
+                  {audioNotice}
+                </p>
+              ) : null}
+
               {error ? (
                 <p
                   role="alert"
@@ -418,8 +602,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                   setMuted(next);
                   controller.current?.muteMic(next);
                 }}
+                disabled={!audioUnlockedRef.current}
                 aria-pressed={muted}
-                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/[.08] px-5 text-sm font-semibold transition-colors hover:bg-white/[.14] focus-visible:ring-2 focus-visible:ring-larimar"
+                className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/[.08] px-5 text-sm font-semibold transition-colors hover:bg-white/[.14] focus-visible:ring-2 focus-visible:ring-larimar disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 {muted ? (es ? "Activar" : "Unmute") : es ? "Silenciar" : "Mute"}
@@ -429,6 +614,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 onClick={() => {
                   const next = !speakerMuted;
                   setSpeakerMuted(next);
+                  speakerMutedRef.current = next;
                   controller.current?.muteSpeaker(next);
                 }}
                 aria-pressed={speakerMuted}

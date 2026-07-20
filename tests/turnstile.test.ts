@@ -83,8 +83,10 @@ test("Turnstile rejects oversized tokens and retries temporary failures once", a
   assert.deepEqual(oversized, { success: false, "error-codes": ["response-too-long"] });
 
   let attempts = 0;
-  const fetcher: typeof fetch = async () => {
+  const fetcher: typeof fetch = async (_input, init) => {
     attempts += 1;
+    const body = init?.body as URLSearchParams;
+    assert.equal(body.get("idempotency_key"), "00000000-0000-4000-8000-000000000000");
     if (attempts === 1) return new Response(null, { status: 503 });
     return Response.json({
       success: true,
@@ -100,4 +102,26 @@ test("Turnstile rejects oversized tokens and retries temporary failures once", a
   });
   assert.equal(attempts, 2);
   assert.equal(result.success, true);
+});
+
+test("Turnstile fails closed after one retry when Siteverify times out", async () => {
+  let attempts = 0;
+  const fetcher: typeof fetch = async () => {
+    attempts += 1;
+    throw new DOMException("Timed out", "TimeoutError");
+  };
+  const result = await requestTurnstileVerification("secret", "token", undefined, fetcher, {
+    retries: 1,
+    timeoutMs: 8_000,
+  });
+  assert.equal(attempts, 2);
+  assert.deepEqual(result, { success: false, "error-codes": ["request-timeout"] });
+});
+
+test("Turnstile rejects replayed or expired tokens", async () => {
+  const fetcher: typeof fetch = async () =>
+    Response.json({ success: false, "error-codes": ["timeout-or-duplicate"] });
+  const result = await requestTurnstileVerification("secret", "used-token", undefined, fetcher);
+  assert.equal(result.success, false);
+  assert.deepEqual(result["error-codes"], ["timeout-or-duplicate"]);
 });

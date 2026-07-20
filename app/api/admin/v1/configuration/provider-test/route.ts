@@ -1,5 +1,4 @@
 import { GoogleGenAI } from "@google/genai";
-import { AccessToken } from "livekit-server-sdk";
 import { z } from "zod";
 import {
   adminException,
@@ -10,7 +9,8 @@ import {
   requestId,
 } from "@/lib/server/admin-content";
 import { runtimeConfig } from "@/lib/server/runtime-config";
-import { requestExternalSafely } from "@/lib/server/secure-config";
+import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
+import { probeLiveKitAgent } from "@/lib/server/livekit";
 
 const requestSchema = z.object({ provider: z.enum(["livekit", "gemini-live"]) }).strict();
 
@@ -47,33 +47,19 @@ export async function POST(request: Request) {
         503,
         "CONFIGURATION_ERROR",
       );
-    const livekitUrl = new URL(String(config.livekitUrl));
-    livekitUrl.protocol = "https:";
-    livekitUrl.pathname = "/twirp/livekit.RoomService/ListRooms";
-    livekitUrl.search = "";
-    const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret));
-    token.addGrant({ roomList: true });
-    const result = await requestExternalSafely(livekitUrl.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${await token.toJwt()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ names: [] }),
-    });
-    if (!result.success)
-      return adminFailure(
-        trace,
-        `LiveKit rechazó la prueba (${result.error || "UPSTREAM_ERROR"}).`,
-        502,
-        "UPSTREAM_ERROR",
-      );
-    return adminJson(trace, {
-      provider: parsed.data.provider,
-      success: true,
-      statusCode: result.statusCode,
-      durationMs: result.durationMs,
-    });
+    try {
+      const result = await probeLiveKitAgent(config, trace);
+      return adminJson(trace, { provider: parsed.data.provider, ...result });
+    } catch (error) {
+      if (error instanceof LiveKitDispatchError)
+        return adminFailure(
+          trace,
+          `El agente LiveKit no estuvo disponible (${error.code}). Soporte: ${error.supportId}`,
+          502,
+          "UPSTREAM_ERROR",
+        );
+      throw error;
+    }
   } catch (error) {
     return adminException(trace, "configuration.provider-test", error);
   }

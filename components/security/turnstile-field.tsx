@@ -9,6 +9,7 @@ type TurnstileFailureCause =
 type TurnstileFailure = { cause: TurnstileFailureCause; code: string };
 type TurnstileRenderOptions = {
   sitekey: string;
+  action: "assessment_start" | "scheduling_book";
   size: "flexible";
   language: "es" | "en";
   "feedback-enabled": boolean;
@@ -43,12 +44,14 @@ export function TurnstileField({
   locale,
   resetSignal = 0,
   tone = "dark",
+  action,
 }: {
   onToken: (token: string) => void;
   onStatus?: (status: TurnstileStatus) => void;
   locale: "es" | "en";
   resetSignal?: number;
   tone?: "dark" | "light";
+  action: "assessment_start" | "scheduling_book";
 }) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const container = useRef<HTMLDivElement>(null);
@@ -86,6 +89,7 @@ export function TurnstileField({
       if (disposed || !container.current || !window.turnstile || widgetId.current) return;
       widgetId.current = window.turnstile.render(container.current, {
         sitekey: siteKey,
+        action,
         size: "flexible",
         language: locale,
         "feedback-enabled": false,
@@ -137,7 +141,7 @@ export function TurnstileField({
       if (widgetId.current) window.turnstile?.remove(widgetId.current);
       widgetId.current = "";
     };
-  }, [invalidate, locale, onStatus, onToken, siteKey]);
+  }, [action, invalidate, locale, onStatus, onToken, siteKey]);
 
   useEffect(() => {
     if (previousResetSignal.current === resetSignal) return;

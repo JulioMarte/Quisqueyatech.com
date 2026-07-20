@@ -49,3 +49,55 @@ test("Turnstile converts upstream HTTP failures into safe diagnostic codes", asy
   const result = await requestTurnstileVerification("secret", "token", "unknown", fetcher);
   assert.deepEqual(result, { success: false, "error-codes": ["http-503"] });
 });
+
+test("Turnstile validates the expected action and hostname", async () => {
+  const fetcher: typeof fetch = async () =>
+    Response.json({
+      success: true,
+      hostname: "www.quisqueyatech.com",
+      action: "assessment_start",
+    });
+  const accepted = await requestTurnstileVerification("secret", "token", undefined, fetcher, {
+    expectedAction: "assessment_start",
+    allowedHostnames: ["quisqueyatech.com", "www.quisqueyatech.com"],
+  });
+  assert.equal(accepted.success, true);
+
+  const wrongAction = await requestTurnstileVerification("secret", "token", undefined, fetcher, {
+    expectedAction: "scheduling_book",
+    allowedHostnames: ["www.quisqueyatech.com"],
+  });
+  assert.equal(wrongAction.success, false);
+  assert.deepEqual(wrongAction["error-codes"], ["action-mismatch"]);
+
+  const wrongHost = await requestTurnstileVerification("secret", "token", undefined, fetcher, {
+    expectedAction: "assessment_start",
+    allowedHostnames: ["quisqueyatech.com"],
+  });
+  assert.equal(wrongHost.success, false);
+  assert.deepEqual(wrongHost["error-codes"], ["hostname-mismatch"]);
+});
+
+test("Turnstile rejects oversized tokens and retries temporary failures once", async () => {
+  const oversized = await requestTurnstileVerification("secret", "x".repeat(2_049), undefined);
+  assert.deepEqual(oversized, { success: false, "error-codes": ["response-too-long"] });
+
+  let attempts = 0;
+  const fetcher: typeof fetch = async () => {
+    attempts += 1;
+    if (attempts === 1) return new Response(null, { status: 503 });
+    return Response.json({
+      success: true,
+      hostname: "quisqueyatech.com",
+      action: "assessment_start",
+    });
+  };
+  const result = await requestTurnstileVerification("secret", "token", undefined, fetcher, {
+    expectedAction: "assessment_start",
+    allowedHostnames: ["quisqueyatech.com"],
+    idempotencyKey: "00000000-0000-4000-8000-000000000000",
+    retries: 1,
+  });
+  assert.equal(attempts, 2);
+  assert.equal(result.success, true);
+});

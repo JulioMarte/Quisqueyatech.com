@@ -22,14 +22,12 @@ import {
   verifyAssessmentToken,
 } from "@/lib/server/assessment-tokens";
 import { runtimeConfig } from "@/lib/server/runtime-config";
+import { requestIp } from "@/lib/server/request-ip";
+import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
 
 export async function POST(request: Request) {
   try {
-    const ip =
-      request.headers.get("cf-connecting-ip") ||
-      request.headers.get("x-real-ip") ||
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "unknown";
+    const ip = requestIp(request);
     if (!(await allowRequest(`assessment:${ip}`, 5))) {
       return NextResponse.json(
         { error: "Too many assessment attempts. Please try again later." },
@@ -92,7 +90,7 @@ export async function POST(request: Request) {
       intake = submittedIntake;
     }
 
-    if (!(await verifyTurnstile(turnstileToken, ip))) {
+    if (!(await verifyTurnstile(turnstileToken, ip, "assessment_start"))) {
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
     }
 
@@ -194,12 +192,23 @@ export async function POST(request: Request) {
       roomUrl: session.roomUrl,
       token: session.token,
       roomName: session.roomName,
+      supportId: session.supportId,
       progressToken: sessionProgressToken,
       resumeToken: nextResumeToken,
       sessionKey,
     });
   } catch (error) {
     console.error("[assessment:start]", error);
+    if (error instanceof LiveKitDispatchError) {
+      return NextResponse.json(
+        {
+          error: "The LiveKit agent is temporarily unavailable.",
+          code: error.code,
+          supportId: error.supportId,
+        },
+        { status: 503 },
+      );
+    }
     return NextResponse.json({ error: "The assessment could not be started." }, { status: 502 });
   }
 }

@@ -3,10 +3,11 @@ import { bookingSchema } from "@/lib/validations/assessment";
 import { convexMutation } from "@/lib/server/convex";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
+import { requestIp } from "@/lib/server/request-ip";
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = requestIp(request);
     if (!(await allowRequest(`booking:${ip}`, 8)))
       return NextResponse.json({ error: "Too many booking attempts" }, { status: 429 });
     const parsed = bookingSchema.safeParse(await request.json());
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (!(await verifyTurnstile(parsed.data.turnstileToken, ip)))
+    if (!(await verifyTurnstile(parsed.data.turnstileToken, ip, "scheduling_book")))
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
     const serviceSecret = process.env.ADMIN_API_SECRET?.trim();
     if (!serviceSecret) {

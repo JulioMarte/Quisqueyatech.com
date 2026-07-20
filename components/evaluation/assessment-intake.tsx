@@ -16,6 +16,7 @@ type SessionData = {
   progressToken: string;
   resumeToken: string;
   sessionKey: string;
+  supportId: string;
 };
 
 export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
@@ -54,11 +55,18 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
       });
       const result = await response.json();
       if (!response.ok) {
+        const support = result.supportId
+          ? `${es ? " Código de soporte" : " Support code"}: ${result.supportId}`
+          : "";
         throw new Error(
-          result.error ||
-            (es
-              ? "No pudimos abrir la sala de conferencia."
-              : "We could not open the conference room."),
+          (result.code === "AGENT_TIMEOUT" || result.code === "DISPATCH_FAILED"
+            ? es
+              ? "El agente de LiveKit no estuvo disponible. Inténtalo nuevamente en unos minutos."
+              : "The LiveKit agent was unavailable. Try again in a few minutes."
+            : result.error ||
+              (es
+                ? "No pudimos abrir la sala de conferencia."
+                : "We could not open the conference room.")) + support,
         );
       }
       setSession(result);
@@ -140,8 +148,8 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               </h2>
               <p className="mt-3 max-w-lg text-base leading-relaxed text-white/65">
                 {es
-                  ? "Cuando entres, el agente te saludará y guiará una conversación natural para entender qué proceso conviene mejorar primero."
-                  : "Once you join, the agent will greet you and guide a natural conversation to understand which process is worth improving first."}
+                  ? "Cuando entres, di “hola” para iniciar. El agente guiará una conversación natural para entender qué proceso conviene mejorar primero."
+                  : "When you join, say “hello” to begin. The agent will guide a natural conversation to understand which process is worth improving first."}
               </p>
               <div className="mt-7 flex h-8 items-center gap-1" aria-hidden="true">
                 {[12, 20, 28, 18, 32, 24, 14].map((height, index) => (
@@ -206,6 +214,7 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
             </label>
 
             <TurnstileField
+              action="assessment_start"
               locale={locale}
               onToken={handleTurnstileToken}
               onStatus={setTurnstileStatus}

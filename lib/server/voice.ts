@@ -1,6 +1,5 @@
 import "server-only";
 import { GoogleGenAI, Modality } from "@google/genai";
-import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { AccessToken } from "livekit-server-sdk";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import type {
@@ -12,9 +11,14 @@ import type {
   VoiceProviderId,
   VoiceStartSession,
 } from "@/lib/assessment/types";
+import {
+  createLiveKitClients,
+  dispatchAssessmentAgent,
+  assessmentAgentName,
+} from "@/lib/server/livekit";
 
 export const interviewFrameworkVersion = "2026-07-v1";
-export const assessmentAgentName = "quisqueyatech-assessment";
+export { assessmentAgentName };
 export const defaultGeminiLiveModel = "gemini-3.1-flash-live-preview";
 export const defaultGeminiLiveVoice = "Aoede";
 
@@ -174,15 +178,18 @@ class LiveKitAdapter extends BaseAdapter {
   async createSession(context: AssessmentContext): Promise<ProviderSession> {
     const config = await runtimeConfig();
     const roomName = `assessment-${context.assessmentId}-${context.sessionKey}`;
+    const supportId = crypto.randomUUID();
+    const metadata = JSON.stringify({
+      assessmentId: context.assessmentId,
+      sessionKey: context.sessionKey,
+      locale: context.locale,
+      frameworkVersion: interviewFrameworkVersion,
+    });
+    const readiness = await dispatchAssessmentAgent({ config, roomName, metadata, supportId });
     const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret), {
       identity: `lead-${context.assessmentId}`,
       name: context.name,
-      metadata: JSON.stringify({
-        assessmentId: context.assessmentId,
-        sessionKey: context.sessionKey,
-        locale: context.locale,
-        frameworkVersion: interviewFrameworkVersion,
-      }),
+      metadata,
     });
     token.addGrant({
       room: roomName,
@@ -191,25 +198,14 @@ class LiveKitAdapter extends BaseAdapter {
       canSubscribe: true,
       canPublishData: true,
     });
-    token.roomConfig = new RoomConfiguration({
-      agents: [
-        new RoomAgentDispatch({
-          agentName: assessmentAgentName,
-          metadata: JSON.stringify({
-            assessmentId: context.assessmentId,
-            sessionKey: context.sessionKey,
-            locale: context.locale,
-            frameworkVersion: interviewFrameworkVersion,
-          }),
-        }),
-      ],
-    });
     return {
       provider: "livekit",
       assessmentId: context.assessmentId,
       roomUrl: String(config.livekitUrl),
       token: await token.toJwt(),
       roomName,
+      supportId,
+      dispatchId: readiness.dispatch.id,
     };
   }
 }
@@ -259,13 +255,21 @@ export async function providerConfigured(provider: VoiceProviderId) {
       config.ultravoxApiKey &&
       (process.env.NODE_ENV !== "production" || config.ultravoxWebhookSecret),
     );
-  if (provider === "livekit")
-    return Boolean(
+  if (provider === "livekit") {
+    const configured = Boolean(
       config.livekitApiKey &&
       config.livekitApiSecret &&
       config.livekitUrl &&
       process.env.ASSESSMENT_WORKER_SECRET,
     );
+    if (!configured) return false;
+    try {
+      createLiveKitClients(config);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   return Boolean(
     config.geminiApiKey && (process.env.NODE_ENV !== "production" || config.geminiLiveModel),
   );

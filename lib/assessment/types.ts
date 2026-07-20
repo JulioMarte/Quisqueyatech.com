@@ -110,7 +110,15 @@ export type GeminiSessionConfig = {
 };
 export type ProviderSession =
   | { provider: "ultravox"; assessmentId: string; callId: string; joinUrl: string }
-  | { provider: "livekit"; assessmentId: string; roomUrl: string; token: string; roomName: string }
+  | {
+      provider: "livekit";
+      assessmentId: string;
+      roomUrl: string;
+      token: string;
+      roomName: string;
+      supportId: string;
+      dispatchId: string;
+    }
   | {
       provider: "gemini-live";
       assessmentId: string;

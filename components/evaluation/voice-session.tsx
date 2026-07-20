@@ -29,6 +29,7 @@ type Session = {
   progressToken: string;
   resumeToken: string;
   sessionKey: string;
+  supportId: string;
 };
 
 type TranscriptLine = { speaker: string; text: string };
@@ -54,6 +55,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   } | null>(null);
   const lastThresholdSeconds = useRef(0);
   const finishing = useRef(false);
+  const supportSuffix = es
+    ? ` Código de soporte: ${session.supportId}`
+    : ` Support code: ${session.supportId}`;
 
   const saveProgress = useCallback(
     async (
@@ -139,10 +143,17 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           room.on(RoomEvent.TrackSubscribed, (track) => {
             if (track.kind === "audio") {
               const element = track.attach();
+              element.hidden = true;
+              document.body.appendChild(element);
               audioElements.add(element);
-              element.addEventListener("ended", () => audioElements.delete(element), {
-                once: true,
-              });
+              element.addEventListener(
+                "ended",
+                () => {
+                  audioElements.delete(element);
+                  element.remove();
+                },
+                { once: true },
+              );
             }
           });
           room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
@@ -158,6 +169,17 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           room.on(RoomEvent.ParticipantConnected, () => {
             if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
             setStatus("listening");
+          });
+          room.on(RoomEvent.ParticipantDisconnected, () => {
+            if (disposed || finishing.current) return;
+            setError(
+              (es
+                ? "El agente se desconectó de la sala. Puedes retomar con tu enlace seguro."
+                : "The agent disconnected from the room. You can resume with your secure link.") +
+                supportSuffix,
+            );
+            setResumeUrl(resumeLink(session.resumeToken));
+            setStatus("error");
           });
           room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
             const final = segments
@@ -186,9 +208,10 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             agentWaitTimer = window.setTimeout(() => {
               if (disposed || room.remoteParticipants.size) return;
               setError(
-                es
+                (es
                   ? "El agente no pudo entrar a la sala. Puedes retomar con tu enlace seguro."
-                  : "The agent could not join the room. You can resume with your secure link.",
+                  : "The agent could not join the room. You can resume with your secure link.") +
+                  supportSuffix,
               );
               setResumeUrl(resumeLink(session.resumeToken));
               setStatus("error");
@@ -196,7 +219,11 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             }, 20_000);
           }
           controller.current = {
-            leave: async () => room.disconnect(),
+            leave: async () => {
+              audioElements.forEach((element) => element.remove());
+              audioElements.clear();
+              return room.disconnect();
+            },
             muteMic: (value) => {
               void room.localParticipant.setMicrophoneEnabled(!value);
             },
@@ -214,7 +241,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
         );
       } catch (reason) {
         if (disposed) return;
-        setError(reason instanceof Error ? reason.message : "Connection error");
+        setError(
+          `${reason instanceof Error ? reason.message : "Connection error"}${supportSuffix}`,
+        );
         setResumeUrl(resumeLink(session.resumeToken));
         setStatus("error");
       }
@@ -226,7 +255,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
       void controller.current?.leave();
     };
-  }, [es, saveProgress, session]);
+  }, [es, saveProgress, session, supportSuffix]);
 
   async function finish() {
     if (finishing.current) return;
@@ -355,6 +384,13 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
               <p className="mt-2 min-h-6 text-white/60" aria-live="polite">
                 {statusCopy[status] || status}
               </p>
+              {status === "listening" && transcript.length === 0 ? (
+                <p className="mt-3 text-sm font-medium text-larimar">
+                  {es
+                    ? "Di “hola” para iniciar la conversación."
+                    : "Say “hello” to begin the conversation."}
+                </p>
+              ) : null}
 
               {error ? (
                 <p

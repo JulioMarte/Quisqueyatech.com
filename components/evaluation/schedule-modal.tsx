@@ -1005,6 +1005,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                     {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
                       <div className="px-5 pb-4 sm:px-7 lg:px-6">
                         <TurnstileField
+                          action="scheduling_book"
                           locale={locale}
                           onToken={setTurnstileToken}
                           onStatus={setTurnstileStatus}

@@ -27,6 +27,7 @@ export const assessmentConferenceStartSchema = z.object({
   locale: z.enum(["es", "en"]),
   processingConsent: z.literal(true),
   recordingConsent: z.literal(true),
+  visitorId: z.string().uuid().optional(),
   turnstileToken: z.string().optional(),
   resumeToken: z.string().optional(),
 });

@@ -5,7 +5,7 @@ import {
   type AssessmentIntake,
 } from "@/lib/validations/assessment";
 import { convexMutation } from "@/lib/server/convex";
-import { allowRequest } from "@/lib/server/rate-limit";
+import { checkRequestLimit } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
 import { createAssessmentSnapshot } from "@/lib/assessment/engine";
 import type { AssessmentSnapshot } from "@/lib/assessment/types";
@@ -23,15 +23,25 @@ import {
 } from "@/lib/server/assessment-tokens";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { requestIp } from "@/lib/server/request-ip";
+import { requestFingerprint } from "@/lib/server/auth";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
 
 export async function POST(request: Request) {
   try {
     const ip = requestIp(request);
-    if (!(await allowRequest(`assessment:${ip}`, 5))) {
+    const edgeLimit = await checkRequestLimit(
+      requestFingerprint(request, "assessment-edge"),
+      100,
+      10 * 60_000,
+    );
+    if (!edgeLimit.allowed) {
       return NextResponse.json(
-        { error: "Too many assessment attempts. Please try again later." },
-        { status: 429 },
+        {
+          error: "Too many requests from this network. Please try again shortly.",
+          code: "RATE_LIMITED",
+          retryAfter: edgeLimit.retryAfter,
+        },
+        { status: 429, headers: { "Retry-After": String(edgeLimit.retryAfter) } },
       );
     }
 
@@ -39,6 +49,7 @@ export async function POST(request: Request) {
     const conferenceStart = body?.mode === "conference";
     let intake: AssessmentIntake;
     let turnstileToken: string | undefined;
+    let visitorId: string | undefined;
 
     if (conferenceStart) {
       const parsed = assessmentConferenceStartSchema.safeParse(body);
@@ -53,6 +64,7 @@ export async function POST(request: Request) {
       }
       const temporaryId = crypto.randomUUID();
       turnstileToken = parsed.data.turnstileToken;
+      visitorId = parsed.data.visitorId;
       intake = {
         firstName: parsed.data.locale === "es" ? "Visitante" : "Guest",
         lastName: "Web",
@@ -92,6 +104,25 @@ export async function POST(request: Request) {
 
     if (!(await verifyTurnstile(turnstileToken, ip, "assessment_start"))) {
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
+    }
+
+    const startLimit = await checkRequestLimit(
+      `${requestFingerprint(request, "assessment-start")}:${visitorId || "legacy"}`,
+      12,
+      60 * 60_000,
+    );
+    if (!startLimit.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            intake.locale === "es"
+              ? "Alcanzaste el límite de conferencias de este navegador. Inténtalo más tarde."
+              : "This browser has reached its conference limit. Please try again later.",
+          code: "RATE_LIMITED",
+          retryAfter: startLimit.retryAfter,
+        },
+        { status: 429, headers: { "Retry-After": String(startLimit.retryAfter) } },
+      );
     }
 
     const resume =

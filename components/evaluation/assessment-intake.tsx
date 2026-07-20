@@ -7,6 +7,7 @@ import { TurnstileField, type TurnstileStatus } from "@/components/security/turn
 import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
+import { getAssessmentVisitorId } from "@/lib/assessment/visitor-id";
 type SessionData = {
   provider: "livekit";
   assessmentId: string;
@@ -46,6 +47,7 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
         body: JSON.stringify({
           mode: "conference",
           locale,
+          visitorId: getAssessmentVisitorId(window.localStorage),
           turnstileToken,
           processingConsent: true,
           recordingConsent: true,

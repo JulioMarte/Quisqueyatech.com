@@ -54,6 +54,7 @@ export default defineSchema({
     resumeTokenHash: v.optional(v.string()),
     resumeExpiresAt: v.optional(v.number()),
     finalizationStartedAt: v.optional(v.number()),
+    finalizationClaimedAt: v.optional(v.number()),
     reportDraft: v.optional(v.any()),
     reportStatus: v.optional(v.string()),
     reportRevision: v.optional(v.number()),

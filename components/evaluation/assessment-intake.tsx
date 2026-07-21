@@ -62,7 +62,11 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
           : "";
         const turnstileMessage = turnstileErrorMessage(result.code, es);
         throw new Error(
-          (turnstileMessage || result.code === "AGENT_TIMEOUT" || result.code === "DISPATCH_FAILED"
+          (turnstileMessage ||
+          result.code === "AGENT_COLD_START_TIMEOUT" ||
+          result.code === "AGENT_DISPATCH_FAILED" ||
+          result.code === "AGENT_CONFIGURATION" ||
+          result.code === "AGENT_MODEL_UNAVAILABLE"
             ? turnstileMessage ||
               (es
                 ? "El agente de LiveKit no estuvo disponible. Inténtalo nuevamente en unos minutos."

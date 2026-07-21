@@ -306,6 +306,38 @@ export const getFinalizationState = query({
   },
 });
 
+export const markSessionFinalizing = mutation({
+  args: {
+    ...serviceArgs,
+    assessmentId: v.string(),
+    sessionKey: v.string(),
+    completionReason: v.string(),
+    now: v.number(),
+  },
+  handler: async (ctx, args) => {
+    requireService(args.serviceSecret);
+    const assessment = await assessmentById(ctx, args.assessmentId);
+    const session = await ctx.db
+      .query("assessmentSessions")
+      .withIndex("by_session_key", (q) => q.eq("sessionKey", args.sessionKey))
+      .unique();
+    if (!session || session.assessmentId !== args.assessmentId)
+      throw new Error("Session not found");
+    if (assessment.status !== "completed")
+      await ctx.db.patch(assessment._id, {
+        status: "finalizing",
+        completionReason: args.completionReason,
+        finalizationStartedAt: assessment.finalizationStartedAt || args.now,
+      });
+    if (session.status !== "ended")
+      await ctx.db.patch(session._id, {
+        status: "finalizing",
+        completionReason: args.completionReason,
+      });
+    return { status: assessment.status === "completed" ? "completed" : "finalizing" };
+  },
+});
+
 export const getSessionByKey = query({
   args: { ...serviceArgs, assessmentId: v.string(), sessionKey: v.string() },
   handler: async (ctx, args) => {
@@ -459,13 +491,13 @@ export const claimFinalization = mutation({
     requireService(args.serviceSecret);
     const item = await assessmentById(ctx, args.assessmentId);
     if (item.status === "completed") return false;
-    if (
-      item.status === "finalizing" &&
-      item.finalizationStartedAt &&
-      item.finalizationStartedAt > args.now - 5 * 60_000
-    )
+    if (item.finalizationClaimedAt && item.finalizationClaimedAt > args.now - 5 * 60_000)
       return false;
-    await ctx.db.patch(item._id, { status: "finalizing", finalizationStartedAt: args.now });
+    await ctx.db.patch(item._id, {
+      status: "finalizing",
+      finalizationStartedAt: item.finalizationStartedAt || args.now,
+      finalizationClaimedAt: args.now,
+    });
     return true;
   },
 });
@@ -509,6 +541,7 @@ export const complete = mutation({
       completionReason: args.completionReason || "completed",
       completedAt: args.completedAt,
       finalizationStartedAt: undefined,
+      finalizationClaimedAt: undefined,
     });
     await ctx.db.patch(assessment.leadId, {
       status: "assessment_completed",

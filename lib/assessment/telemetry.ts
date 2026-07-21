@@ -27,6 +27,10 @@ export const assessmentTelemetryEvents = [
   "tool_failed",
   "model_error",
   "session_closed",
+  "agent_initializing",
+  "agent_ready",
+  "finalization_started",
+  "finalization_completed",
 ] as const;
 
 export type AssessmentTelemetryEvent = (typeof assessmentTelemetryEvents)[number];

@@ -55,7 +55,7 @@ test("dispatch waits until an agent participant is ready", async () => {
   assert.equal(result.dispatch.id, "dispatch-1");
 });
 
-test("dispatch timeout cleans the room and preserves the support id", async () => {
+test("cold-start timeout preserves the recoverable room and support id", async () => {
   let deleted = "";
   const clients: LiveKitDispatchClients = {
     dispatch: {
@@ -80,8 +80,41 @@ test("dispatch timeout cleans the room and preserves the support id", async () =
     }),
     (error: unknown) =>
       error instanceof LiveKitDispatchError &&
-      error.code === "AGENT_TIMEOUT" &&
+      error.code === "AGENT_COLD_START_TIMEOUT" &&
       error.supportId === "support-timeout",
   );
-  assert.equal(deleted, "assessment-timeout");
+  assert.equal(deleted, "");
+});
+
+test("terminal agent startup errors are classified and clean up the room", async () => {
+  let deleted = "";
+  const clients: LiveKitDispatchClients = {
+    dispatch: {
+      createDispatch: async (room, agentName) => ({ id: "dispatch-3", room, agentName }),
+    },
+    rooms: {
+      listParticipants: async () => [
+        { identity: "agent-configuration-error", kind: 4, metadata: "configuration_error" },
+      ],
+      deleteRoom: async (room) => {
+        deleted = room;
+      },
+    },
+  };
+  await assert.rejects(
+    dispatchAndWaitForAgent({
+      clients,
+      roomName: "assessment-invalid-config",
+      agentName: "quisqueyatech-assessment",
+      metadata: "{}",
+      supportId: "support-invalid-config",
+      timeoutMs: 50,
+      pollMs: 1,
+      agentFailure: (participant) =>
+        participant.metadata === "configuration_error" ? "AGENT_CONFIGURATION" : undefined,
+    }),
+    (error: unknown) =>
+      error instanceof LiveKitDispatchError && error.code === "AGENT_CONFIGURATION",
+  );
+  assert.equal(deleted, "assessment-invalid-config");
 });

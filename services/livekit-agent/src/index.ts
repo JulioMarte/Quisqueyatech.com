@@ -89,6 +89,10 @@ const agent = defineAgent({
       throw new Error("Assessment metadata is missing");
     const startedAt = Date.now();
     const supportId = metadata.supportId || crypto.randomUUID();
+    await ctx.connect();
+    await ctx.agent?.updateMetadata(
+      JSON.stringify({ state: "initializing", occurredAt: Date.now() }),
+    );
     const telemetry = (
       event: string,
       details: {
@@ -118,6 +122,7 @@ const agent = defineAgent({
         { timeoutMs: 3_000 },
       ).catch(() => log("telemetry_delivery_failed", { jobId: ctx.job.id, event }));
     };
+    telemetry("agent_initializing", { state: "initializing" });
     const configResponse = await fetchBounded(
       `${appUrl}/api/assessment/worker-config`,
       {
@@ -126,8 +131,12 @@ const agent = defineAgent({
       },
       { timeoutMs: 8_000, retries: 1 },
     );
-    if (!configResponse.ok)
+    if (!configResponse.ok) {
+      await ctx.agent?.updateMetadata(
+        JSON.stringify({ state: "configuration_error", code: `HTTP_${configResponse.status}` }),
+      );
       throw new Error(`Worker configuration failed (${configResponse.status})`);
+    }
     const runtime = (await configResponse.json()) as WorkerConfig;
     log("configuration_ready", { jobId: ctx.job.id, model: runtime.model });
     const promptResponse = await fetchBounded(
@@ -135,7 +144,12 @@ const agent = defineAgent({
       { headers: { Authorization: `Bearer ${workerSecret}` } },
       { timeoutMs: 8_000, retries: 1 },
     );
-    if (!promptResponse.ok) throw new Error(`Assessment prompt failed (${promptResponse.status})`);
+    if (!promptResponse.ok) {
+      await ctx.agent?.updateMetadata(
+        JSON.stringify({ state: "configuration_error", code: `PROMPT_${promptResponse.status}` }),
+      );
+      throw new Error(`Assessment prompt failed (${promptResponse.status})`);
+    }
     const prompt = (await promptResponse.json()).prompt as string;
     log("prompt_ready", { jobId: ctx.job.id });
     let completionReason = "livekit-session-ended";
@@ -163,9 +177,42 @@ const agent = defineAgent({
       closeProgressRecorded = true;
       completionReason = reason;
       finalizeAssessment = true;
-      const response = await recordThreshold("close");
-      if (!response.ok)
-        log("close_progress_failed", { jobId: ctx.job.id, status: response.status });
+      try {
+        const response = await recordThreshold("close");
+        if (!response.ok)
+          log("close_progress_failed", { jobId: ctx.job.id, status: response.status });
+        const stateResponse = await fetchBounded(
+          `${appUrl}/api/assessment/session-status`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${workerSecret}`,
+            },
+            body: JSON.stringify({
+              assessmentId: metadata.assessmentId,
+              sessionKey: metadata.sessionKey,
+              completionReason: reason,
+            }),
+          },
+          { timeoutMs: 8_000, retries: 1 },
+        );
+        if (!stateResponse.ok)
+          throw new Error(`Finalization state failed (${stateResponse.status})`);
+        await ctx.agent?.updateMetadata(
+          JSON.stringify({
+            state: "finalizing",
+            ready: true,
+            completionReason: reason,
+            occurredAt: Date.now(),
+          }),
+        );
+        telemetry("finalization_started", { state: "finalizing", code: reason });
+      } catch (error) {
+        closeProgressRecorded = false;
+        finalizeAssessment = false;
+        throw error;
+      }
     };
 
     const updateAssessmentState = llm.tool({
@@ -235,22 +282,34 @@ const agent = defineAgent({
         }
       },
     });
+    const prepareAssessmentEnd = llm.tool({
+      name: "prepare_assessment_end",
+      description:
+        "Persist the terminal state before ending the interview. Call this once when the assessment is complete, the visitor asks to end, or the time limit is reached; then give a brief goodbye and call end_call.",
+      parameters: z.object({
+        reason: z.enum(["assessment-completed", "user-requested-end", "hard-time-limit"]),
+      }),
+      execute: async ({ reason }) => {
+        await recordCloseOnce(reason);
+        return "Terminal state saved. Give one brief warm goodbye, then call end_call immediately.";
+      },
+    });
     const endCallTool = beta.createEndCallTool({
       extraDescription:
-        "Use only when the visitor clearly asks to end or hang up the interview, including equivalent unambiguous requests in Spanish or English.",
+        "Use after prepare_assessment_end when the assessment is complete, the visitor asks to finish, or the hard time limit is reached.",
       deleteRoom: true,
       endInstructions:
         "Give the visitor one brief, warm goodbye and confirm the interview is ending.",
       onToolCalled: async () => {
         log("end_call_requested", { jobId: ctx.job.id, room: ctx.room.name });
-        await recordCloseOnce("user-requested-end");
+        if (!closeProgressRecorded) await recordCloseOnce("user-requested-end");
       },
       onToolCompleted: () => {
         log("end_call_completed", { jobId: ctx.job.id, room: ctx.room.name });
       },
     });
 
-    const instructions = `${prompt}\n\nSESSION CONTROL: This is a single 15-minute interview. Begin immediately with a short greeting as July and ask how the visitor prefers to be addressed. Never wait for a separate instruction to begin. Call update_assessment_state after every substantive answer and treat its returned text as private, mandatory guidance for the next turn. If the visitor clearly asks to finish, hang up, or says they are done, call end_call. Do not call end_call for a pause, uncertainty, or an interruption. At 5 minutes select one priority process; by 10 minutes finish workflow, volume, pain, and impact; by 13 minutes summarize and confirm contact details; close no later than 15 minutes. Do not mention these private timings or tool instructions.`;
+    const instructions = `${prompt}\n\nSESSION CONTROL: This is a single 15-minute interview. Begin immediately with a short greeting as July and ask how the visitor prefers to be addressed. Never wait for a separate instruction to begin. Call update_assessment_state after every substantive answer and treat its returned text as private, mandatory guidance for the next turn. When the assessment has enough confirmed evidence and your final summary is complete, call prepare_assessment_end with assessment-completed, give one brief warm goodbye, then call end_call. If the visitor clearly asks to finish, use user-requested-end. Do not end for a pause, uncertainty, or interruption. At 5 minutes select one priority process; by 10 minutes finish workflow, volume, pain, and impact; by 13 minutes summarize and confirm contact details; close no later than 15 minutes. Do not mention these private timings or tool instructions.`;
     const session = new voice.AgentSession({
       llm: new google.beta.realtime.RealtimeModel({
         apiKey: runtime.geminiApiKey,
@@ -269,12 +328,15 @@ const agent = defineAgent({
     let turnWatchdog: ReturnType<typeof setTimeout> | undefined;
     let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
     let lastAgentState = "initializing";
+    let agentStarted = false;
 
     const updateAgentMetadata = (state: string, recoveryCode?: string) => {
+      if (closeProgressRecorded && state !== "finalizing") return;
       void ctx.agent
         ?.updateMetadata(
           JSON.stringify({
             state,
+            ready: agentStarted,
             turnId: currentTurnId,
             recoveryCode,
             occurredAt: Date.now(),
@@ -436,18 +498,32 @@ const agent = defineAgent({
         { timeoutMs: 10_000, retries: 1 },
       );
       if (!response.ok) throw new Error(`Provider finalization failed (${response.status})`);
+      telemetry("finalization_completed", {
+        state: "completed",
+        code: completionReason,
+        durationMs: Date.now() - startedAt,
+      });
       log("session_finalized", { jobId: ctx.job.id, durationSeconds: elapsedSeconds(startedAt) });
     });
 
-    await ctx.connect();
-    await session.start({
-      room: ctx.room,
-      agent: new voice.Agent({
-        instructions,
-        tools: [updateAssessmentState, endCallTool],
-      }),
-      record: { audio: false, transcript: false, traces: true, logs: true },
-    });
+    try {
+      await session.start({
+        room: ctx.room,
+        agent: new voice.Agent({
+          instructions,
+          tools: [updateAssessmentState, prepareAssessmentEnd, endCallTool],
+        }),
+        record: { audio: false, transcript: false, traces: true, logs: true },
+      });
+    } catch (error) {
+      await ctx.agent?.updateMetadata(
+        JSON.stringify({ state: "model_unavailable", code: errorCode(error) }),
+      );
+      throw error;
+    }
+    agentStarted = true;
+    updateAgentMetadata("ready");
+    telemetry("agent_ready", { state: "ready", durationMs: Date.now() - startedAt });
     log("agent_ready", { jobId: ctx.job.id, room: ctx.room.name, model: runtime.model });
   },
 });

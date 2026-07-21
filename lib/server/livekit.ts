@@ -55,8 +55,37 @@ export async function dispatchAssessmentAgent({
     agentName: assessmentAgentName,
     metadata,
     supportId,
-    agentReady,
+    timeoutMs: Number(process.env.LIVEKIT_AGENT_READY_TIMEOUT_MS || 60_000),
+    agentReady:
+      agentReady ||
+      ((participant) => {
+        try {
+          const metadata = JSON.parse(participant.metadata || "{}");
+          return metadata.ready === true || metadata.state === "ready";
+        } catch {
+          return false;
+        }
+      }),
+    agentFailure: (participant) => {
+      try {
+        const state = JSON.parse(participant.metadata || "{}").state;
+        if (state === "configuration_error") return "AGENT_CONFIGURATION";
+        if (state === "model_unavailable") return "AGENT_MODEL_UNAVAILABLE";
+      } catch {
+        // Metadata is best-effort until the agent publishes its readiness contract.
+      }
+      return undefined;
+    },
   });
+  console.info(
+    JSON.stringify({
+      service: "assessment-start",
+      stage: "agent_ready",
+      supportId,
+      roomName,
+      latencyMs: result.latencyMs,
+    }),
+  );
   return { ...result, hostname, clients };
 }
 

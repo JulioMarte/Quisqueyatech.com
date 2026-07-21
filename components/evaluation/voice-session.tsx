@@ -69,6 +69,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const audioPlayingRef = useRef(false);
   const lastThresholdSeconds = useRef(0);
   const finishing = useRef(false);
+  const terminalState = useRef(false);
+  const transportEndStarted = useRef(false);
   const recoveryKey = useRef(crypto.randomUUID());
   const clientTurnId = useRef<string | undefined>(undefined);
   const clientTurnStartedAt = useRef(0);
@@ -190,6 +192,105 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
 
   const onHardStop = useEffectEvent(() => {
     void finish();
+  });
+
+  const finalizationPayload = () => ({
+    assessmentId: session.assessmentId,
+    sessionKey: session.sessionKey,
+    locale,
+    transcript: JSON.stringify(transcript),
+    provider: session.provider,
+    durationSeconds: Math.min(900, Math.floor((Date.now() - started.current) / 1000)),
+  });
+
+  const querySessionStatus = async () => {
+    const query = new URLSearchParams({
+      assessmentId: session.assessmentId,
+      sessionKey: session.sessionKey,
+    });
+    const response = await fetch(`/api/assessment/session-status?${query}`, {
+      headers: { Authorization: `Bearer ${session.progressToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Session status is unavailable");
+    return (await response.json()) as {
+      status: "in_progress" | "finalizing" | "completed" | "interrupted" | "finalization_failed";
+      reason: string | null;
+      resultAvailable: boolean;
+    };
+  };
+
+  const waitForFinalization = async (allowClientFallback: boolean) => {
+    finishing.current = true;
+    terminalState.current = true;
+    clearClientTurnTimers();
+    setError("");
+    setAudioNotice("");
+    setStatus("finishing");
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      try {
+        const state = await querySessionStatus();
+        if (state.status === "completed") {
+          setResult({ reviewPending: true });
+          setStatus("complete");
+          return;
+        }
+        if (state.status === "interrupted") break;
+        if (state.status === "finalization_failed") break;
+      } catch {
+        // Transient status failures do not preempt provider finalization.
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+    }
+    if (allowClientFallback) {
+      const response = await fetch("/api/assessment/complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.progressToken}`,
+        },
+        body: JSON.stringify(finalizationPayload()),
+      });
+      if (response.ok) {
+        setResult({ reviewPending: true });
+        setStatus("complete");
+        return;
+      }
+    }
+    finishing.current = false;
+    terminalState.current = false;
+    setResumeUrl(resumeLink(session.resumeToken));
+    setError(
+      (es
+        ? "La sesión terminó antes de confirmar el resultado. Puedes retomarla con tu enlace seguro."
+        : "The session ended before the result was confirmed. You can resume it with your secure link.") +
+        supportSuffix,
+    );
+    setStatus("recovery-required");
+  };
+
+  const handleTransportEnd = useEffectEvent(async () => {
+    if (transportEndStarted.current) return;
+    transportEndStarted.current = true;
+    await new Promise((resolve) => window.setTimeout(resolve, terminalState.current ? 0 : 1_500));
+    try {
+      const state = await querySessionStatus();
+      if (terminalState.current || state.status === "finalizing" || state.status === "completed") {
+        await waitForFinalization(false);
+        return;
+      }
+    } catch {
+      // Durable success was not confirmed; use the recoverable path.
+    }
+    finishing.current = false;
+    setResumeUrl(resumeLink(session.resumeToken));
+    setError(
+      (es
+        ? "El agente se desconectó de la sala. Puedes retomar con tu enlace seguro."
+        : "The agent disconnected from the room. You can resume with your secure link.") +
+        supportSuffix,
+    );
+    setStatus("recovery-required");
   });
 
   useEffect(() => {
@@ -324,15 +425,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             setStatus(audioUnlockedRef.current ? "listening" : "audio-unlock-required");
           });
           room.on(RoomEvent.ParticipantDisconnected, () => {
-            if (disposed || finishing.current) return;
-            setError(
-              (es
-                ? "El agente se desconectó de la sala. Puedes retomar con tu enlace seguro."
-                : "The agent disconnected from the room. You can resume with your secure link.") +
-                supportSuffix,
-            );
-            setResumeUrl(resumeLink(session.resumeToken));
-            setStatus("error");
+            if (disposed) return;
+            void handleTransportEnd();
           });
           room.on(RoomEvent.ParticipantMetadataChanged, (metadata, participant) => {
             if (participant.identity === room.localParticipant.identity) return;
@@ -341,13 +435,24 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 state?: string;
                 turnId?: string;
                 recoveryCode?: string;
+                completionReason?: string;
               };
               reportDiagnostic("agent_metadata", "ready", {
                 turnId: parsed.turnId,
                 state: parsed.state,
                 code: parsed.recoveryCode,
               });
-              if (parsed.state === "recovery_required" || parsed.state === "recovery_available") {
+              if (parsed.state === "finalizing") {
+                terminalState.current = true;
+                finishing.current = true;
+                clearClientTurnTimers();
+                setError("");
+                setAudioNotice("");
+                setStatus("finishing");
+              } else if (
+                parsed.state === "recovery_required" ||
+                parsed.state === "recovery_available"
+              ) {
                 clientTurnStalled.current = true;
                 setStatus(
                   parsed.state === "recovery_available" ? "recovery-required" : "model-stalled",
@@ -403,11 +508,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             reportDiagnostic("room_reconnected", room.canPlaybackAudio ? "ready" : "blocked");
           });
           room.on(RoomEvent.Disconnected, () => {
-            if (!disposed && !finishing.current) {
+            if (!disposed) {
               reportDiagnostic("room_disconnected", "unknown");
-              setStatus("ended");
-              setResumeUrl(resumeLink(session.resumeToken));
-              void saveProgress("interruption");
+              void handleTransportEnd();
             }
           });
           setStatus("waiting-agent");
@@ -539,6 +642,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   async function finish() {
     if (finishing.current) return;
     finishing.current = true;
+    transportEndStarted.current = true;
     setStatus("finishing");
     try {
       await saveProgress("close");
@@ -547,8 +651,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     }
     await controller.current?.disconnect();
     try {
-      setResult({ reviewPending: true });
-      setStatus("complete");
+      await waitForFinalization(true);
     } catch (reason) {
       finishing.current = false;
       setError(reason instanceof Error ? reason.message : "Error");

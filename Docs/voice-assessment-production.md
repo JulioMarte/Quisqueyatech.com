@@ -33,6 +33,13 @@ exactamente `quisqueyatech.com` y `www.quisqueyatech.com`. En Coolify configure
 
 Use secretos aleatorios distintos, de al menos 32 bytes. No reutilice `ADMIN_API_SECRET`. Configure las mismas variables de worker en Next y en el servicio LiveKit, y nunca use variables `NEXT_PUBLIC_*` para secretos.
 
+Configure `LIVEKIT_AGENT_READY_TIMEOUT_MS=60000` en Next para tolerar el arranque
+en frío del deployment. Para habilitar la prueba activa de salud, configure un
+`ASSESSMENT_HEALTH_PROBE_TOKEN` aleatorio y llame
+`GET /api/health/assessment?probe=1` con ese valor en `x-health-probe-token`.
+La prueba crea una sala diagnóstica, espera la validación del worker y la elimina;
+no debe exponerse como monitor público sin autenticación.
+
 Para desarrollo local, configure también `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
 `LIVEKIT_API_SECRET` y `ASSESSMENT_WORKER_SECRET` en `.env.local`, y ejecute el
 worker en otra terminal con `npm run agent:dev`. Si falta cualquiera de estos
@@ -58,6 +65,9 @@ guardan cifrados desde el panel y el worker los obtiene mediante
 
 - Un webhook fallido queda en estado `failed`; el siguiente reintento puede reclamarlo nuevamente. Eventos atascados en `processing` pueden reclamarse tras cinco minutos.
 - Una finalización atascada puede reclamarse tras cinco minutos. Los llamados repetidos no generan dos registros de finalización.
+- La metadata `finalizing` ofrece respuesta inmediata a la interfaz, pero Convex
+  es la fuente de verdad. Una sala eliminada sin estado durable terminal se trata
+  como interrupción recuperable, nunca como evaluación completada.
 - El correo usa una clave de idempotencia por evaluación/revisión. Un fallo deja `reportStatus=send_failed` y debe reintentarse desde el panel.
 - Los enlaces de reanudación son bearer tokens de un solo uso, revocables al rotarse y válidos durante 24 horas. No deben copiarse a logs, analítica ni herramientas de soporte.
 

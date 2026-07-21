@@ -13,7 +13,7 @@ const schema = z
     turnId: z.string().max(80).optional(),
     state: z.string().max(80).optional(),
     code: z.string().max(80).optional(),
-    durationMs: z.number().int().min(0).max(120_000).optional(),
+    durationMs: z.number().int().min(0).max(1_000_000).optional(),
     recoverable: z.boolean().optional(),
   })
   .strict();

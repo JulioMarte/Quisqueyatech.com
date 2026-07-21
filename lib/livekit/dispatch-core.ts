@@ -17,7 +17,12 @@ export type LiveKitDispatchClients = {
 
 export class LiveKitDispatchError extends Error {
   constructor(
-    readonly code: "PROJECT_MISMATCH" | "DISPATCH_FAILED" | "AGENT_TIMEOUT",
+    readonly code:
+      | "PROJECT_MISMATCH"
+      | "AGENT_DISPATCH_FAILED"
+      | "AGENT_COLD_START_TIMEOUT"
+      | "AGENT_CONFIGURATION"
+      | "AGENT_MODEL_UNAVAILABLE",
     readonly supportId: string,
     message: string,
   ) {
@@ -46,10 +51,11 @@ export async function dispatchAndWaitForAgent({
   agentName,
   metadata,
   supportId,
-  timeoutMs = 15_000,
+  timeoutMs = 60_000,
   pollMs = 500,
   agentKind = 4,
   agentReady = () => true,
+  agentFailure,
 }: {
   clients: LiveKitDispatchClients;
   roomName: string;
@@ -60,13 +66,16 @@ export async function dispatchAndWaitForAgent({
   pollMs?: number;
   agentKind?: number;
   agentReady?: (participant: LiveKitParticipant) => boolean;
+  agentFailure?: (
+    participant: LiveKitParticipant,
+  ) => "AGENT_CONFIGURATION" | "AGENT_MODEL_UNAVAILABLE" | undefined;
 }) {
   let dispatch: LiveKitDispatch;
   try {
     dispatch = await clients.dispatch.createDispatch(roomName, agentName, { metadata });
   } catch (error) {
     throw new LiveKitDispatchError(
-      "DISPATCH_FAILED",
+      "AGENT_DISPATCH_FAILED",
       supportId,
       error instanceof Error ? error.message : "LiveKit dispatch failed",
     );
@@ -76,6 +85,11 @@ export async function dispatchAndWaitForAgent({
   try {
     while (Date.now() < deadline) {
       const participants = await clients.rooms.listParticipants(roomName);
+      for (const participant of participants.filter((candidate) => candidate.kind === agentKind)) {
+        const failure = agentFailure?.(participant);
+        if (failure)
+          throw new LiveKitDispatchError(failure, supportId, `LiveKit agent reported ${failure}`);
+      }
       const agent = participants.find(
         (participant) => participant.kind === agentKind && agentReady(participant),
       );
@@ -86,15 +100,22 @@ export async function dispatchAndWaitForAgent({
       );
     }
   } catch (error) {
+    if (error instanceof LiveKitDispatchError) {
+      await safeDeleteRoom(clients, roomName);
+      throw error;
+    }
     await safeDeleteRoom(clients, roomName);
     throw new LiveKitDispatchError(
-      "DISPATCH_FAILED",
+      "AGENT_DISPATCH_FAILED",
       supportId,
       error instanceof Error ? error.message : "LiveKit participant check failed",
     );
   }
-  await safeDeleteRoom(clients, roomName);
-  throw new LiveKitDispatchError("AGENT_TIMEOUT", supportId, "LiveKit agent did not become ready");
+  throw new LiveKitDispatchError(
+    "AGENT_COLD_START_TIMEOUT",
+    supportId,
+    "LiveKit agent did not become ready before the cold-start deadline",
+  );
 }
 
 export async function safeDeleteRoom(clients: LiveKitDispatchClients, roomName: string) {

@@ -10,6 +10,10 @@ This Node.js worker is intentionally deployed separately from the Next.js applic
 - Use the same discovery sequence documented in `Docs/README.md`: process, tools, volume, manual work, problem, impact, constraints, and desired outcome.
 - Publish input/output transcription segments for the browser, but use the finalized `SessionReport` as the canonical transcript.
 - Record audio and transcript in LiveKit Insights, end after 15 minutes, and write provider metrics through the server API; never expose Gemini credentials to the browser.
+- Publish `initializing` while configuration and Gemini start, `ready` only after
+  `AgentSession.start`, and durable `finalizing` metadata before a normal hangup.
+- Natural completion, an explicit visitor request, and the hard time limit must
+  persist their terminal reason before deleting the room.
 - Do not add `generateReply`, `updateInstructions`, or mid-session chat-context updates while using Gemini 3.1. The model currently accepts instructions only during initial setup; tool responses provide subsequent private guidance.
 
 Deploy one worker in dev first, verify a complete consented assessment, then deploy it to LiveKit Cloud with Agent Observability enabled and a 30-day retention policy.

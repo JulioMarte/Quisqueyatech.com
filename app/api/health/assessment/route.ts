@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { providerConfigured } from "@/lib/server/voice";
-import { createLiveKitClients } from "@/lib/server/livekit";
+import { createLiveKitClients, probeLiveKitAgent } from "@/lib/server/livekit";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { turnstileAllowedHostnames } from "@/lib/server/turnstile";
 
-export async function GET() {
+export async function GET(request: Request) {
   const provider = "livekit" as const;
   const config = await runtimeConfig();
   const credentialsReady = Boolean(
@@ -35,12 +35,29 @@ export async function GET() {
     turnstile.trustedProxyHeaders,
   );
   const ready = commonReady && (await providerConfigured(provider));
+  const wantsProbe = new URL(request.url).searchParams.get("probe") === "1";
+  let activeProbe: { success: boolean; latencyMs?: number; code?: string } | undefined;
+  if (wantsProbe) {
+    const expected = process.env.ASSESSMENT_HEALTH_PROBE_TOKEN?.trim();
+    if (!expected || request.headers.get("x-health-probe-token") !== expected)
+      return NextResponse.json({ error: "Unauthorized health probe" }, { status: 401 });
+    try {
+      const probe = await probeLiveKitAgent(config, crypto.randomUUID());
+      activeProbe = { success: true, latencyMs: probe.latencyMs };
+    } catch (error) {
+      activeProbe = {
+        success: false,
+        code: error instanceof Error ? error.name : "PROBE_FAILED",
+      };
+    }
+  }
+  const operational = ready && (!wantsProbe || activeProbe?.success === true);
   return NextResponse.json(
     {
-      status: ready ? "ready" : "not-ready",
+      status: operational ? "ready" : "not-ready",
       provider,
-      checks: { credentialsReady, projectMatch, workerSecretReady, turnstile },
+      checks: { credentialsReady, projectMatch, workerSecretReady, turnstile, activeProbe },
     },
-    { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
+    { status: operational ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }

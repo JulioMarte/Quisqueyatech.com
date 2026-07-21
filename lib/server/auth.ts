@@ -5,6 +5,7 @@ import { isAgentToken, safeReturnTo, tokenHash } from "@/lib/auth-core";
 import { convexMutation } from "@/lib/server/convex";
 import { fetchAuthQuery } from "@/lib/server/auth-server";
 import { AuthConfigError } from "@/lib/server/auth-errors";
+import { requestIp } from "@/lib/server/request-ip";
 
 export { safeReturnTo, tokenHash };
 export type AdminActor = { type: "admin"; id: string; label: string; email: string };
@@ -36,24 +37,20 @@ export async function currentAdmin(): Promise<AdminActor | null> {
     : null;
 }
 
-function requestIp(request: Request) {
-  if (process.env.TRUST_PROXY_HEADERS !== "true") return "untrusted-proxy";
-  return (
-    request.headers.get("cf-connecting-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0] ||
-    "unknown"
-  ).trim();
-}
-
 export function loginFingerprints(request: Request, email: string) {
   const secret = authIpHashSecret();
   const hmac = (value: string) => createHmac("sha256", secret).update(value).digest("hex");
-  return [`email:${hmac(email.trim().toLowerCase())}`, `ip:${hmac(requestIp(request))}`];
+  return [
+    `email:${hmac(email.trim().toLowerCase())}`,
+    `ip:${hmac(requestIp(request) || "ip-unavailable")}`,
+  ];
 }
 
 export function requestFingerprint(request: Request, scope: string) {
   const secret = authIpHashSecret();
-  return `${scope}:${createHmac("sha256", secret).update(requestIp(request)).digest("hex")}`;
+  return `${scope}:${createHmac("sha256", secret)
+    .update(requestIp(request) || "ip-unavailable")
+    .digest("hex")}`;
 }
 
 export async function checkSecurityRateLimit(key: string, limit: number, windowMs: number) {

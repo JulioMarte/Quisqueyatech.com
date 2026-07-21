@@ -25,7 +25,19 @@ en el panel, sin reactivar el cliente Gemini directo.
 
 Producción falla de forma cerrada si faltan `ASSESSMENT_TOKEN_SECRET`, `ASSESSMENT_STORAGE_SECRET` o las credenciales completas del proveedor elegido. LiveKit también requiere `ASSESSMENT_WORKER_SECRET`. La evaluación web requiere `NEXT_PUBLIC_TURNSTILE_SITE_KEY` durante el build y `TURNSTILE_SECRET_KEY` en runtime, ambas pertenecientes al mismo widget autorizado para `quisqueyatech.com` y `www.quisqueyatech.com`. Ultravox requiere `ULTRAVOX_WEBHOOK_SECRET` y Gemini directo requiere un `GEMINI_LIVE_MODEL` explícito.
 
+En Cloudflare, el widget debe usar modo **Managed**. Antes de desplegar, compruebe
+que la site key y el secret pertenecen al mismo widget y que sus hostnames incluyen
+exactamente `quisqueyatech.com` y `www.quisqueyatech.com`. En Coolify configure
+`TRUST_PROXY_HEADERS=true`; la aplicación prioriza `CF-Connecting-IP` y solo envía
+`remoteip` a Siteverify cuando el encabezado contiene una IPv4 o IPv6 válida.
+
 Use secretos aleatorios distintos, de al menos 32 bytes. No reutilice `ADMIN_API_SECRET`. Configure las mismas variables de worker en Next y en el servicio LiveKit, y nunca use variables `NEXT_PUBLIC_*` para secretos.
+
+Para desarrollo local, configure también `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
+`LIVEKIT_API_SECRET` y `ASSESSMENT_WORKER_SECRET` en `.env.local`, y ejecute el
+worker en otra terminal con `npm run agent:dev`. Si falta cualquiera de estos
+valores, `/api/assessment/start` responde `LIVEKIT_NOT_CONFIGURED` antes de
+consumir el token de Turnstile o crear una evaluación en Convex.
 
 El agente debe desplegarse con el nombre exacto `quisqueyatech-assessment`; el JWT
 de cada sala lo despacha explícitamente. La API key de Gemini, modelo y voz se
@@ -35,7 +47,9 @@ guardan cifrados desde el panel y el worker los obtiene mediante
 ## Orden de despliegue
 
 1. Configurar las variables de Convex Cloud descritas en el README y ejecutar `npm run convex:deploy`.
-2. Desplegar Next y comprobar `GET /api/health/assessment`.
+2. Desplegar Next y comprobar `GET /api/health/assessment`. En
+   `checks.turnstile`, las dos claves y `trustedProxyHeaders` deben aparecer como
+   disponibles, y los dos hostnames públicos deben estar listados.
 3. Desplegar el worker LiveKit cuando ese proveedor esté habilitado.
 4. Configurar el webhook Ultravox hacia `/api/webhooks/ultravox` y verificar una firma real.
 5. Ejecutar un enlace firmado por proveedor antes de cambiar el predeterminado.

@@ -60,11 +60,13 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
         const support = result.supportId
           ? `${es ? " Código de soporte" : " Support code"}: ${result.supportId}`
           : "";
+        const turnstileMessage = turnstileErrorMessage(result.code, es);
         throw new Error(
-          (result.code === "AGENT_TIMEOUT" || result.code === "DISPATCH_FAILED"
-            ? es
-              ? "El agente de LiveKit no estuvo disponible. Inténtalo nuevamente en unos minutos."
-              : "The LiveKit agent was unavailable. Try again in a few minutes."
+          (turnstileMessage || result.code === "AGENT_TIMEOUT" || result.code === "DISPATCH_FAILED"
+            ? turnstileMessage ||
+              (es
+                ? "El agente de LiveKit no estuvo disponible. Inténtalo nuevamente en unos minutos."
+                : "The LiveKit agent was unavailable. Try again in a few minutes.")
             : result.error ||
               (es
                 ? "No pudimos abrir la sala de conferencia."
@@ -267,4 +269,28 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
       </Container>
     </Section>
   );
+}
+
+function turnstileErrorMessage(code: string | undefined, es: boolean) {
+  if (code === "TURNSTILE_EXPIRED")
+    return es
+      ? "La verificación expiró o ya fue utilizada. Complétala nuevamente."
+      : "The verification expired or was already used. Complete it again.";
+  if (code === "TURNSTILE_CONFIGURATION")
+    return es
+      ? "La verificación segura está mal configurada. Comparte el código de soporte con el equipo."
+      : "Secure verification is misconfigured. Share the support code with the team.";
+  if (code === "TURNSTILE_UNAVAILABLE")
+    return es
+      ? "Cloudflare no pudo validar la solicitud temporalmente. Inténtalo nuevamente."
+      : "Cloudflare could not validate the request temporarily. Please try again.";
+  if (code === "TURNSTILE_REJECTED")
+    return es
+      ? "Cloudflare rechazó la verificación. Completa el desafío nuevamente."
+      : "Cloudflare rejected the verification. Complete the challenge again.";
+  if (code === "LIVEKIT_NOT_CONFIGURED")
+    return es
+      ? "La conferencia de voz todavía no está configurada en este entorno."
+      : "The voice conference is not configured in this environment yet.";
+  return "";
 }

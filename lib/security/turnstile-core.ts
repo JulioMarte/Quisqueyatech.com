@@ -26,7 +26,7 @@ export async function requestTurnstileVerification(
       "error-codes": [token ? "response-too-long" : "missing-input-response"],
     };
   const body = new URLSearchParams({ secret, response: token });
-  if (ip && ip !== "unknown") body.set("remoteip", ip);
+  if (ip) body.set("remoteip", ip);
   if (options.idempotencyKey) body.set("idempotency_key", options.idempotencyKey);
 
   const attempts = Math.max(1, Math.min(2, (options.retries ?? 1) + 1));

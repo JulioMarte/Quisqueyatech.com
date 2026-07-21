@@ -19,6 +19,16 @@ test("Turnstile sends the token and IP and accepts a valid response", async () =
   assert.equal(result.success, true);
 });
 
+test("Turnstile omits remoteip when no validated address is available", async () => {
+  const fetcher: typeof fetch = async (_input, init) => {
+    const body = init?.body as URLSearchParams;
+    assert.equal(body.has("remoteip"), false);
+    return Response.json({ success: true });
+  };
+  const result = await requestTurnstileVerification("secret", "token", undefined, fetcher);
+  assert.equal(result.success, true);
+});
+
 test("Turnstile preserves provider error codes for expired, duplicate, or invalid tokens", async () => {
   const fetcher: typeof fetch = async () =>
     Response.json({ success: false, "error-codes": ["timeout-or-duplicate"] });

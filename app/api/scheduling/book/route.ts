@@ -8,7 +8,7 @@ import { requestIp } from "@/lib/server/request-ip";
 export async function POST(request: Request) {
   try {
     const ip = requestIp(request);
-    if (!(await allowRequest(`booking:${ip}`, 8)))
+    if (!(await allowRequest(`booking:${ip || "ip-unavailable"}`, 8)))
       return NextResponse.json({ error: "Too many booking attempts" }, { status: 429 });
     const parsed = bookingSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -22,8 +22,16 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (!(await verifyTurnstile(parsed.data.turnstileToken, ip, "scheduling_book")))
-      return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
+    const turnstile = await verifyTurnstile(parsed.data.turnstileToken, ip, "scheduling_book");
+    if (!turnstile.ok)
+      return NextResponse.json(
+        {
+          error: "Human verification failed",
+          code: turnstile.code,
+          supportId: turnstile.supportId,
+        },
+        { status: turnstile.code === "TURNSTILE_UNAVAILABLE" ? 503 : 403 },
+      );
     const serviceSecret = process.env.ADMIN_API_SECRET?.trim();
     if (!serviceSecret) {
       console.error("[scheduling:book] ADMIN_API_SECRET is not configured");

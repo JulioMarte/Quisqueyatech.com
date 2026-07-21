@@ -11,6 +11,8 @@ type TurnstileRenderOptions = {
   sitekey: string;
   action: "assessment_start" | "scheduling_book";
   size: "flexible";
+  appearance: "always";
+  theme: "auto" | "dark" | "light";
   language: "es" | "en";
   "feedback-enabled": boolean;
   callback: (token: string) => void;
@@ -91,6 +93,8 @@ export function TurnstileField({
         sitekey: siteKey,
         action,
         size: "flexible",
+        appearance: "always",
+        theme: tone,
         language: locale,
         "feedback-enabled": false,
         callback: (token) => {
@@ -141,7 +145,7 @@ export function TurnstileField({
       if (widgetId.current) window.turnstile?.remove(widgetId.current);
       widgetId.current = "";
     };
-  }, [action, invalidate, locale, onStatus, onToken, siteKey]);
+  }, [action, invalidate, locale, onStatus, onToken, siteKey, tone]);
 
   useEffect(() => {
     if (previousResetSignal.current === resetSignal) return;

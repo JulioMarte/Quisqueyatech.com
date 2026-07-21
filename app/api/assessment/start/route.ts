@@ -14,6 +14,7 @@ import {
   defaultGeminiLiveModel,
   defaultGeminiLiveVoice,
   interviewFrameworkVersion,
+  providerConfigured,
 } from "@/lib/server/voice";
 import {
   assessmentTokenHash,
@@ -102,8 +103,32 @@ export async function POST(request: Request) {
       intake = submittedIntake;
     }
 
-    if (!(await verifyTurnstile(turnstileToken, ip, "assessment_start"))) {
-      return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
+    if (!(await providerConfigured("livekit"))) {
+      return NextResponse.json(
+        {
+          error:
+            intake.locale === "es"
+              ? "LiveKit no está configurado. Añade las credenciales y el secreto del worker antes de iniciar una evaluación."
+              : "LiveKit is not configured. Add its credentials and worker secret before starting an assessment.",
+          code: "LIVEKIT_NOT_CONFIGURED",
+        },
+        { status: 503 },
+      );
+    }
+
+    const turnstile = await verifyTurnstile(turnstileToken, ip, "assessment_start");
+    if (!turnstile.ok) {
+      return NextResponse.json(
+        {
+          error:
+            intake.locale === "es"
+              ? "No pudimos confirmar la verificación humana. Vuelve a intentarlo."
+              : "We could not confirm human verification. Please try again.",
+          code: turnstile.code,
+          supportId: turnstile.supportId,
+        },
+        { status: turnstile.code === "TURNSTILE_UNAVAILABLE" ? 503 : 403 },
+      );
     }
 
     const startLimit = await checkRequestLimit(

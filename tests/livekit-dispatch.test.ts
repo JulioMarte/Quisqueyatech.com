@@ -81,7 +81,8 @@ test("cold-start timeout preserves the recoverable room and support id", async (
     (error: unknown) =>
       error instanceof LiveKitDispatchError &&
       error.code === "AGENT_COLD_START_TIMEOUT" &&
-      error.supportId === "support-timeout",
+      error.supportId === "support-timeout" &&
+      error.dispatch?.id === "dispatch-2",
   );
   assert.equal(deleted, "");
 });

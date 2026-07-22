@@ -25,8 +25,32 @@ import {
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { requestIp } from "@/lib/server/request-ip";
 import { requestFingerprint } from "@/lib/server/auth";
+import { AuthConfigError, classifyAuthError } from "@/lib/server/auth-errors";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
+
+function requiredLocalCloudVariables() {
+  const missing: string[] = [];
+  if (!(process.env.CONVEX_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_URL?.trim()))
+    missing.push("CONVEX_URL or NEXT_PUBLIC_CONVEX_URL");
+  if (!(process.env.CONVEX_SITE_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim()))
+    missing.push("CONVEX_SITE_URL or NEXT_PUBLIC_CONVEX_SITE_URL");
+  for (const key of [
+    "ADMIN_API_SECRET",
+    "ASSESSMENT_STORAGE_SECRET",
+    "ASSESSMENT_TOKEN_SECRET",
+    "CONFIG_ENCRYPTION_KEY",
+    "ASSESSMENT_WORKER_SECRET",
+  ] as const) {
+    if (!process.env[key]?.trim()) missing.push(key);
+  }
+  return missing;
+}
+
+function localCloudTestingEnabled() {
+  const convexUrl = process.env.CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL || "";
+  return process.env.NODE_ENV !== "production" && /^https:\/\/.+\.convex\.cloud/i.test(convexUrl);
+}
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -39,6 +63,26 @@ export async function POST(request: Request) {
       supportId: requestSupportId,
       userAgent: request.headers.get("user-agent") ? "present" : "missing",
     });
+    if (localCloudTestingEnabled()) {
+      const missing = requiredLocalCloudVariables();
+      if (missing.length) {
+        diagnosticLog(
+          "assessment-start",
+          "local_cloud_env_missing",
+          { supportId: requestSupportId, missing, durationMs: Date.now() - startedAt },
+          "error",
+        );
+        return NextResponse.json(
+          {
+            error: "El entorno local apunta a Convex Cloud, pero faltan variables runtime locales.",
+            code: "LOCAL_CLOUD_ENV_MISSING",
+            missing,
+            supportId: requestSupportId,
+          },
+          { status: 503 },
+        );
+      }
+    }
     const ip = requestIp(request);
     const edgeLimit = await checkRequestLimit(
       requestFingerprint(request, "assessment-edge"),
@@ -138,8 +182,8 @@ export async function POST(request: Request) {
         {
           error:
             intake.locale === "es"
-              ? "LiveKit no está configurado. Añade las credenciales y el secreto del worker antes de iniciar una evaluación."
-              : "LiveKit is not configured. Add its credentials and worker secret before starting an assessment.",
+              ? "LiveKit no está configurado. Revisa las credenciales del proveedor en /admin y el secreto del worker en el entorno del servidor."
+              : "LiveKit is not configured. Check provider credentials in /admin and the worker secret in the server environment.",
           code: "LIVEKIT_NOT_CONFIGURED",
         },
         { status: 503 },
@@ -358,6 +402,26 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[assessment:start]", error);
+    if (error instanceof AuthConfigError) {
+      const classified = classifyAuthError(error);
+      diagnosticLog(
+        "assessment-start",
+        "auth_config_error",
+        {
+          supportId: requestSupportId,
+          assessmentId: assessmentIdForLog,
+          roomName: roomNameForLog,
+          code: classified.code,
+          error: errorSummary(error),
+          durationMs: Date.now() - startedAt,
+        },
+        "error",
+      );
+      return NextResponse.json(
+        { error: classified.publicMessage, code: classified.code, supportId: requestSupportId },
+        { status: classified.status },
+      );
+    }
     if (error instanceof LiveKitDispatchError) {
       diagnosticLog(
         "assessment-start",

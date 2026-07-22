@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, RotateCcw, ShieldAlert } from "lucide-react";
+import { turnstilePublicConfig } from "@/lib/security/turnstile-config";
 
 export type TurnstileStatus = "loading" | "verified" | "expired" | "error";
 type TurnstileFailureCause =
@@ -55,7 +56,7 @@ export function TurnstileField({
   tone?: "dark" | "light";
   action: "assessment_start" | "scheduling_book";
 }) {
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const { siteKey } = turnstilePublicConfig();
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef("");
   const previousResetSignal = useRef(resetSignal);
@@ -75,12 +76,16 @@ export function TurnstileField({
     onToken("");
     setFailure(null);
     onStatus?.("loading");
+    if (!siteKey) {
+      onStatus?.("verified");
+      return;
+    }
     if (widgetId.current && window.turnstile) {
       window.turnstile.reset(widgetId.current);
       return;
     }
     window.location.reload();
-  }, [onStatus, onToken]);
+  }, [onStatus, onToken, siteKey]);
 
   useEffect(() => {
     if (!siteKey || !container.current) return;
@@ -150,8 +155,9 @@ export function TurnstileField({
   useEffect(() => {
     if (previousResetSignal.current === resetSignal) return;
     previousResetSignal.current = resetSignal;
+    if (!siteKey) return;
     retry();
-  }, [resetSignal, retry]);
+  }, [resetSignal, retry, siteKey]);
 
   if (!siteKey) return null;
   const assessmentPath = es ? "/evaluacion/ahora" : "/en/assessment/now";

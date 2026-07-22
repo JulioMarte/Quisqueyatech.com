@@ -42,9 +42,12 @@ no debe exponerse como monitor público sin autenticación.
 
 Para desarrollo local, configure también `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
 `LIVEKIT_API_SECRET` y `ASSESSMENT_WORKER_SECRET` en `.env.local`, y ejecute el
-worker en otra terminal con `npm run agent:dev`. Si falta cualquiera de estos
-valores, `/api/assessment/start` responde `LIVEKIT_NOT_CONFIGURED` antes de
-consumir el token de Turnstile o crear una evaluación en Convex.
+worker en otra terminal con `npm run agent:dev`. Si el worker corre dentro de
+Docker, configure `ASSESSMENT_APP_URL=http://web:3000`; si corre en la máquina
+host, use `ASSESSMENT_APP_URL=http://localhost:3000` o deje que caiga en
+`NEXT_PUBLIC_SITE_URL`. Si falta cualquiera de estos valores,
+`/api/assessment/start` responde `LIVEKIT_NOT_CONFIGURED` antes de consumir el
+token de Turnstile o crear una evaluación en Convex.
 
 El agente debe desplegarse con el nombre exacto `quisqueyatech-assessment`; el JWT
 de cada sala lo despacha explícitamente. La API key de Gemini, modelo y voz se

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { TurnstileField, type TurnstileStatus } from "@/components/security/turnstile-field";
+import { turnstilePublicConfig } from "@/lib/security/turnstile-config";
 import {
   COUNTRIES,
   PHONE_REGEX,
@@ -202,7 +203,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [consentProcessing, setConsentProcessing] = useState(false);
   const [consentRecording, setConsentRecording] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const turnstileRequired = turnstilePublicConfig().enabled;
   const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(
     turnstileRequired ? "loading" : "verified",
   );
@@ -1002,7 +1003,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                       invalid={invalidTarget === "timeGrid"}
                       locale={locale}
                     />
-                    {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                    {turnstileRequired ? (
                       <div className="px-5 pb-4 sm:px-7 lg:px-6">
                         <TurnstileField
                           action="scheduling_book"

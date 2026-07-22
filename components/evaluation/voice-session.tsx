@@ -533,7 +533,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
               setResumeUrl(resumeLink(session.resumeToken));
               setStatus("error");
               room.disconnect();
-            }, 20_000);
+            }, 90_000);
           }
           controller.current = {
             enableAudio: async () => {

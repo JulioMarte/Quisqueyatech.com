@@ -29,9 +29,10 @@ function log(stage: string, details: Record<string, unknown> = {}) {
 }
 
 function appUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const configured =
+    process.env.ASSESSMENT_APP_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (!configured && process.env.NODE_ENV === "production") {
-    throw new Error("NEXT_PUBLIC_SITE_URL is required in production");
+    throw new Error("ASSESSMENT_APP_URL or NEXT_PUBLIC_SITE_URL is required in production");
   }
   return (configured || "http://localhost:3000").replace(/\/$/, "");
 }
@@ -48,6 +49,7 @@ const agent = defineAgent({
       room: ctx.room.name,
       agentName: ctx.job.agentName,
       workerSecret: Boolean(workerSecret),
+      appUrl: Boolean(process.env.ASSESSMENT_APP_URL?.trim()),
       siteUrl: Boolean(process.env.NEXT_PUBLIC_SITE_URL?.trim()),
       nodeEnv: process.env.NODE_ENV || "development",
     });

@@ -26,6 +26,7 @@ export class LiveKitDispatchError extends Error {
     readonly supportId: string,
     message: string,
     readonly roomName?: string,
+    readonly dispatch?: LiveKitDispatch,
   ) {
     super(message);
     this.name = "LiveKitDispatchError";
@@ -169,6 +170,7 @@ export async function dispatchAndWaitForAgent({
             supportId,
             `LiveKit agent reported ${failure}`,
             roomName,
+            dispatch,
           );
       }
       const agent = participants.find(
@@ -216,6 +218,7 @@ export async function dispatchAndWaitForAgent({
       supportId,
       error instanceof Error ? error.message : "LiveKit participant check failed",
       roomName,
+      dispatch,
     );
   }
   dispatchLog(
@@ -228,6 +231,7 @@ export async function dispatchAndWaitForAgent({
     supportId,
     "LiveKit agent did not become ready before the cold-start deadline",
     roomName,
+    dispatch,
   );
 }
 

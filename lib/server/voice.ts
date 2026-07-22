@@ -16,6 +16,8 @@ import {
   dispatchAssessmentAgent,
   assessmentAgentName,
 } from "@/lib/server/livekit";
+import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
+import { diagnosticLog } from "@/lib/server/diagnostic-log";
 
 export const interviewFrameworkVersion = "2026-07-v1";
 export { assessmentAgentName };
@@ -186,7 +188,29 @@ class LiveKitAdapter extends BaseAdapter {
       frameworkVersion: interviewFrameworkVersion,
       supportId,
     });
-    const readiness = await dispatchAssessmentAgent({ config, roomName, metadata, supportId });
+    let dispatchId: string;
+    let agentReadyAtStart = true;
+    try {
+      const readiness = await dispatchAssessmentAgent({ config, roomName, metadata, supportId });
+      dispatchId = readiness.dispatch.id;
+    } catch (error) {
+      if (
+        error instanceof LiveKitDispatchError &&
+        error.code === "AGENT_COLD_START_TIMEOUT" &&
+        error.dispatch
+      ) {
+        dispatchId = error.dispatch.id;
+        agentReadyAtStart = false;
+        diagnosticLog("livekit-session", "cold_start_timeout_continue", {
+          supportId,
+          roomName,
+          dispatchId,
+          code: error.code,
+        });
+      } else {
+        throw error;
+      }
+    }
     const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret), {
       identity: `lead-${context.assessmentId}`,
       name: context.name,
@@ -206,7 +230,8 @@ class LiveKitAdapter extends BaseAdapter {
       token: await token.toJwt(),
       roomName,
       supportId,
-      dispatchId: readiness.dispatch.id,
+      dispatchId,
+      agentReadyAtStart,
     };
   }
 }

@@ -6,11 +6,21 @@ Sitio bilingüe de QuisqueyaTech construido con Next.js 16, React 19, Convex Clo
 
 ```bash
 npm install
-npx convex dev --once
 npm run dev
 ```
 
 `npx convex dev --once` crea o selecciona el deployment personal de desarrollo, publica las funciones actuales y completa `.env.local`. Vuelve a ejecutarlo después de cambiar funciones, validadores o el esquema de Convex. Los datos de desarrollo y producción permanecen separados.
+
+Nota local actual: `npm run dev` ejecuta solo Next.js y usa las URLs de Convex
+Cloud definidas en `.env.local`. Completa `NEXT_PUBLIC_CONVEX_URL`,
+`NEXT_PUBLIC_CONVEX_SITE_URL` y los secretos runtime locales para probar contra
+Cloud. `CONVEX_URL` y `CONVEX_SITE_URL` son opcionales si las variables
+`NEXT_PUBLIC_*` ya apuntan al mismo deployment. Para probar el worker local con
+`npm run agent:dev`, `.env.local` tambien debe incluir `LIVEKIT_URL`,
+`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET` y,
+opcionalmente, `ASSESSMENT_APP_URL=http://localhost:3000`. Usa
+`npm run dev:local` solamente cuando quieras levantar Convex local de forma
+explicita.
 
 `npx convex codegen` solamente genera los bindings y comprueba tipos locales. No publica las funciones en Convex Cloud y no sustituye a `npx convex dev --once`.
 
@@ -240,6 +250,17 @@ Cloudflare autoriza `quisqueyatech.com` y `www.quisqueyatech.com`. Configura
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` durante el build y `TURNSTILE_SECRET_KEY`
 exclusivamente en runtime. Una imagen ya construida no incorpora una site key
 nueva al reiniciarse: debe reconstruirse y desplegarse nuevamente.
+
+En `npm run dev` no se necesitan esas variables: la aplicacion selecciona en el
+cliente y en el servidor las claves de prueba oficiales de Cloudflare, que
+funcionan en `localhost` y ejercitan el flujo completo de Siteverify. Aunque
+`.env.local` contenga claves reales, desarrollo no las usara. Nunca copies las
+claves de prueba a Coolify; produccion sigue fallando cerrada si faltan sus
+credenciales reales y no autoriza `localhost`.
+
+Las respuestas dummy de Cloudflare usan un hostname y una accion sinteticos.
+Por esa razon desarrollo comprueba que Siteverify acepte el token, mientras que
+la validacion estricta de `hostname` y `action` se mantiene en produccion.
 
 ### Probar el Dockerfile en local
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, Clock3, Headphones, Loader2, Mic2, Radio, ShieldCheck } from "lucide-react";
 import { VoiceSession } from "@/components/evaluation/voice-session";
 import { TurnstileField, type TurnstileStatus } from "@/components/security/turnstile-field";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
 import { getAssessmentVisitorId } from "@/lib/assessment/visitor-id";
+import { turnstilePublicConfig } from "@/lib/security/turnstile-config";
 type SessionData = {
   provider: "livekit";
   assessmentId: string;
@@ -25,16 +26,23 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
   const [session, setSession] = useState<SessionData | null>(null);
   const [consent, setConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const turnstileRequired = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const turnstileRequired = turnstilePublicConfig().enabled;
   const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(
     turnstileRequired ? "loading" : "verified",
   );
   const [loading, setLoading] = useState(false);
   const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
   const [error, setError] = useState("");
+  const [hydrated, setHydrated] = useState(false);
   const handleTurnstileToken = useCallback((token: string) => {
     setTurnstileToken(token);
   }, []);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const canStart =
+    hydrated && consent && !loading && (!turnstileRequired || turnstileStatus === "verified");
 
   async function startConference() {
     if (!consent || (turnstileRequired && turnstileStatus !== "verified")) return;
@@ -57,30 +65,45 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
       });
       const result = await response.json();
       if (!response.ok) {
+        const technical = result.code
+          ? `${es ? " Codigo tecnico" : " Technical code"}: ${result.code}`
+          : "";
         const support = result.supportId
           ? `${es ? " Código de soporte" : " Support code"}: ${result.supportId}`
           : "";
         const turnstileMessage = turnstileErrorMessage(result.code, es);
+        const localCloudMessage =
+          result.code === "LOCAL_CLOUD_ENV_MISSING"
+            ? `${result.error} ${es ? "Faltan" : "Missing"}: ${
+                Array.isArray(result.missing) ? result.missing.join(", ") : "unknown"
+              }.`
+            : "";
         throw new Error(
-          (turnstileMessage ||
+          (localCloudMessage ||
+          turnstileMessage ||
           result.code === "AGENT_COLD_START_TIMEOUT" ||
           result.code === "AGENT_DISPATCH_FAILED" ||
           result.code === "AGENT_CONFIGURATION" ||
           result.code === "AGENT_MODEL_UNAVAILABLE"
-            ? turnstileMessage ||
+            ? localCloudMessage ||
+              turnstileMessage ||
               (es
                 ? "El agente de LiveKit no estuvo disponible. Inténtalo nuevamente en unos minutos."
                 : "The LiveKit agent was unavailable. Try again in a few minutes.")
             : result.error ||
               (es
                 ? "No pudimos abrir la sala de conferencia."
-                : "We could not open the conference room.")) + support,
+                : "We could not open the conference room.")) +
+            technical +
+            support,
         );
       }
       setSession(result);
     } catch (reason) {
-      setTurnstileToken("");
-      setTurnstileResetSignal((value) => value + 1);
+      if (turnstileRequired) {
+        setTurnstileToken("");
+        setTurnstileResetSignal((value) => value + 1);
+      }
       setError(reason instanceof Error ? reason.message : "Error");
     } finally {
       setLoading(false);
@@ -244,9 +267,8 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
             <Button
               type="button"
               size="lg"
-              disabled={
-                !consent || loading || (turnstileRequired && turnstileStatus !== "verified")
-              }
+              disabled={!canStart}
+              suppressHydrationWarning
               onClick={startConference}
               className="mt-6 w-full"
             >
@@ -294,7 +316,7 @@ function turnstileErrorMessage(code: string | undefined, es: boolean) {
       : "Cloudflare rejected the verification. Complete the challenge again.";
   if (code === "LIVEKIT_NOT_CONFIGURED")
     return es
-      ? "La conferencia de voz todavía no está configurada en este entorno."
-      : "The voice conference is not configured in this environment yet.";
+      ? "La conferencia de voz no está configurada. Revisa LiveKit/Gemini en /admin y el secreto del worker en el entorno."
+      : "The voice conference is not configured. Check LiveKit/Gemini in /admin and the worker secret in the environment.";
   return "";
 }

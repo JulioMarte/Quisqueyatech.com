@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { providerConfigured } from "@/lib/server/voice";
 import { createLiveKitClients, probeLiveKitAgent } from "@/lib/server/livekit";
 import { runtimeConfig } from "@/lib/server/runtime-config";
-import { turnstileAllowedHostnames } from "@/lib/server/turnstile";
+import { turnstilePublicConfig } from "@/lib/security/turnstile-config";
+import { turnstileAllowedHostnames, turnstileServerConfig } from "@/lib/server/turnstile";
 
 export async function GET(request: Request) {
   const provider = "livekit" as const;
@@ -20,9 +21,12 @@ export async function GET(request: Request) {
     }
   }
   const workerSecretReady = Boolean(process.env.ASSESSMENT_WORKER_SECRET);
+  const publicTurnstile = turnstilePublicConfig();
+  const serverTurnstile = turnstileServerConfig();
   const turnstile = {
-    siteKeyReady: Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()),
-    secretReady: Boolean(process.env.TURNSTILE_SECRET_KEY?.trim()),
+    mode: serverTurnstile.mode,
+    siteKeyReady: publicTurnstile.enabled,
+    secretReady: serverTurnstile.enabled,
     allowedHostnames: turnstileAllowedHostnames(),
     trustedProxyHeaders: process.env.TRUST_PROXY_HEADERS === "true",
   };

@@ -27,18 +27,18 @@ export function classifyAuthError(error: unknown): {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
 
-  if (/admin_api_secret/i.test(message)) {
-    return {
-      code: "MISSING_ADMIN_API_SECRET",
-      publicMessage: "Falta ADMIN_API_SECRET en el servidor Next.js (Coolify runtime).",
-      status: 503,
-    };
-  }
   if (/auth_ip_hash_secret/i.test(message)) {
     return {
       code: "MISSING_AUTH_IP_HASH_SECRET",
       publicMessage:
         "Falta AUTH_IP_HASH_SECRET (o ADMIN_API_SECRET como fallback) en Coolify runtime.",
+      status: 503,
+    };
+  }
+  if (/admin_api_secret/i.test(message)) {
+    return {
+      code: "MISSING_ADMIN_API_SECRET",
+      publicMessage: "Falta ADMIN_API_SECRET en el servidor Next.js (Coolify runtime).",
       status: 503,
     };
   }

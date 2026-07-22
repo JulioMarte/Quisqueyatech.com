@@ -2,6 +2,14 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import { requestTurnstileVerification } from "@/lib/security/turnstile-core";
+import {
+  selectTurnstileCredential,
+  turnstileVerificationConstraints,
+  type TurnstileMode,
+} from "@/lib/security/turnstile-config";
+import { diagnosticLog } from "@/lib/server/diagnostic-log";
+
+const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
 export type TurnstileAction = "assessment_start" | "scheduling_book";
 export type TurnstilePublicCode =
@@ -17,6 +25,15 @@ export type TurnstileResult =
       hostname?: string;
       action?: string;
     };
+
+export function turnstileServerConfig(
+  nodeEnv = process.env.NODE_ENV,
+  productionSecret = process.env.TURNSTILE_SECRET_KEY,
+) {
+  const mode: TurnstileMode = nodeEnv === "production" ? "production" : "test";
+  const secret = selectTurnstileCredential(nodeEnv, productionSecret, TURNSTILE_TEST_SECRET_KEY);
+  return { mode, secret, enabled: Boolean(secret) };
+}
 
 export function turnstileAllowedHostnames() {
   const configured = process.env.TURNSTILE_ALLOWED_HOSTNAMES?.split(",")
@@ -68,32 +85,44 @@ export async function verifyTurnstile(
   action: TurnstileAction,
 ): Promise<TurnstileResult> {
   const supportId = crypto.randomUUID();
-  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+  const { secret, mode } = turnstileServerConfig();
   if (!secret) {
-    if (process.env.NODE_ENV !== "production") return { ok: true, supportId };
     const failure: TurnstileResult = {
       ok: false,
       supportId,
       code: "TURNSTILE_CONFIGURATION",
       errorCodes: ["missing-input-secret"],
     };
-    console.error("[turnstile] Verification rejected", {
-      supportId,
-      expectedAction: action,
-      errorCodes: failure.errorCodes,
-      ipHash: ipFingerprint(ip),
-    });
+    diagnosticLog(
+      "turnstile",
+      "verification_rejected",
+      {
+        supportId,
+        mode,
+        expectedAction: action,
+        errorCodes: failure.errorCodes,
+        ipHash: ipFingerprint(ip),
+      },
+      "error",
+    );
     return failure;
   }
 
+  const constraints = turnstileVerificationConstraints(mode, action, turnstileAllowedHostnames());
   const result = await requestTurnstileVerification(secret, token || "", ip, fetch, {
-    expectedAction: action,
-    allowedHostnames: turnstileAllowedHostnames(),
+    ...constraints,
     idempotencyKey: crypto.randomUUID(),
     timeoutMs: 8_000,
     retries: 1,
   });
-  if (result.success === true) return { ok: true, supportId };
+  if (result.success === true) {
+    diagnosticLog("turnstile", "verification_accepted", {
+      supportId,
+      mode,
+      expectedAction: action,
+    });
+    return { ok: true, supportId };
+  }
 
   const errorCodes = result["error-codes"] || ["unknown-error"];
   const failure: TurnstileResult = {
@@ -104,13 +133,19 @@ export async function verifyTurnstile(
     hostname: result.hostname,
     action: result.action,
   };
-  console.warn("[turnstile] Verification rejected", {
-    supportId,
-    expectedAction: action,
-    receivedAction: result.action,
-    hostname: result.hostname,
-    errorCodes,
-    ipHash: ipFingerprint(ip),
-  });
+  diagnosticLog(
+    "turnstile",
+    "verification_rejected",
+    {
+      supportId,
+      mode,
+      expectedAction: action,
+      receivedAction: result.action,
+      hostname: result.hostname,
+      errorCodes,
+      ipHash: ipFingerprint(ip),
+    },
+    "error",
+  );
   return failure;
 }

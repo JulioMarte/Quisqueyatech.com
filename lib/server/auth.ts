@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac } from "node:crypto";
 import { api } from "@/convex/_generated/api";
 import { isAgentToken, safeReturnTo, tokenHash } from "@/lib/auth-core";
+import { isValidOrigin } from "@/lib/auth-origin";
 import { convexMutation } from "@/lib/server/convex";
 import { fetchAuthQuery } from "@/lib/server/auth-server";
 import { AuthConfigError } from "@/lib/server/auth-errors";
@@ -63,15 +64,12 @@ export async function checkSecurityRateLimit(key: string, limit: number, windowM
 }
 
 export function validOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return process.env.NODE_ENV !== "production";
-  try {
-    const site =
-      process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim() || request.url;
-    return new URL(origin).origin === new URL(site).origin;
-  } catch {
-    return false;
-  }
+  return isValidOrigin({
+    origin: request.headers.get("origin"),
+    requestUrl: request.url,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.SITE_URL?.trim(),
+    nodeEnv: process.env.NODE_ENV,
+  });
 }
 
 export function authConfigProbe() {

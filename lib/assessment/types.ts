@@ -118,6 +118,7 @@ export type ProviderSession =
       roomName: string;
       supportId: string;
       dispatchId: string;
+      agentReadyAtStart?: boolean;
     }
   | {
       provider: "gemini-live";

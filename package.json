@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail \"next dev\" \"npm run convex:dev\"",
+    "dev": "next dev",
+    "dev:local": "concurrently --kill-others-on-fail \"next dev\" \"npm run convex:dev\"",
+    "dev:cloud": "next dev",
     "convex:dev": "npx convex dev",
     "convex:deploy": "npx convex deploy",
     "build": "next build --webpack",

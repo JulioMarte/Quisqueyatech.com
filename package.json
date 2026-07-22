@@ -23,6 +23,8 @@
     "og": "node scripts/generate-og.mjs",
     "agent:dev": "npm --prefix services/livekit-agent run dev",
     "agent:start": "npm --prefix services/livekit-agent run start",
+    "assessment:doctor": "node scripts/assessment-doctor.mjs",
+    "analyze": "cross-env ANALYZE=true npm run build",
     "docker:build": "docker compose --profile build build",
     "docker:up": "docker compose --profile build up --build",
     "docker:pull": "docker compose --profile pull up"
@@ -50,6 +52,7 @@
     "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1",
     "sharp": "^0.35.3",
     "tailwind-merge": "^3.6.0",
     "ultravox-client": "^0.5.0",
@@ -58,6 +61,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@edge-runtime/vm": "^5.0.0",
+    "@next/bundle-analyzer": "^16.2.11",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -65,6 +69,7 @@
     "@types/react-dom": "^19",
     "concurrently": "^10.0.3",
     "convex-test": "^0.0.54",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "prettier": "^3.6.2",

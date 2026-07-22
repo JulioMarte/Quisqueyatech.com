@@ -119,3 +119,37 @@ test("terminal agent startup errors are classified and clean up the room", async
   );
   assert.equal(deleted, "assessment-invalid-config");
 });
+
+test("diagnostic readiness requires successful diagnostic metadata", async () => {
+  let deleted = "";
+  const clients: LiveKitDispatchClients = {
+    dispatch: {
+      createDispatch: async (room, agentName) => ({ id: "dispatch-4", room, agentName }),
+    },
+    rooms: {
+      listParticipants: async () => [
+        {
+          identity: "agent-diagnostic",
+          kind: 4,
+          metadata: JSON.stringify({ diagnosticComplete: true, success: true, code: "READY" }),
+        },
+      ],
+      deleteRoom: async (room) => {
+        deleted = room;
+      },
+    },
+  };
+  const result = await dispatchAndWaitForAgent({
+    clients,
+    roomName: "diagnostic-ready",
+    agentName: "quisqueyatech-assessment",
+    metadata: "{}",
+    supportId: "support-diagnostic",
+    timeoutMs: 50,
+    pollMs: 1,
+    agentReady: (participant) =>
+      participant.metadata?.includes('"diagnosticComplete":true') === true,
+  });
+  assert.equal(result.agent.identity, "agent-diagnostic");
+  assert.equal(deleted, "");
+});

@@ -16,6 +16,10 @@ import {
   dispatchAssessmentAgent,
   assessmentAgentName,
 } from "@/lib/server/livekit";
+import {
+  assessmentProvider,
+  validateAssessmentReadiness,
+} from "@/lib/server/assessment-livekit-config";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
 import { diagnosticLog } from "@/lib/server/diagnostic-log";
 
@@ -317,13 +321,7 @@ export async function providerConfigured(provider: VoiceProviderId) {
       (process.env.NODE_ENV !== "production" || config.ultravoxWebhookSecret),
     );
   if (provider === "livekit") {
-    const configured = Boolean(
-      config.livekitApiKey &&
-      config.livekitApiSecret &&
-      config.livekitUrl &&
-      process.env.ASSESSMENT_WORKER_SECRET,
-    );
-    if (!configured) return false;
+    if (!validateAssessmentReadiness(config, { includeTurnstile: false }).ready) return false;
     try {
       createLiveKitClients(config);
       return true;
@@ -344,7 +342,7 @@ export async function createVoiceSession(
   _provider: VoiceProviderId,
   context: AssessmentContext,
 ): Promise<VoiceStartSession> {
-  const provider: VoiceProviderId = "livekit";
+  const provider: VoiceProviderId = assessmentProvider;
   if (!(await providerConfigured(provider))) {
     if (process.env.NODE_ENV === "production")
       throw new Error(`${provider} is not fully configured`);

@@ -23,6 +23,17 @@ type Metadata = {
 type DiagnosticMetadata = { diagnostic: true; supportId: string; verifyApplication?: boolean };
 type WorkerConfig = { geminiApiKey: string; model: string; voice: string; temperature: number };
 const workerSecret = process.env.ASSESSMENT_WORKER_SECRET || "";
+const workerConfigTimeoutMs = 8_000;
+const workerTelemetryTimeoutMs = 3_000;
+const assessmentMaxDurationMs = 900_000;
+const agentMetadataStates = {
+  initializing: "initializing",
+  ready: "ready",
+  configurationError: "configuration_error",
+  modelUnavailable: "model_unavailable",
+  finalizing: "finalizing",
+  recoveryAvailable: "recovery_available",
+} as const;
 
 function log(stage: string, details: Record<string, unknown> = {}) {
   console.log(JSON.stringify({ service: "quisqueyatech-assessment", stage, ...details }));
@@ -41,6 +52,15 @@ function isDiagnostic(metadata: Metadata | DiagnosticMetadata): metadata is Diag
   return "diagnostic" in metadata && metadata.diagnostic === true;
 }
 
+function parseJobMetadata(raw: string) {
+  try {
+    const value = JSON.parse(raw || "{}") as Metadata | DiagnosticMetadata;
+    return typeof value === "object" && value ? value : ({} as Metadata);
+  } catch {
+    return {} as Metadata;
+  }
+}
+
 const agent = defineAgent({
   entry: async (ctx: JobContext) => {
     const entryStartedAt = Date.now();
@@ -54,7 +74,7 @@ const agent = defineAgent({
       nodeEnv: process.env.NODE_ENV || "development",
     });
     if (!workerSecret) throw new Error("ASSESSMENT_WORKER_SECRET is required");
-    const metadata = JSON.parse(ctx.job.metadata || "{}") as Metadata | DiagnosticMetadata;
+    const metadata = parseJobMetadata(ctx.job.metadata || "");
     log("job_received", { jobId: ctx.job.id, room: ctx.room.name, agentName: ctx.job.agentName });
     if (isDiagnostic(metadata)) {
       await ctx.connect();
@@ -81,7 +101,7 @@ const agent = defineAgent({
               headers: { Authorization: `Bearer ${workerSecret}` },
               cache: "no-store",
             },
-            { timeoutMs: 8_000, retries: 1 },
+            { timeoutMs: workerConfigTimeoutMs, retries: 1 },
           );
           log("worker_config_fetch_result", {
             jobId: ctx.job.id,
@@ -149,7 +169,7 @@ const agent = defineAgent({
       durationMs: Date.now() - entryStartedAt,
     });
     await ctx.agent?.updateMetadata(
-      JSON.stringify({ state: "initializing", occurredAt: Date.now() }),
+      JSON.stringify({ state: agentMetadataStates.initializing, occurredAt: Date.now() }),
     );
     const baseUrl = appUrl();
     const telemetry = (
@@ -178,10 +198,10 @@ const agent = defineAgent({
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${workerSecret}` },
           body: JSON.stringify(payload),
         },
-        { timeoutMs: 3_000 },
+        { timeoutMs: workerTelemetryTimeoutMs },
       ).catch(() => log("telemetry_delivery_failed", { jobId: ctx.job.id, event }));
     };
-    telemetry("agent_initializing", { state: "initializing" });
+    telemetry("agent_initializing", { state: agentMetadataStates.initializing });
     log("worker_config_fetch_start", {
       jobId: ctx.job.id,
       room: ctx.room.name,
@@ -195,7 +215,7 @@ const agent = defineAgent({
         headers: { Authorization: `Bearer ${workerSecret}` },
         cache: "no-store",
       },
-      { timeoutMs: 8_000, retries: 1 },
+      { timeoutMs: workerConfigTimeoutMs, retries: 1 },
     );
     log("worker_config_fetch_result", {
       jobId: ctx.job.id,
@@ -207,7 +227,10 @@ const agent = defineAgent({
     });
     if (!configResponse.ok) {
       await ctx.agent?.updateMetadata(
-        JSON.stringify({ state: "configuration_error", code: `HTTP_${configResponse.status}` }),
+        JSON.stringify({
+          state: agentMetadataStates.configurationError,
+          code: `HTTP_${configResponse.status}`,
+        }),
       );
       throw new Error(`Worker configuration failed (${configResponse.status})`);
     }
@@ -216,7 +239,7 @@ const agent = defineAgent({
     const promptResponse = await fetchBounded(
       `${baseUrl}/api/assessment/prompt?assessmentId=${encodeURIComponent(metadata.assessmentId)}`,
       { headers: { Authorization: `Bearer ${workerSecret}` } },
-      { timeoutMs: 8_000, retries: 1 },
+      { timeoutMs: workerConfigTimeoutMs, retries: 1 },
     );
     log("prompt_fetch_result", {
       jobId: ctx.job.id,
@@ -228,7 +251,10 @@ const agent = defineAgent({
     });
     if (!promptResponse.ok) {
       await ctx.agent?.updateMetadata(
-        JSON.stringify({ state: "configuration_error", code: `PROMPT_${promptResponse.status}` }),
+        JSON.stringify({
+          state: agentMetadataStates.configurationError,
+          code: `PROMPT_${promptResponse.status}`,
+        }),
       );
       throw new Error(`Assessment prompt failed (${promptResponse.status})`);
     }
@@ -252,7 +278,7 @@ const agent = defineAgent({
             elapsedSeconds: elapsedSeconds(startedAt),
           }),
         },
-        { timeoutMs: 8_000, retries: 1 },
+        { timeoutMs: workerConfigTimeoutMs, retries: 1 },
       );
     const recordCloseOnce = async (reason: string) => {
       if (closeProgressRecorded) return;
@@ -277,19 +303,19 @@ const agent = defineAgent({
               completionReason: reason,
             }),
           },
-          { timeoutMs: 8_000, retries: 1 },
+          { timeoutMs: workerConfigTimeoutMs, retries: 1 },
         );
         if (!stateResponse.ok)
           throw new Error(`Finalization state failed (${stateResponse.status})`);
         await ctx.agent?.updateMetadata(
           JSON.stringify({
-            state: "finalizing",
+            state: agentMetadataStates.finalizing,
             ready: true,
             completionReason: reason,
             occurredAt: Date.now(),
           }),
         );
-        telemetry("finalization_started", { state: "finalizing", code: reason });
+        telemetry("finalization_started", { state: agentMetadataStates.finalizing, code: reason });
       } catch (error) {
         closeProgressRecorded = false;
         finalizeAssessment = false;
@@ -409,11 +435,11 @@ const agent = defineAgent({
     let stalledTurnId: string | undefined;
     let turnWatchdog: ReturnType<typeof setTimeout> | undefined;
     let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
-    let lastAgentState = "initializing";
+    let lastAgentState = agentMetadataStates.initializing;
     let agentStarted = false;
 
     const updateAgentMetadata = (state: string, recoveryCode?: string) => {
-      if (closeProgressRecorded && state !== "finalizing") return;
+      if (closeProgressRecorded && state !== agentMetadataStates.finalizing) return;
       void ctx.agent
         ?.updateMetadata(
           JSON.stringify({
@@ -462,7 +488,7 @@ const agent = defineAgent({
             state: lastAgentState,
             code: "recovery_required",
           });
-          updateAgentMetadata("recovery_available", "recovery_required");
+          updateAgentMetadata(agentMetadataStates.recoveryAvailable, "recovery_required");
         }, 18_000);
       }, delayMs);
     };
@@ -512,7 +538,7 @@ const agent = defineAgent({
       if (!recoverable) {
         finalizeAssessment = false;
         completionReason = "model-error";
-        updateAgentMetadata("recovery_available", "model_error");
+        updateAgentMetadata(agentMetadataStates.recoveryAvailable, "model_error");
       }
     });
     session.on(voice.AgentSessionEventTypes.Close, (event) => {
@@ -551,7 +577,7 @@ const agent = defineAgent({
       }, 870_000),
       setTimeout(() => {
         void recordCloseOnce("hard-time-limit").finally(() => ctx.shutdown("hard-time-limit"));
-      }, 900_000),
+      }, assessmentMaxDurationMs),
     ];
 
     ctx.addShutdownCallback(async () => {
@@ -606,13 +632,16 @@ const agent = defineAgent({
       });
     } catch (error) {
       await ctx.agent?.updateMetadata(
-        JSON.stringify({ state: "model_unavailable", code: errorCode(error) }),
+        JSON.stringify({ state: agentMetadataStates.modelUnavailable, code: errorCode(error) }),
       );
       throw error;
     }
     agentStarted = true;
-    updateAgentMetadata("ready");
-    telemetry("agent_ready", { state: "ready", durationMs: Date.now() - startedAt });
+    updateAgentMetadata(agentMetadataStates.ready);
+    telemetry("agent_ready", {
+      state: agentMetadataStates.ready,
+      durationMs: Date.now() - startedAt,
+    });
     log("agent_ready", {
       jobId: ctx.job.id,
       room: ctx.room.name,

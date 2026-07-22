@@ -3,14 +3,12 @@ import { enforceAssessmentDataPolicy } from "@/lib/assessment/data-policy";
 import { convexMutation } from "@/lib/server/convex";
 import { verifyAssessmentToken } from "@/lib/server/assessment-tokens";
 import { assessmentProgressSchema } from "@/lib/validations/assessment";
+import { bearerToken, isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
 
 export async function POST(request: Request) {
-  const authorization = request.headers.get("authorization");
-  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const token = bearerToken(request);
   const verified = verifyAssessmentToken(token, "progress");
-  const trustedWorker = Boolean(
-    process.env.ASSESSMENT_WORKER_SECRET && token === process.env.ASSESSMENT_WORKER_SECRET,
-  );
+  const trustedWorker = isTrustedAssessmentWorker(request);
   if (!verified?.assessmentId && !trustedWorker)
     return NextResponse.json({ error: "Invalid or expired assessment token" }, { status: 401 });
   const parsed = assessmentProgressSchema.safeParse(await request.json());

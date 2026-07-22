@@ -1,18 +1,27 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { validateAssessmentReadiness } from "@/lib/server/assessment-livekit-config";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { defaultGeminiLiveModel, defaultGeminiLiveVoice } from "@/lib/server/voice";
+import { isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
 
 export async function GET(request: Request) {
-  const expected = process.env.ASSESSMENT_WORKER_SECRET || "";
-  const received = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
-  if (!expected || !safeEqual(expected, received)) {
+  if (!isTrustedAssessmentWorker(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const config = await runtimeConfig();
-  if (!config.geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured" }, { status: 503 });
-  }
+  const readiness = validateAssessmentReadiness(config, { includeTurnstile: false });
+  const blocking = readiness.issues.find((issue) =>
+    [
+      "GEMINI_API_KEY_MISSING",
+      "GEMINI_LIVE_MODEL_MISSING",
+      "ASSESSMENT_WORKER_SECRET_MISSING",
+    ].includes(issue.code),
+  );
+  if (blocking)
+    return NextResponse.json(
+      { error: blocking.message, code: blocking.code, issues: readiness.issues },
+      { status: 503 },
+    );
   return NextResponse.json(
     {
       geminiApiKey: String(config.geminiApiKey),
@@ -23,10 +32,4 @@ export async function GET(request: Request) {
     },
     { headers: { "Cache-Control": "no-store" } },
   );
-}
-
-function safeEqual(left: string, right: string) {
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && timingSafeEqual(a, b);
 }

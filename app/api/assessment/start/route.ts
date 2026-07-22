@@ -14,7 +14,6 @@ import {
   defaultGeminiLiveModel,
   defaultGeminiLiveVoice,
   interviewFrameworkVersion,
-  providerConfigured,
 } from "@/lib/server/voice";
 import {
   assessmentTokenHash,
@@ -28,6 +27,7 @@ import { requestFingerprint } from "@/lib/server/auth";
 import { AuthConfigError, classifyAuthError } from "@/lib/server/auth-errors";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
+import { validateAssessmentReadiness } from "@/lib/server/assessment-livekit-config";
 
 function requiredLocalCloudVariables() {
   const missing: string[] = [];
@@ -171,11 +171,19 @@ export async function POST(request: Request) {
       localeForLog = intake.locale;
     }
 
-    if (!(await providerConfigured("livekit"))) {
+    const dynamicConfig = await runtimeConfig();
+    const readiness = validateAssessmentReadiness(dynamicConfig, { includeTurnstile: false });
+    if (!readiness.ready) {
       diagnosticLog(
         "assessment-start",
         "provider_not_configured",
-        { supportId: requestSupportId, provider: "livekit", durationMs: Date.now() - startedAt },
+        {
+          supportId: requestSupportId,
+          provider: "livekit",
+          code: readiness.code,
+          issues: readiness.issues,
+          durationMs: Date.now() - startedAt,
+        },
         "error",
       );
       return NextResponse.json(
@@ -184,7 +192,8 @@ export async function POST(request: Request) {
             intake.locale === "es"
               ? "LiveKit no está configurado. Revisa las credenciales del proveedor en /admin y el secreto del worker en el entorno del servidor."
               : "LiveKit is not configured. Check provider credentials in /admin and the worker secret in the server environment.",
-          code: "LIVEKIT_NOT_CONFIGURED",
+          code: readiness.code,
+          issues: readiness.issues,
         },
         { status: 503 },
       );
@@ -251,7 +260,6 @@ export async function POST(request: Request) {
       locale: localeForLog,
       durationMs: Date.now() - startedAt,
     });
-    const dynamicConfig = await runtimeConfig();
     diagnosticLog("assessment-start", "runtime_config_loaded", {
       supportId: requestSupportId,
       assessmentId,

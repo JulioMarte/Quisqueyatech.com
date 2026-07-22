@@ -10,6 +10,7 @@ import type { RuntimeConfig } from "@/lib/server/runtime-config";
 
 export const assessmentAgentName = "quisqueyatech-assessment";
 export const defaultLiveKitSubdomain = "live-translate-r87y5gh3";
+export const defaultAssessmentAgentReadyTimeoutMs = 60_000;
 
 export function expectedLiveKitHostname() {
   const configured = process.env.LIVEKIT_PROJECT_SUBDOMAIN?.trim() || defaultLiveKitSubdomain;
@@ -19,10 +20,7 @@ export function expectedLiveKitHostname() {
 }
 
 export function createLiveKitClients(config: RuntimeConfig) {
-  const { apiUrl, hostname } = normalizeLiveKitUrl(
-    String(config.livekitUrl || ""),
-    expectedLiveKitHostname(),
-  );
+  const { apiUrl, hostname } = normalizeConfiguredLiveKitUrl(config);
   const apiKey = String(config.livekitApiKey || "");
   const apiSecret = String(config.livekitApiSecret || "");
   if (!apiKey || !apiSecret) throw new Error("LiveKit credentials are required");
@@ -33,6 +31,14 @@ export function createLiveKitClients(config: RuntimeConfig) {
       rooms: new RoomServiceClient(apiUrl, apiKey, apiSecret),
     } satisfies LiveKitDispatchClients,
   };
+}
+
+export function normalizeConfiguredLiveKitUrl(config: RuntimeConfig) {
+  const { apiUrl, hostname } = normalizeLiveKitUrl(
+    String(config.livekitUrl || ""),
+    expectedLiveKitHostname(),
+  );
+  return { apiUrl, hostname };
 }
 
 export async function dispatchAssessmentAgent({
@@ -55,7 +61,9 @@ export async function dispatchAssessmentAgent({
     agentName: assessmentAgentName,
     metadata,
     supportId,
-    timeoutMs: Number(process.env.LIVEKIT_AGENT_READY_TIMEOUT_MS || 60_000),
+    timeoutMs: Number(
+      process.env.LIVEKIT_AGENT_READY_TIMEOUT_MS || defaultAssessmentAgentReadyTimeoutMs,
+    ),
     agentReady:
       agentReady ||
       ((participant) => {

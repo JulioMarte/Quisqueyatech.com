@@ -26,15 +26,31 @@ import { runtimeConfig } from "@/lib/server/runtime-config";
 import { requestIp } from "@/lib/server/request-ip";
 import { requestFingerprint } from "@/lib/server/auth";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
+import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  const requestSupportId = crypto.randomUUID();
+  let assessmentIdForLog: string | undefined;
+  let roomNameForLog: string | undefined;
+  let localeForLog: "es" | "en" | undefined;
   try {
+    diagnosticLog("assessment-start", "request_received", {
+      supportId: requestSupportId,
+      userAgent: request.headers.get("user-agent") ? "present" : "missing",
+    });
     const ip = requestIp(request);
     const edgeLimit = await checkRequestLimit(
       requestFingerprint(request, "assessment-edge"),
       100,
       10 * 60_000,
     );
+    diagnosticLog("assessment-start", "edge_rate_limit_checked", {
+      supportId: requestSupportId,
+      allowed: edgeLimit.allowed,
+      retryAfter: edgeLimit.retryAfter,
+      durationMs: Date.now() - startedAt,
+    });
     if (!edgeLimit.allowed) {
       return NextResponse.json(
         {
@@ -48,6 +64,12 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const conferenceStart = body?.mode === "conference";
+    diagnosticLog("assessment-start", "request_body_classified", {
+      supportId: requestSupportId,
+      conferenceStart,
+      hasResumeToken: Boolean(body?.resumeToken),
+      durationMs: Date.now() - startedAt,
+    });
     let intake: AssessmentIntake;
     let turnstileToken: string | undefined;
     let visitorId: string | undefined;
@@ -66,6 +88,7 @@ export async function POST(request: Request) {
       const temporaryId = crypto.randomUUID();
       turnstileToken = parsed.data.turnstileToken;
       visitorId = parsed.data.visitorId;
+      localeForLog = parsed.data.locale;
       intake = {
         firstName: parsed.data.locale === "es" ? "Visitante" : "Guest",
         lastName: "Web",
@@ -101,9 +124,16 @@ export async function POST(request: Request) {
       void _website;
       void _turnstileToken;
       intake = submittedIntake;
+      localeForLog = intake.locale;
     }
 
     if (!(await providerConfigured("livekit"))) {
+      diagnosticLog(
+        "assessment-start",
+        "provider_not_configured",
+        { supportId: requestSupportId, provider: "livekit", durationMs: Date.now() - startedAt },
+        "error",
+      );
       return NextResponse.json(
         {
           error:
@@ -117,6 +147,13 @@ export async function POST(request: Request) {
     }
 
     const turnstile = await verifyTurnstile(turnstileToken, ip, "assessment_start");
+    diagnosticLog("assessment-start", "turnstile_checked", {
+      supportId: requestSupportId,
+      ok: turnstile.ok,
+      code: turnstile.ok ? "OK" : turnstile.code,
+      turnstileSupportId: turnstile.supportId,
+      durationMs: Date.now() - startedAt,
+    });
     if (!turnstile.ok) {
       return NextResponse.json(
         {
@@ -136,6 +173,13 @@ export async function POST(request: Request) {
       12,
       60 * 60_000,
     );
+    diagnosticLog("assessment-start", "start_rate_limit_checked", {
+      supportId: requestSupportId,
+      allowed: startLimit.allowed,
+      retryAfter: startLimit.retryAfter,
+      visitorId: visitorId ? "present" : "missing",
+      durationMs: Date.now() - startedAt,
+    });
     if (!startLimit.allowed) {
       return NextResponse.json(
         {
@@ -155,7 +199,27 @@ export async function POST(request: Request) {
         ? verifyAssessmentToken(body.resumeToken, "resume")
         : null;
     const assessmentId = resume?.assessmentId || crypto.randomUUID();
+    assessmentIdForLog = assessmentId;
+    diagnosticLog("assessment-start", "assessment_id_ready", {
+      supportId: requestSupportId,
+      assessmentId,
+      resumed: Boolean(resume?.assessmentId),
+      locale: localeForLog,
+      durationMs: Date.now() - startedAt,
+    });
     const dynamicConfig = await runtimeConfig();
+    diagnosticLog("assessment-start", "runtime_config_loaded", {
+      supportId: requestSupportId,
+      assessmentId,
+      fields: {
+        livekitUrl: Boolean(dynamicConfig.livekitUrl),
+        livekitApiKey: Boolean(dynamicConfig.livekitApiKey),
+        livekitApiSecret: Boolean(dynamicConfig.livekitApiSecret),
+        geminiApiKey: Boolean(dynamicConfig.geminiApiKey),
+        assessmentWorkerSecret: Boolean(process.env.ASSESSMENT_WORKER_SECRET?.trim()),
+      },
+      durationMs: Date.now() - startedAt,
+    });
     const provider = "livekit" as const;
     const previous = resume?.assessmentId
       ? ((await convexMutation("assessments:consumeResumeCredential", {
@@ -187,6 +251,12 @@ export async function POST(request: Request) {
       resumeExpiresAt: Date.now() + 24 * 60 * 60_000,
       consentVersion: "voice-assessment-2026-07-v1",
     });
+    diagnosticLog("assessment-start", "assessment_created", {
+      supportId: requestSupportId,
+      assessmentId,
+      provider,
+      durationMs: Date.now() - startedAt,
+    });
     const resumeSummary = previous?.snapshot
       ? JSON.stringify({
           fields: previous.snapshot.fields,
@@ -203,6 +273,16 @@ export async function POST(request: Request) {
       name: previous?.lead?.firstName || intake.firstName,
       progressToken: sessionProgressToken,
       resumeSummary,
+    });
+    if (session.provider === "livekit") roomNameForLog = session.roomName;
+    diagnosticLog("assessment-start", "voice_session_created", {
+      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
+      requestSupportId,
+      assessmentId,
+      provider: session.provider,
+      roomName: session.provider === "livekit" ? session.roomName : undefined,
+      dispatchId: session.provider === "livekit" ? session.dispatchId : undefined,
+      durationMs: Date.now() - startedAt,
     });
     const providerSessionId =
       session.provider === "ultravox"
@@ -225,11 +305,25 @@ export async function POST(request: Request) {
       frameworkVersion: interviewFrameworkVersion,
       startedAt: Date.now(),
     });
+    diagnosticLog("assessment-start", "provider_session_recorded", {
+      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
+      requestSupportId,
+      assessmentId,
+      provider: session.provider,
+      roomName: session.provider === "livekit" ? session.roomName : undefined,
+      durationMs: Date.now() - startedAt,
+    });
     const nextResumeToken = resumeToken(assessmentId);
     await convexMutation("assessments:setResumeCredential", {
       assessmentId,
       tokenHash: assessmentTokenHash(nextResumeToken),
       expiresAt: Date.now() + 24 * 60 * 60_000,
+    });
+    diagnosticLog("assessment-start", "resume_credential_recorded", {
+      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
+      requestSupportId,
+      assessmentId,
+      durationMs: Date.now() - startedAt,
     });
     const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
     if (adminApiSecret) {
@@ -243,6 +337,14 @@ export async function POST(request: Request) {
       });
     }
     if (session.provider !== "livekit") throw new Error("LiveKit session was not created");
+    diagnosticLog("assessment-start", "response_ready", {
+      supportId: session.supportId,
+      requestSupportId,
+      assessmentId,
+      roomName: session.roomName,
+      provider: session.provider,
+      durationMs: Date.now() - startedAt,
+    });
     return NextResponse.json({
       provider: session.provider,
       assessmentId: session.assessmentId,
@@ -257,6 +359,20 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[assessment:start]", error);
     if (error instanceof LiveKitDispatchError) {
+      diagnosticLog(
+        "assessment-start",
+        "livekit_error",
+        {
+          supportId: error.supportId,
+          requestSupportId,
+          assessmentId: assessmentIdForLog,
+          roomName: error.roomName || roomNameForLog,
+          code: error.code,
+          error: errorSummary(error),
+          durationMs: Date.now() - startedAt,
+        },
+        "error",
+      );
       return NextResponse.json(
         {
           error: "The LiveKit agent is temporarily unavailable.",
@@ -266,6 +382,18 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
+    diagnosticLog(
+      "assessment-start",
+      "request_failed",
+      {
+        supportId: requestSupportId,
+        assessmentId: assessmentIdForLog,
+        roomName: roomNameForLog,
+        error: errorSummary(error),
+        durationMs: Date.now() - startedAt,
+      },
+      "error",
+    );
     return NextResponse.json({ error: "The assessment could not be started." }, { status: 502 });
   }
 }

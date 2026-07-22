@@ -22,11 +22,18 @@ type Metadata = {
 };
 type DiagnosticMetadata = { diagnostic: true; supportId: string; verifyApplication?: boolean };
 type WorkerConfig = { geminiApiKey: string; model: string; voice: string; temperature: number };
-const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const workerSecret = process.env.ASSESSMENT_WORKER_SECRET || "";
 
 function log(stage: string, details: Record<string, unknown> = {}) {
   console.log(JSON.stringify({ service: "quisqueyatech-assessment", stage, ...details }));
+}
+
+function appUrl() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (!configured && process.env.NODE_ENV === "production") {
+    throw new Error("NEXT_PUBLIC_SITE_URL is required in production");
+  }
+  return (configured || "http://localhost:3000").replace(/\/$/, "");
 }
 
 function isDiagnostic(metadata: Metadata | DiagnosticMetadata): metadata is DiagnosticMetadata {
@@ -35,21 +42,54 @@ function isDiagnostic(metadata: Metadata | DiagnosticMetadata): metadata is Diag
 
 const agent = defineAgent({
   entry: async (ctx: JobContext) => {
+    const entryStartedAt = Date.now();
+    log("env_check", {
+      jobId: ctx.job.id,
+      room: ctx.room.name,
+      agentName: ctx.job.agentName,
+      workerSecret: Boolean(workerSecret),
+      siteUrl: Boolean(process.env.NEXT_PUBLIC_SITE_URL?.trim()),
+      nodeEnv: process.env.NODE_ENV || "development",
+    });
     if (!workerSecret) throw new Error("ASSESSMENT_WORKER_SECRET is required");
     const metadata = JSON.parse(ctx.job.metadata || "{}") as Metadata | DiagnosticMetadata;
     log("job_received", { jobId: ctx.job.id, room: ctx.room.name, agentName: ctx.job.agentName });
     if (isDiagnostic(metadata)) {
       await ctx.connect();
+      log("ctx_connected", {
+        jobId: ctx.job.id,
+        room: ctx.room.name,
+        supportId: metadata.supportId,
+        diagnostic: true,
+        durationMs: Date.now() - entryStartedAt,
+      });
       if (metadata.verifyApplication) {
         try {
+          const baseUrl = appUrl();
+          log("worker_config_fetch_start", {
+            jobId: ctx.job.id,
+            room: ctx.room.name,
+            supportId: metadata.supportId,
+            diagnostic: true,
+            appUrl: baseUrl,
+          });
           const response = await fetchBounded(
-            `${appUrl}/api/assessment/worker-config`,
+            `${baseUrl}/api/assessment/worker-config`,
             {
               headers: { Authorization: `Bearer ${workerSecret}` },
               cache: "no-store",
             },
             { timeoutMs: 8_000, retries: 1 },
           );
+          log("worker_config_fetch_result", {
+            jobId: ctx.job.id,
+            room: ctx.room.name,
+            supportId: metadata.supportId,
+            diagnostic: true,
+            ok: response.ok,
+            status: response.status,
+            durationMs: Date.now() - entryStartedAt,
+          });
           if (!response.ok) {
             await ctx.agent?.updateMetadata(
               JSON.stringify({
@@ -71,7 +111,16 @@ const agent = defineAgent({
             if (complete)
               log("application_diagnostic_ready", { jobId: ctx.job.id, model: runtime.model });
           }
-        } catch {
+        } catch (error) {
+          log("worker_config_fetch_result", {
+            jobId: ctx.job.id,
+            room: ctx.room.name,
+            supportId: metadata.supportId,
+            diagnostic: true,
+            ok: false,
+            code: error instanceof Error ? error.message.slice(0, 120) : "UNKNOWN",
+            durationMs: Date.now() - entryStartedAt,
+          });
           await ctx.agent?.updateMetadata(
             JSON.stringify({ diagnosticComplete: true, success: false, code: "NETWORK_ERROR" }),
           );
@@ -90,9 +139,17 @@ const agent = defineAgent({
     const startedAt = Date.now();
     const supportId = metadata.supportId || crypto.randomUUID();
     await ctx.connect();
+    log("ctx_connected", {
+      jobId: ctx.job.id,
+      room: ctx.room.name,
+      supportId,
+      diagnostic: false,
+      durationMs: Date.now() - entryStartedAt,
+    });
     await ctx.agent?.updateMetadata(
       JSON.stringify({ state: "initializing", occurredAt: Date.now() }),
     );
+    const baseUrl = appUrl();
     const telemetry = (
       event: string,
       details: {
@@ -113,7 +170,7 @@ const agent = defineAgent({
       };
       log(event, { jobId: ctx.job.id, room: ctx.room.name, ...details });
       void fetchBounded(
-        `${appUrl}/api/assessment/worker-diagnostic`,
+        `${baseUrl}/api/assessment/worker-diagnostic`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${workerSecret}` },
@@ -123,14 +180,29 @@ const agent = defineAgent({
       ).catch(() => log("telemetry_delivery_failed", { jobId: ctx.job.id, event }));
     };
     telemetry("agent_initializing", { state: "initializing" });
+    log("worker_config_fetch_start", {
+      jobId: ctx.job.id,
+      room: ctx.room.name,
+      supportId,
+      appUrl: baseUrl,
+      durationMs: Date.now() - entryStartedAt,
+    });
     const configResponse = await fetchBounded(
-      `${appUrl}/api/assessment/worker-config`,
+      `${baseUrl}/api/assessment/worker-config`,
       {
         headers: { Authorization: `Bearer ${workerSecret}` },
         cache: "no-store",
       },
       { timeoutMs: 8_000, retries: 1 },
     );
+    log("worker_config_fetch_result", {
+      jobId: ctx.job.id,
+      room: ctx.room.name,
+      supportId,
+      ok: configResponse.ok,
+      status: configResponse.status,
+      durationMs: Date.now() - entryStartedAt,
+    });
     if (!configResponse.ok) {
       await ctx.agent?.updateMetadata(
         JSON.stringify({ state: "configuration_error", code: `HTTP_${configResponse.status}` }),
@@ -140,10 +212,18 @@ const agent = defineAgent({
     const runtime = (await configResponse.json()) as WorkerConfig;
     log("configuration_ready", { jobId: ctx.job.id, model: runtime.model });
     const promptResponse = await fetchBounded(
-      `${appUrl}/api/assessment/prompt?assessmentId=${encodeURIComponent(metadata.assessmentId)}`,
+      `${baseUrl}/api/assessment/prompt?assessmentId=${encodeURIComponent(metadata.assessmentId)}`,
       { headers: { Authorization: `Bearer ${workerSecret}` } },
       { timeoutMs: 8_000, retries: 1 },
     );
+    log("prompt_fetch_result", {
+      jobId: ctx.job.id,
+      room: ctx.room.name,
+      supportId,
+      ok: promptResponse.ok,
+      status: promptResponse.status,
+      durationMs: Date.now() - entryStartedAt,
+    });
     if (!promptResponse.ok) {
       await ctx.agent?.updateMetadata(
         JSON.stringify({ state: "configuration_error", code: `PROMPT_${promptResponse.status}` }),
@@ -157,7 +237,7 @@ const agent = defineAgent({
     let finalizeAssessment = false;
     const recordThreshold = (reason: "time-threshold" | "close") =>
       fetchBounded(
-        `${appUrl}/api/assessment/progress`,
+        `${baseUrl}/api/assessment/progress`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${workerSecret}` },
@@ -182,7 +262,7 @@ const agent = defineAgent({
         if (!response.ok)
           log("close_progress_failed", { jobId: ctx.job.id, status: response.status });
         const stateResponse = await fetchBounded(
-          `${appUrl}/api/assessment/session-status`,
+          `${baseUrl}/api/assessment/session-status`,
           {
             method: "POST",
             headers: {
@@ -237,7 +317,7 @@ const agent = defineAgent({
         telemetry("tool_started", { state: "update_assessment_state" });
         try {
           const response = await fetchBounded(
-            `${appUrl}/api/assessment/progress`,
+            `${baseUrl}/api/assessment/progress`,
             {
               method: "POST",
               headers: {
@@ -477,7 +557,7 @@ const agent = defineAgent({
       clearTurnTimers();
       const report = voice.sessionReportToJSON(ctx.makeSessionReport(session));
       const response = await fetchBounded(
-        `${appUrl}/api/assessment/provider-finalize`,
+        `${baseUrl}/api/assessment/provider-finalize`,
         {
           method: "POST",
           headers: {
@@ -507,6 +587,13 @@ const agent = defineAgent({
     });
 
     try {
+      log("session_start_start", {
+        jobId: ctx.job.id,
+        room: ctx.room.name,
+        supportId,
+        model: runtime.model,
+        durationMs: Date.now() - entryStartedAt,
+      });
       await session.start({
         room: ctx.room,
         agent: new voice.Agent({
@@ -524,7 +611,13 @@ const agent = defineAgent({
     agentStarted = true;
     updateAgentMetadata("ready");
     telemetry("agent_ready", { state: "ready", durationMs: Date.now() - startedAt });
-    log("agent_ready", { jobId: ctx.job.id, room: ctx.room.name, model: runtime.model });
+    log("agent_ready", {
+      jobId: ctx.job.id,
+      room: ctx.room.name,
+      supportId,
+      model: runtime.model,
+      durationMs: Date.now() - entryStartedAt,
+    });
   },
 });
 

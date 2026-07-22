@@ -57,6 +57,9 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
       });
       const result = await response.json();
       if (!response.ok) {
+        const technical = result.code
+          ? `${es ? " Codigo tecnico" : " Technical code"}: ${result.code}`
+          : "";
         const support = result.supportId
           ? `${es ? " Código de soporte" : " Support code"}: ${result.supportId}`
           : "";
@@ -74,7 +77,9 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
             : result.error ||
               (es
                 ? "No pudimos abrir la sala de conferencia."
-                : "We could not open the conference room.")) + support,
+                : "We could not open the conference room.")) +
+            technical +
+            support,
         );
       }
       setSession(result);

@@ -16,16 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
 import { adminRequest, type AdminPage } from "@/lib/client/admin-response";
-
-type Summary = {
-  assessmentId: string;
-  status: string;
-  reportStatus?: string;
-  coverageScore?: number;
-  createdAt: number;
-  completedAt?: number;
-  lead: { firstName: string; lastName: string; company?: string; email: string } | null;
-};
+import type { AssessmentSummary as Summary } from "@/components/admin/assessment-types";
 
 export function AssessmentList() {
   const router = useRouter();

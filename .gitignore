@@ -23,6 +23,7 @@
 
 # next.js
 /.next/
+/.next-build-watchdog/
 /out/
 
 # production

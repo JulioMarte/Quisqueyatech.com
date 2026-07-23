@@ -51,9 +51,9 @@ test("raw Better Auth email entry points are closed", async ({ request }) => {
 });
 
 test("sign-in remains usable and accessible at supported widths", async ({ page }) => {
+  await page.goto("/sign-in");
   for (const width of [375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/sign-in");
     await expect(page.getByRole("button", { name: "Entrar" })).toBeVisible();
     const results = await new AxeBuilder({ page }).analyze();
     expect(

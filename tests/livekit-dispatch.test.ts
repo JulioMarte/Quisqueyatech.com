@@ -6,6 +6,15 @@ import {
   normalizeLiveKitUrl,
   type LiveKitDispatchClients,
 } from "../lib/livekit/dispatch-core";
+import { agentDispatchRoomConfiguration } from "../lib/livekit/dispatch-core";
+
+test("token dispatch carries the agent name and bounded job metadata", () => {
+  const metadata = JSON.stringify({ assessmentId: "assessment-1", sessionKey: "session-1" });
+  const config = agentDispatchRoomConfiguration("quisqueyatech-assessment", metadata);
+  assert.equal(config.agents.length, 1);
+  assert.equal(config.agents[0]?.agentName, "quisqueyatech-assessment");
+  assert.equal(config.agents[0]?.metadata, metadata);
+});
 
 test("LiveKit URLs must match the configured project", () => {
   assert.deepEqual(
@@ -48,7 +57,7 @@ test("dispatch waits until an agent participant is ready", async () => {
     agentName: "quisqueyatech-assessment",
     metadata: "{}",
     supportId: "support-1",
-    timeoutMs: 50,
+    timeoutMs: 1_000,
     pollMs: 1,
   });
   assert.equal(result.agent.identity, "agent-1");

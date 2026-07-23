@@ -4,6 +4,7 @@ import {
   assessmentIntakeSchema,
   type AssessmentIntake,
 } from "@/lib/validations/assessment";
+import { VOICE_CONSENT_VERSION } from "@/lib/consent";
 import { convexMutation } from "@/lib/server/convex";
 import { checkRequestLimit } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
@@ -27,6 +28,7 @@ import { requestIp } from "@/lib/server/request-ip";
 import { requestFingerprint } from "@/lib/server/auth";
 import { AuthConfigError, classifyAuthError } from "@/lib/server/auth-errors";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
+import { cleanupAssessmentRoom } from "@/lib/server/livekit";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
 
 function requiredLocalCloudVariables() {
@@ -142,8 +144,8 @@ export async function POST(request: Request) {
         locale: parsed.data.locale,
         email: `voice-${temporaryId}@anonymous.invalid`,
         phone: "+10000000000",
-        processingConsent: true,
-        recordingConsent: true,
+        processingConsent: parsed.data.processingConsent,
+        recordingConsent: parsed.data.recordingConsent,
       };
     } else {
       const parsed = assessmentIntakeSchema.safeParse(body);
@@ -171,7 +173,12 @@ export async function POST(request: Request) {
       localeForLog = intake.locale;
     }
 
-    if (!(await providerConfigured("livekit"))) {
+    const [dynamicConfig, turnstile] = await Promise.all([
+      runtimeConfig(),
+      verifyTurnstile(turnstileToken, ip, "assessment_start"),
+    ]);
+
+    if (!(await providerConfigured("livekit", dynamicConfig))) {
       diagnosticLog(
         "assessment-start",
         "provider_not_configured",
@@ -190,7 +197,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const turnstile = await verifyTurnstile(turnstileToken, ip, "assessment_start");
     diagnosticLog("assessment-start", "turnstile_checked", {
       supportId: requestSupportId,
       ok: turnstile.ok,
@@ -251,7 +257,6 @@ export async function POST(request: Request) {
       locale: localeForLog,
       durationMs: Date.now() - startedAt,
     });
-    const dynamicConfig = await runtimeConfig();
     diagnosticLog("assessment-start", "runtime_config_loaded", {
       supportId: requestSupportId,
       assessmentId,
@@ -281,26 +286,6 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     const snapshot = previous?.snapshot || createAssessmentSnapshot(intake.locale);
-    await convexMutation("assessments:create", {
-      assessmentId,
-      ...intake,
-      mode: "now",
-      provider,
-      frameworkVersion: interviewFrameworkVersion,
-      snapshot,
-      createdAt: Date.now(),
-      audioExpiresAt: Date.now() + 30 * 86400000,
-      transcriptExpiresAt: Date.now() + 90 * 86400000,
-      leadExpiresAt: Date.now() + 365 * 86400000,
-      resumeExpiresAt: Date.now() + 24 * 60 * 60_000,
-      consentVersion: "voice-assessment-2026-07-v1",
-    });
-    diagnosticLog("assessment-start", "assessment_created", {
-      supportId: requestSupportId,
-      assessmentId,
-      provider,
-      durationMs: Date.now() - startedAt,
-    });
     const resumeSummary = previous?.snapshot
       ? JSON.stringify({
           fields: previous.snapshot.fields,
@@ -310,14 +295,18 @@ export async function POST(request: Request) {
       : undefined;
     const sessionProgressToken = progressToken(assessmentId);
     const sessionKey = crypto.randomUUID();
-    const session = await createVoiceSession(provider, {
-      assessmentId,
-      sessionKey,
-      locale: intake.locale,
-      name: previous?.lead?.firstName || intake.firstName,
-      progressToken: sessionProgressToken,
-      resumeSummary,
-    });
+    const session = await createVoiceSession(
+      provider,
+      {
+        assessmentId,
+        sessionKey,
+        locale: intake.locale,
+        name: previous?.lead?.firstName || intake.firstName,
+        progressToken: sessionProgressToken,
+        resumeSummary,
+      },
+      dynamicConfig,
+    );
     if (session.provider === "livekit") roomNameForLog = session.roomName;
     diagnosticLog("assessment-start", "voice_session_created", {
       supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
@@ -328,59 +317,69 @@ export async function POST(request: Request) {
       dispatchId: session.provider === "livekit" ? session.dispatchId : undefined,
       durationMs: Date.now() - startedAt,
     });
-    const providerSessionId =
-      session.provider === "ultravox"
-        ? session.callId
-        : session.provider === "livekit"
-          ? session.roomName
-          : session.provider === "gemini-live"
-            ? sessionKey
-            : undefined;
+    if (session.provider !== "livekit") throw new Error("LiveKit session was not created");
+    const providerSessionId = session.roomName;
     const providerModel = String(dynamicConfig.geminiLiveModel || defaultGeminiLiveModel);
     const providerVoice = String(dynamicConfig.geminiLiveVoice || defaultGeminiLiveVoice);
-    await convexMutation("assessments:setProviderSession", {
-      assessmentId,
-      sessionKey,
-      provider: session.provider === "demo" ? provider : session.provider,
-      providerSessionId,
-      supportId: session.provider === "livekit" ? session.supportId : undefined,
-      providerModel,
-      providerVoice,
-      frameworkVersion: interviewFrameworkVersion,
-      startedAt: Date.now(),
-    });
-    diagnosticLog("assessment-start", "provider_session_recorded", {
-      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
+    const nextResumeToken = resumeToken(assessmentId);
+    const persistedAt = Date.now();
+    const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
+    try {
+      await convexMutation("assessments:beginConferenceSession", {
+        assessmentId,
+        ...intake,
+        mode: "now",
+        sessionKey,
+        provider,
+        providerSessionId,
+        supportId: session.supportId,
+        providerModel,
+        providerVoice,
+        frameworkVersion: interviewFrameworkVersion,
+        snapshot,
+        createdAt: persistedAt,
+        audioExpiresAt: persistedAt + 30 * 86400000,
+        transcriptExpiresAt: persistedAt + 90 * 86400000,
+        leadExpiresAt: persistedAt + 365 * 86400000,
+        consentVersion: VOICE_CONSENT_VERSION,
+        startedAt: persistedAt,
+        resumeTokenHash: assessmentTokenHash(nextResumeToken),
+        resumeExpiresAt: persistedAt + 24 * 60 * 60_000,
+      });
+    } catch (error) {
+      await cleanupAssessmentRoom(dynamicConfig, session.roomName).catch((cleanupError) => {
+        diagnosticLog("assessment-start", "room_cleanup_failed", {
+          supportId: session.supportId,
+          roomName: session.roomName,
+          error: errorSummary(cleanupError),
+        });
+      });
+      throw error;
+    }
+    if (adminApiSecret) {
+      void convexMutation("funnel:track", {
+        serviceSecret: adminApiSecret,
+        sessionId: assessmentId,
+        locale: intake.locale,
+        name: "assessment_started",
+        assessmentId,
+        createdAt: persistedAt,
+      }).catch((error) => {
+        diagnosticLog("assessment-start", "funnel_write_failed", {
+          supportId: session.supportId,
+          assessmentId,
+          error: errorSummary(error),
+        });
+      });
+    }
+    diagnosticLog("assessment-start", "conference_session_recorded", {
+      supportId: session.supportId,
       requestSupportId,
       assessmentId,
       provider: session.provider,
       roomName: session.provider === "livekit" ? session.roomName : undefined,
       durationMs: Date.now() - startedAt,
     });
-    const nextResumeToken = resumeToken(assessmentId);
-    await convexMutation("assessments:setResumeCredential", {
-      assessmentId,
-      tokenHash: assessmentTokenHash(nextResumeToken),
-      expiresAt: Date.now() + 24 * 60 * 60_000,
-    });
-    diagnosticLog("assessment-start", "resume_credential_recorded", {
-      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
-      requestSupportId,
-      assessmentId,
-      durationMs: Date.now() - startedAt,
-    });
-    const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
-    if (adminApiSecret) {
-      await convexMutation("funnel:track", {
-        serviceSecret: adminApiSecret,
-        sessionId: assessmentId,
-        locale: intake.locale,
-        name: "assessment_started",
-        assessmentId,
-        createdAt: Date.now(),
-      });
-    }
-    if (session.provider !== "livekit") throw new Error("LiveKit session was not created");
     diagnosticLog("assessment-start", "response_ready", {
       supportId: session.supportId,
       requestSupportId,

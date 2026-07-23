@@ -2,6 +2,7 @@ import "server-only";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { AccessToken } from "livekit-server-sdk";
 import { runtimeConfig } from "@/lib/server/runtime-config";
+import type { RuntimeConfig } from "@/lib/server/runtime-config";
 import type {
   AssessmentContext,
   NormalizedVoiceEvent,
@@ -11,13 +12,8 @@ import type {
   VoiceProviderId,
   VoiceStartSession,
 } from "@/lib/assessment/types";
-import {
-  createLiveKitClients,
-  dispatchAssessmentAgent,
-  assessmentAgentName,
-} from "@/lib/server/livekit";
-import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
-import { diagnosticLog } from "@/lib/server/diagnostic-log";
+import { createLiveKitClients, assessmentAgentName } from "@/lib/server/livekit";
+import { agentDispatchRoomConfiguration } from "@/lib/livekit/dispatch-core";
 
 export const interviewFrameworkVersion = "2026-07-v1";
 export { assessmentAgentName };
@@ -177,8 +173,11 @@ class UltravoxAdapter extends BaseAdapter {
 
 class LiveKitAdapter extends BaseAdapter {
   readonly id = "livekit" as const;
-  async createSession(context: AssessmentContext): Promise<ProviderSession> {
-    const config = await runtimeConfig();
+  async createSession(
+    context: AssessmentContext,
+    configOverride?: RuntimeConfig,
+  ): Promise<ProviderSession> {
+    const config = configOverride || (await runtimeConfig());
     const roomName = `assessment-${context.assessmentId}-${context.sessionKey}`;
     const supportId = crypto.randomUUID();
     const metadata = JSON.stringify({
@@ -188,29 +187,6 @@ class LiveKitAdapter extends BaseAdapter {
       frameworkVersion: interviewFrameworkVersion,
       supportId,
     });
-    let dispatchId: string;
-    let agentReadyAtStart = true;
-    try {
-      const readiness = await dispatchAssessmentAgent({ config, roomName, metadata, supportId });
-      dispatchId = readiness.dispatch.id;
-    } catch (error) {
-      if (
-        error instanceof LiveKitDispatchError &&
-        error.code === "AGENT_COLD_START_TIMEOUT" &&
-        error.dispatch
-      ) {
-        dispatchId = error.dispatch.id;
-        agentReadyAtStart = false;
-        diagnosticLog("livekit-session", "cold_start_timeout_continue", {
-          supportId,
-          roomName,
-          dispatchId,
-          code: error.code,
-        });
-      } else {
-        throw error;
-      }
-    }
     const token = new AccessToken(String(config.livekitApiKey), String(config.livekitApiSecret), {
       identity: `lead-${context.assessmentId}`,
       name: context.name,
@@ -223,6 +199,7 @@ class LiveKitAdapter extends BaseAdapter {
       canSubscribe: true,
       canPublishData: true,
     });
+    token.roomConfig = agentDispatchRoomConfiguration(assessmentAgentName, metadata);
     return {
       provider: "livekit",
       assessmentId: context.assessmentId,
@@ -230,8 +207,7 @@ class LiveKitAdapter extends BaseAdapter {
       token: await token.toJwt(),
       roomName,
       supportId,
-      dispatchId,
-      agentReadyAtStart,
+      agentReadyAtStart: false,
     };
   }
 }
@@ -309,8 +285,11 @@ const adapters: Record<VoiceProviderId, VoiceProviderAdapter> = {
   "gemini-live": new GeminiLiveAdapter(),
 };
 
-export async function providerConfigured(provider: VoiceProviderId) {
-  const config = await runtimeConfig();
+export async function providerConfigured(
+  provider: VoiceProviderId,
+  configOverride?: RuntimeConfig,
+) {
+  const config = configOverride || (await runtimeConfig());
   if (provider === "ultravox")
     return Boolean(
       config.ultravoxApiKey &&
@@ -343,9 +322,10 @@ export function getVoiceProvider(provider: VoiceProviderId): VoiceProviderAdapte
 export async function createVoiceSession(
   _provider: VoiceProviderId,
   context: AssessmentContext,
+  config?: RuntimeConfig,
 ): Promise<VoiceStartSession> {
   const provider: VoiceProviderId = "livekit";
-  if (!(await providerConfigured(provider))) {
+  if (!(await providerConfigured(provider, config))) {
     if (process.env.NODE_ENV === "production")
       throw new Error(`${provider} is not fully configured`);
     return {
@@ -354,5 +334,7 @@ export async function createVoiceSession(
       notice: `${provider} is ready for credentials.`,
     };
   }
-  return getVoiceProvider(provider).createSession(context);
+  const adapter = getVoiceProvider(provider);
+  if (adapter instanceof LiveKitAdapter) return adapter.createSession(context, config);
+  return adapter.createSession(context);
 }

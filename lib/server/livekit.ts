@@ -122,3 +122,8 @@ export async function probeLiveKitAgent(config: RuntimeConfig, supportId: string
     latencyMs: result.latencyMs,
   };
 }
+
+export async function cleanupAssessmentRoom(config: RuntimeConfig, roomName: string) {
+  const { clients } = createLiveKitClients(config);
+  await safeDeleteRoom(clients, roomName);
+}

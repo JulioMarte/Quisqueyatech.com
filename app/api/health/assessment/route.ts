@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     turnstile.secretReady &&
     turnstile.trustedProxyHeaders,
   );
-  const ready = commonReady && (await providerConfigured(provider));
+  const ready = commonReady && (await providerConfigured(provider, config));
   const wantsProbe = new URL(request.url).searchParams.get("probe") === "1";
   let activeProbe: { success: boolean; latencyMs?: number; code?: string } | undefined;
   if (wantsProbe) {
@@ -60,7 +60,13 @@ export async function GET(request: Request) {
     {
       status: operational ? "ready" : "not-ready",
       provider,
-      checks: { credentialsReady, projectMatch, workerSecretReady, turnstile, activeProbe },
+      checks: {
+        credentialsReady,
+        projectMatch,
+        workerSecretReady,
+        turnstile,
+        activeProbe,
+      },
     },
     { status: operational ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

@@ -156,7 +156,8 @@ export function TurnstileField({
     if (previousResetSignal.current === resetSignal) return;
     previousResetSignal.current = resetSignal;
     if (!siteKey) return;
-    retry();
+    const resetTimer = window.setTimeout(retry, 0);
+    return () => window.clearTimeout(resetTimer);
   }, [resetSignal, retry, siteKey]);
 
   if (!siteKey) return null;

@@ -117,7 +117,7 @@ export type ProviderSession =
       token: string;
       roomName: string;
       supportId: string;
-      dispatchId: string;
+      dispatchId?: string;
       agentReadyAtStart?: boolean;
     }
   | {

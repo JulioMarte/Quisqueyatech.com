@@ -10,6 +10,7 @@
 
 import type * as adminReset from "../adminReset.js";
 import type * as agenda from "../agenda.js";
+import type * as assessmentValidators from "../assessmentValidators.js";
 import type * as assessments from "../assessments.js";
 import type * as auth from "../auth.js";
 import type * as bookings from "../bookings.js";
@@ -34,6 +35,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   adminReset: typeof adminReset;
   agenda: typeof agenda;
+  assessmentValidators: typeof assessmentValidators;
   assessments: typeof assessments;
   auth: typeof auth;
   bookings: typeof bookings;

@@ -1,4 +1,10 @@
 export const assessmentTelemetryEvents = [
+  "conference_start_requested",
+  "conference_start_response",
+  "room_connected",
+  "agent_joined",
+  "agent_ready",
+  "first_audio_playing",
   "audio_blocked",
   "audio_unlocked",
   "track_subscribed",

@@ -21,7 +21,14 @@ type Metadata = {
   supportId: string;
 };
 type DiagnosticMetadata = { diagnostic: true; supportId: string; verifyApplication?: boolean };
-type WorkerConfig = { geminiApiKey: string; model: string; voice: string; temperature: number };
+type WorkerConfig = {
+  geminiApiKey: string;
+  model: string;
+  voice: string;
+  temperature: number;
+  locale: "es" | "en";
+  prompt: string;
+};
 const workerSecret = process.env.ASSESSMENT_WORKER_SECRET || "";
 
 function log(stage: string, details: Record<string, unknown> = {}) {
@@ -140,17 +147,6 @@ const agent = defineAgent({
       throw new Error("Assessment metadata is missing");
     const startedAt = Date.now();
     const supportId = metadata.supportId || crypto.randomUUID();
-    await ctx.connect();
-    log("ctx_connected", {
-      jobId: ctx.job.id,
-      room: ctx.room.name,
-      supportId,
-      diagnostic: false,
-      durationMs: Date.now() - entryStartedAt,
-    });
-    await ctx.agent?.updateMetadata(
-      JSON.stringify({ state: "initializing", occurredAt: Date.now() }),
-    );
     const baseUrl = appUrl();
     const telemetry = (
       event: string,
@@ -182,57 +178,52 @@ const agent = defineAgent({
       ).catch(() => log("telemetry_delivery_failed", { jobId: ctx.job.id, event }));
     };
     telemetry("agent_initializing", { state: "initializing" });
-    log("worker_config_fetch_start", {
+    log("worker_bootstrap_fetch_start", {
       jobId: ctx.job.id,
       room: ctx.room.name,
       supportId,
       appUrl: baseUrl,
       durationMs: Date.now() - entryStartedAt,
     });
-    const configResponse = await fetchBounded(
-      `${baseUrl}/api/assessment/worker-config`,
+    const bootstrapResponse = await fetchBounded(
+      `${baseUrl}/api/assessment/worker-bootstrap`,
       {
-        headers: { Authorization: `Bearer ${workerSecret}` },
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${workerSecret}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ assessmentId: metadata.assessmentId }),
         cache: "no-store",
       },
       { timeoutMs: 8_000, retries: 1 },
     );
-    log("worker_config_fetch_result", {
+    log("worker_bootstrap_fetch_result", {
       jobId: ctx.job.id,
       room: ctx.room.name,
       supportId,
-      ok: configResponse.ok,
-      status: configResponse.status,
+      ok: bootstrapResponse.ok,
+      status: bootstrapResponse.status,
       durationMs: Date.now() - entryStartedAt,
     });
-    if (!configResponse.ok) {
-      await ctx.agent?.updateMetadata(
-        JSON.stringify({ state: "configuration_error", code: `HTTP_${configResponse.status}` }),
-      );
-      throw new Error(`Worker configuration failed (${configResponse.status})`);
+    if (!bootstrapResponse.ok) {
+      throw new Error(`Worker bootstrap failed (${bootstrapResponse.status})`);
     }
-    const runtime = (await configResponse.json()) as WorkerConfig;
+    const runtime = (await bootstrapResponse.json()) as WorkerConfig;
     log("configuration_ready", { jobId: ctx.job.id, model: runtime.model });
-    const promptResponse = await fetchBounded(
-      `${baseUrl}/api/assessment/prompt?assessmentId=${encodeURIComponent(metadata.assessmentId)}`,
-      { headers: { Authorization: `Bearer ${workerSecret}` } },
-      { timeoutMs: 8_000, retries: 1 },
-    );
-    log("prompt_fetch_result", {
+    const prompt = runtime.prompt;
+    if (!prompt) throw new Error("Worker bootstrap did not include a prompt");
+    await ctx.connect();
+    log("ctx_connected", {
       jobId: ctx.job.id,
       room: ctx.room.name,
       supportId,
-      ok: promptResponse.ok,
-      status: promptResponse.status,
+      diagnostic: false,
       durationMs: Date.now() - entryStartedAt,
     });
-    if (!promptResponse.ok) {
-      await ctx.agent?.updateMetadata(
-        JSON.stringify({ state: "configuration_error", code: `PROMPT_${promptResponse.status}` }),
-      );
-      throw new Error(`Assessment prompt failed (${promptResponse.status})`);
-    }
-    const prompt = (await promptResponse.json()).prompt as string;
+    await ctx.agent?.updateMetadata(
+      JSON.stringify({ state: "initializing", occurredAt: Date.now() }),
+    );
     log("prompt_ready", { jobId: ctx.job.id });
     let completionReason = "livekit-session-ended";
     let closeProgressRecorded = false;
@@ -398,10 +389,18 @@ const agent = defineAgent({
         model: runtime.model,
         voice: runtime.voice,
         temperature: runtime.temperature,
+        language: runtime.locale === "es" ? "es-US" : "en-US",
         instructions,
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL, includeThoughts: false },
+        realtimeInputConfig: {
+          automaticActivityDetection: { silenceDurationMs: 600 },
+        },
+        contextWindowCompression: {
+          triggerTokens: "25000",
+          slidingWindow: { targetTokens: "8000" },
+        },
       }),
     });
     let currentTurnId: string | undefined;
@@ -620,6 +619,12 @@ const agent = defineAgent({
       model: runtime.model,
       durationMs: Date.now() - entryStartedAt,
     });
+    session.generateReply({
+      instructions:
+        metadata.locale === "es"
+          ? "Saluda brevemente como July y pregunta cómo prefiere que le llames."
+          : "Briefly greet the visitor as July and ask how they prefer to be addressed.",
+    });
   },
 });
 
@@ -632,5 +637,6 @@ cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
     agentName: "quisqueyatech-assessment",
+    numIdleProcesses: 1,
   }),
 );

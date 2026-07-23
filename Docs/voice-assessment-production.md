@@ -33,12 +33,37 @@ exactamente `quisqueyatech.com` y `www.quisqueyatech.com`. En Coolify configure
 
 Use secretos aleatorios distintos, de al menos 32 bytes. No reutilice `ADMIN_API_SECRET`. Configure las mismas variables de worker en Next y en el servicio LiveKit, y nunca use variables `NEXT_PUBLIC_*` para secretos.
 
-Configure `LIVEKIT_AGENT_READY_TIMEOUT_MS=60000` en Next para tolerar el arranque
-en frío del deployment. Para habilitar la prueba activa de salud, configure un
+El token del participante despacha al agente cuando el navegador crea la sala,
+por lo que la solicitud de inicio no espera el arranque de Gemini. El flujo lento
+anterior fue eliminado para evitar dos rutas de persistencia incompatibles.
+`LIVEKIT_AGENT_READY_TIMEOUT_MS=60000` se utiliza únicamente en la prueba activa
+de salud. Para habilitarla, configure un
 `ASSESSMENT_HEALTH_PROBE_TOKEN` aleatorio y llame
 `GET /api/health/assessment?probe=1` con ese valor en `x-health-probe-token`.
 La prueba crea una sala diagnóstica, espera la validación del worker y la elimina;
 no debe exponerse como monitor público sin autenticación.
+
+### Migración de contratos de evaluación
+
+El despliegue inicial mantiene los campos legacy y escribe también
+`snapshotV1`, `reportDraftV1`, `resultV1`, `reportV1`, `inputV1` y `outputV1`.
+Después de desplegar el esquema ampliado:
+
+1. Ejecute en dry-run `backfillAssessmentV1`, `backfillAssessmentSessionV1` y
+   `backfillAssessmentEventV1` desde `convex/migrations.ts`.
+2. Ejecute las tres migraciones sin `dryRun` y monitoree el componente de
+   migraciones hasta completar.
+3. Ejecute `verifyAssessmentV1Migration`; no estreche el esquema si
+   `complete` es falso, `capped` es verdadero o `sampleMissing` contiene datos.
+4. Active el índice `by_event_and_created_at` únicamente después de confirmar
+   que el backfill staged terminó.
+5. En un segundo despliegue, cambie las lecturas a los campos V1, retire el
+   fallback de telemetría y luego elimine los campos legacy.
+
+Rollback: mientras no se haya realizado el segundo despliegue, revierta la
+aplicación sin tocar datos; el dual-write conserva los campos legacy. Después
+de estrechar el esquema, restaure primero un esquema que acepte ambos formatos
+antes de revertir código.
 
 Para desarrollo local, configure también `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
 `LIVEKIT_API_SECRET` y `ASSESSMENT_WORKER_SECRET` en `.env.local`, y ejecute el
@@ -56,13 +81,19 @@ guardan cifrados desde el panel y el worker los obtiene mediante
 
 ## Orden de despliegue
 
-1. Configurar las variables de Convex Cloud descritas en el README y ejecutar `npm run convex:deploy`.
-2. Desplegar Next y comprobar `GET /api/health/assessment`. En
+1. Desplegar primero el esquema Convex con `by_event_and_created_at` marcado
+   como `staged`, esperar que termine su backfill y, en un segundo deploy,
+   retirar `staged: true` antes de cambiar la consulta administrativa a ese índice.
+2. Configurar las variables de Convex Cloud descritas en el README y ejecutar `npm run convex:deploy`.
+3. Desplegar Next y comprobar `GET /api/health/assessment`. En
    `checks.turnstile`, las dos claves y `trustedProxyHeaders` deben aparecer como
    disponibles, y los dos hostnames públicos deben estar listados.
-3. Desplegar el worker LiveKit cuando ese proveedor esté habilitado.
-4. Configurar el webhook Ultravox hacia `/api/webhooks/ultravox` y verificar una firma real.
-5. Ejecutar un enlace firmado por proveedor antes de cambiar el predeterminado.
+4. Desplegar el worker LiveKit y confirmar `numIdleProcesses: 1`. El plan de
+   LiveKit debe mantener al menos una réplica activa; `lk agent status` no debe
+   mostrar `Sleeping` después de un periodo sin sesiones.
+5. Configurar el webhook Ultravox hacia `/api/webhooks/ultravox` y verificar una firma real.
+6. Ejecutar al menos veinte sesiones canario y confirmar P95 menor o igual a
+   cinco segundos entre el clic inicial y `first_audio_playing`.
 
 ## Recuperación de fallos
 

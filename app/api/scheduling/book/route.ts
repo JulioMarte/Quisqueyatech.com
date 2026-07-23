@@ -4,6 +4,7 @@ import { convexMutation } from "@/lib/server/convex";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
 import { requestIp } from "@/lib/server/request-ip";
+import { DATA_PROCESSING_VERSION, MESSAGING_CONSENT_VERSION } from "@/lib/consent";
 
 export async function POST(request: Request) {
   try {
@@ -64,7 +65,9 @@ export async function POST(request: Request) {
       email: booking.email,
       phone: booking.phone,
       notes: booking.notes,
-      recordingConsent: booking.recordingConsent,
+      messagingConsent: booking.messagingConsent,
+      messagingConsentVersion: MESSAGING_CONSENT_VERSION,
+      processingConsentVersion: DATA_PROCESSING_VERSION,
       start: booking.start,
       timezone: booking.timezone,
       channel: booking.channel,

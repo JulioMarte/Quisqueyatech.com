@@ -26,6 +26,7 @@ import {
   playbackFailureStatus,
   prepareAudioElement,
 } from "@/lib/livekit/audio-playback";
+import type { LocalAudioTrack } from "livekit-client";
 
 type Session = {
   provider: "livekit";
@@ -44,7 +45,17 @@ type Result = { reviewPending: true };
 
 const activeStatuses = new Set(["audio-ready", "idle", "listening", "thinking", "speaking"]);
 
-export function VoiceSession({ locale, session }: { locale: Locale; session: Session }) {
+export function VoiceSession({
+  locale,
+  session,
+  initialMicrophoneTrack = null,
+  startupStartedAt = 0,
+}: {
+  locale: Locale;
+  session: Session;
+  initialMicrophoneTrack?: LocalAudioTrack | null;
+  startupStartedAt?: number;
+}) {
   const es = locale === "es";
   const [status, setStatus] = useState("connecting");
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
@@ -80,6 +91,10 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
   const supportSuffix = es
     ? ` Código de soporte: ${session.supportId}`
     : ` Support code: ${session.supportId}`;
+  const startupDuration = useCallback(
+    () => (startupStartedAt ? Math.max(0, Date.now() - startupStartedAt) : undefined),
+    [startupStartedAt],
+  );
 
   const reportDiagnostic = useCallback(
     (
@@ -108,6 +123,13 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     },
     [session.progressToken, session.roomName, session.sessionKey, session.supportId],
   );
+
+  useEffect(() => {
+    reportDiagnostic("conference_start_requested", "unknown", { durationMs: 0 });
+    reportDiagnostic("conference_start_response", "unknown", {
+      durationMs: startupDuration(),
+    });
+  }, [reportDiagnostic, startupDuration]);
 
   const clearClientTurnTimers = useCallback(() => {
     if (clientTurnTimer.current) window.clearTimeout(clientTurnTimer.current);
@@ -340,7 +362,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     async function connect() {
       try {
         if (session.roomUrl && session.token) {
-          const { Room, RoomEvent } = await import("livekit-client");
+          const { Room, RoomEvent, Track } = await import("livekit-client");
           const room = new Room({ adaptiveStream: true, dynacast: true });
           const audioElements = new Map<string, HTMLMediaElement>();
           const clearAgentAudioTimer = () => {
@@ -361,7 +383,10 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             audioPlayingRef.current = true;
             clearAgentAudioTimer();
             setAudioNotice("");
-            reportDiagnostic("audio_playing", "playing");
+            reportDiagnostic("audio_playing", "playing", { durationMs: startupDuration() });
+            reportDiagnostic("first_audio_playing", "playing", {
+              durationMs: startupDuration(),
+            });
           };
           room.on(RoomEvent.TrackSubscribed, (track) => {
             if (track.kind === "audio") {
@@ -422,7 +447,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           });
           room.on(RoomEvent.ParticipantConnected, () => {
             if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
-            setStatus(audioUnlockedRef.current ? "listening" : "audio-unlock-required");
+            reportDiagnostic("agent_joined", "ready", { durationMs: startupDuration() });
+            setStatus(audioUnlockedRef.current ? "idle" : "audio-unlock-required");
           });
           room.on(RoomEvent.ParticipantDisconnected, () => {
             if (disposed) return;
@@ -449,6 +475,9 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
                 setError("");
                 setAudioNotice("");
                 setStatus("finishing");
+              } else if (parsed.state === "ready") {
+                reportDiagnostic("agent_ready", "ready", { durationMs: startupDuration() });
+                setStatus(audioUnlockedRef.current ? "listening" : "audio-unlock-required");
               } else if (
                 parsed.state === "recovery_required" ||
                 parsed.state === "recovery_available"
@@ -515,12 +544,33 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
           });
           setStatus("waiting-agent");
           await room.connect(session.roomUrl, session.token);
-          setStatus("audio-unlock-required");
-          setAudioNotice(
-            es
-              ? "Toca el botón para activar el audio y permitir el micrófono."
-              : "Tap the button to enable audio and allow microphone access.",
-          );
+          reportDiagnostic("room_connected", "unknown", { durationMs: startupDuration() });
+          if (room.remoteParticipants.size)
+            reportDiagnostic("agent_joined", "ready", { durationMs: startupDuration() });
+          try {
+            await room.startAudio();
+            audioUnlockedRef.current = room.canPlaybackAudio;
+          } catch {
+            audioUnlockedRef.current = false;
+          }
+          if (initialMicrophoneTrack) {
+            await room.localParticipant.publishTrack(initialMicrophoneTrack, {
+              source: Track.Source.Microphone,
+            });
+            setMuted(false);
+          }
+          if (audioUnlockedRef.current) {
+            setStatus(room.remoteParticipants.size ? "listening" : "waiting-agent");
+            setAudioNotice("");
+            reportDiagnostic("audio_unlocked", "ready", { durationMs: startupDuration() });
+          } else {
+            setStatus("audio-unlock-required");
+            setAudioNotice(
+              es
+                ? "Toca el botón para activar el audio y permitir el micrófono."
+                : "Tap the button to enable audio and allow microphone access.",
+            );
+          }
           if (!room.remoteParticipants.size) {
             agentWaitTimer = window.setTimeout(() => {
               if (disposed || room.remoteParticipants.size) return;
@@ -611,6 +661,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
             : "The room did not receive valid credentials.",
         );
       } catch (reason) {
+        initialMicrophoneTrack?.stop();
         if (disposed) return;
         setError(
           `${reason instanceof Error ? reason.message : "Connection error"}${supportSuffix}`,
@@ -626,6 +677,7 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
       clearClientTurnTimers();
       if (agentWaitTimer) window.clearTimeout(agentWaitTimer);
       if (agentAudioTimer) window.clearTimeout(agentAudioTimer);
+      initialMicrophoneTrack?.stop();
       void controller.current?.disconnect();
     };
   }, [
@@ -636,6 +688,8 @@ export function VoiceSession({ locale, session }: { locale: Locale; session: Ses
     resolveClientTurn,
     saveProgress,
     session,
+    initialMicrophoneTrack,
+    startupDuration,
     supportSuffix,
   ]);
 

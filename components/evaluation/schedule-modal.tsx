@@ -49,6 +49,7 @@ import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useScheduleModal } from "@/components/evaluation/schedule-modal-context";
 import { cn } from "@/lib/utils";
+import { consentLinks } from "@/lib/consent";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -200,8 +201,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
   const [country, setCountry] = useState("DO");
   const [notes, setNotes] = useState("");
   const [channel, setChannel] = useState<ScheduleChannel>("web");
-  const [consentProcessing, setConsentProcessing] = useState(false);
-  const [consentRecording, setConsentRecording] = useState(false);
+  const [messagingConsent, setMessagingConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRequired = turnstilePublicConfig().enabled;
   const [turnstileStatus, setTurnstileStatus] = useState<TurnstileStatus>(
@@ -322,8 +322,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     setCountry("DO");
     setNotes("");
     setChannel("web");
-    setConsentProcessing(false);
-    setConsentRecording(false);
+    setMessagingConsent(false);
     setTurnstileToken("");
     setSelectedDate(null);
     setSelectedTime(null);
@@ -484,15 +483,6 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
             target: "phone",
           };
         }
-        if (!consentProcessing) {
-          return {
-            valid: false,
-            message: es
-              ? "Necesitamos tu consentimiento para procesar tus datos."
-              : "We need your consent to process your data.",
-            target: "processingConsent",
-          };
-        }
         return { valid: true };
       }
       if (targetStep === 2) {
@@ -556,7 +546,6 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
       email,
       country,
       phone,
-      consentProcessing,
       selectedDate,
       selectedTime,
       availabilityConfigured,
@@ -634,8 +623,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
         start: startIso,
         timezone,
         channel,
-        processingConsent: true,
-        recordingConsent: consentRecording,
+        messagingConsent,
         turnstileToken: turnstileToken || undefined,
         bookingAttemptId,
       },
@@ -712,7 +700,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
     locale,
     timezone,
     channel,
-    consentRecording,
+    messagingConsent,
     turnstileToken,
     es,
     source,
@@ -933,8 +921,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                     country={country}
                     notes={notes}
                     channel={channel}
-                    consentProcessing={consentProcessing}
-                    consentRecording={consentRecording}
+                    messagingConsent={messagingConsent}
                     onFirstNameChange={setFirstName}
                     onLastNameChange={setLastName}
                     onEmailChange={setEmail}
@@ -944,8 +931,7 @@ function ScheduleModalImpl({ isOpen, source, locale, onClose }: ScheduleModalImp
                     onCountryChange={onCountryChange}
                     onNotesChange={setNotes}
                     onChannelChange={setChannel}
-                    onConsentProcessingChange={setConsentProcessing}
-                    onConsentRecordingChange={setConsentRecording}
+                    onMessagingConsentChange={setMessagingConsent}
                     invalidTarget={invalidTarget}
                     locale={locale}
                   />
@@ -1232,8 +1218,7 @@ interface ContactStepProps {
   country: string;
   notes: string;
   channel: ScheduleChannel;
-  consentProcessing: boolean;
-  consentRecording: boolean;
+  messagingConsent: boolean;
   onFirstNameChange: (v: string) => void;
   onLastNameChange: (v: string) => void;
   onEmailChange: (v: string) => void;
@@ -1243,8 +1228,7 @@ interface ContactStepProps {
   onCountryChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   onNotesChange: (v: string) => void;
   onChannelChange: (v: ScheduleChannel) => void;
-  onConsentProcessingChange: (v: boolean) => void;
-  onConsentRecordingChange: (v: boolean) => void;
+  onMessagingConsentChange: (v: boolean) => void;
   invalidTarget: string | null;
   locale: "es" | "en";
 }
@@ -1414,28 +1398,51 @@ function ContactStep(props: ContactStepProps) {
           />
         </div>
       </div>
-      <div className="space-y-1.5 rounded-xl border border-line bg-bg-2/50 p-3 lg:p-2.5">
+      <div className="space-y-3 rounded-xl border border-line bg-bg-2/50 p-3 lg:p-2.5">
         <ConsentCheckbox
-          checked={props.consentProcessing}
-          onChange={props.onConsentProcessingChange}
-          required
-          target="processingConsent"
-          invalid={props.invalidTarget === "processingConsent"}
+          checked={props.messagingConsent}
+          onChange={props.onMessagingConsentChange}
+          target="messagingConsent"
           label={
-            es
-              ? "Acepto el procesamiento de mis datos para gestionar esta evaluación."
-              : "I consent to processing my data to manage this assessment."
+            <>
+              {es
+                ? "Acepto recibir de QuisqueyaTech confirmaciones, recordatorios, cambios y otros mensajes relacionados con mi cita por SMS y WhatsApp en el número indicado. La frecuencia varía. Pueden aplicar tarifas de mensajes y datos. Para SMS, responde STOP para cancelar y HELP para obtener ayuda. En WhatsApp puedo solicitar dejar de recibir mensajes en cualquier momento. No es necesario aceptar para agendar; si no acepto, recibiré las comunicaciones por correo electrónico. Consulta los "
+                : "I agree to receive appointment confirmations, reminders, changes, and other appointment-related messages from QuisqueyaTech by SMS and WhatsApp at the number provided. Message frequency varies. Message and data rates may apply. For SMS, reply STOP to opt out and HELP for help. On WhatsApp, I may ask QuisqueyaTech to stop messaging me at any time. Consent is not required to book; if I do not agree, communications will be sent by email. See the "}
+              <a
+                href={consentLinks.messagingTerms(props.locale)}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-tech underline"
+              >
+                {es ? "Términos de mensajería" : "Messaging Terms"}
+              </a>
+              {es ? " y la " : " and "}
+              <a
+                href={consentLinks.privacy(props.locale)}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-tech underline"
+              >
+                {es ? "Política de privacidad" : "Privacy Policy"}
+              </a>
+              .
+            </>
           }
         />
-        <ConsentCheckbox
-          checked={props.consentRecording}
-          onChange={props.onConsentRecordingChange}
-          label={
-            es
-              ? "Acepto la grabación de la sesión durante un máximo de 30 días."
-              : "I consent to recording the session for up to 30 days."
-          }
-        />
+        <p className="text-[12px] leading-relaxed text-mute">
+          {es
+            ? "Usaremos los datos proporcionados para gestionar tu solicitud y la cita. Consulta cómo protegemos y conservamos tu información en nuestra "
+            : "We use the information provided to manage your request and appointment. Learn how we protect and retain it in our "}
+          <a
+            href={consentLinks.privacy(props.locale)}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-tech underline"
+          >
+            {es ? "Política de privacidad" : "Privacy Policy"}
+          </a>
+          .
+        </p>
       </div>
     </form>
   );
@@ -1447,7 +1454,7 @@ function Field({
   hint,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   required?: boolean;
   hint?: string;
   children: React.ReactNode;
@@ -1473,7 +1480,7 @@ function ChannelPill({
 }: {
   active: boolean;
   onClick: () => void;
-  label: string;
+  label: React.ReactNode;
   sub: string;
   icon: React.ReactNode;
 }) {
@@ -1509,7 +1516,7 @@ function ConsentCheckbox({
   required?: boolean;
   target?: string;
   invalid?: boolean;
-  label: string;
+  label: React.ReactNode;
 }) {
   const id = useId();
   return (

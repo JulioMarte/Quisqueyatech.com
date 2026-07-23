@@ -65,6 +65,7 @@ test("localized paths round-trip", () => {
   assert.equal(alternatePath("/en/about"), "/nosotros");
   assert.equal(alternatePath("/nosotros"), "/en/about");
   assert.equal(alternatePath("/soluciones/agentes-de-ia"), "/en/solutions/ai-agents");
+  assert.equal(alternatePath("/terminos-de-mensajeria"), "/en/messaging-terms");
 });
 
 test("assessment intake requires international mobile and both consents", () => {
@@ -88,7 +89,13 @@ test("assessment intake requires international mobile and both consents", () => 
   );
   assert.equal(
     bookingSchema.safeParse({
-      ...valid,
+      firstName: valid.firstName,
+      lastName: valid.lastName,
+      country: valid.country,
+      locale: valid.locale,
+      email: valid.email,
+      phone: valid.phone,
+      messagingConsent: false,
       start: new Date().toISOString(),
       timezone: "America/Santo_Domingo",
       channel: "web",
@@ -102,13 +109,13 @@ test("assessment intake requires international mobile and both consents", () => 
     locale: valid.locale,
     email: valid.email,
     phone: valid.phone,
-    processingConsent: true,
-    recordingConsent: false,
+    messagingConsent: false,
     start: new Date().toISOString(),
     timezone: "America/Santo_Domingo",
     channel: "web",
   };
   assert.equal(bookingSchema.safeParse(bookingOnly).success, true);
+  assert.equal(bookingSchema.safeParse({ ...bookingOnly, messagingConsent: true }).success, true);
   assert.equal(bookingSchema.safeParse({ ...bookingOnly, email: undefined }).success, false);
 });
 

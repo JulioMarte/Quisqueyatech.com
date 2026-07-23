@@ -38,7 +38,9 @@ function input(bookingId: string, start: string) {
     email: "ana@example.com",
     phone: "+18095551234",
     notes: "Llamar por WhatsApp",
-    recordingConsent: false,
+    messagingConsent: false,
+    messagingConsentVersion: "appointment-messaging-2026-07-v1",
+    processingConsentVersion: "privacy-2026-07-v1",
     start,
     timezone: "America/Santo_Domingo",
     channel: "web" as const,
@@ -61,6 +63,23 @@ test("server-authorized agenda stores canonical timestamps and optional profile 
   expect(lead?.notes).toBe("Llamar por WhatsApp");
   expect(lead?.company).toBeUndefined();
   expect(lead?.role).toBeUndefined();
+  expect(booking?.messagingConsentAt).toBeUndefined();
+  expect(booking?.messagingChannels).toBeUndefined();
+  expect(lead?.processingConsentVersion).toBe("privacy-2026-07-v1");
+});
+
+test("appointment messaging opt-in stores server-versioned evidence", async () => {
+  const t = convexTest(schema, modules);
+  const start = nextWeekdayAtTen();
+  await t.mutation(api.agenda.create, {
+    ...input(crypto.randomUUID(), start),
+    messagingConsent: true,
+  });
+  const booking = await t.run((ctx) => ctx.db.query("bookings").first());
+  expect(booking?.messagingConsentAt).toBe(Date.now());
+  expect(booking?.messagingConsentVersion).toBe("appointment-messaging-2026-07-v1");
+  expect(booking?.messagingConsentLocale).toBe("es");
+  expect(booking?.messagingChannels).toEqual(["sms", "whatsapp"]);
 });
 
 test("appointment creation rejects callers without the server secret", async () => {

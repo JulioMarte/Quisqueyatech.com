@@ -35,6 +35,8 @@ function resolveRoute(parts: string[]): Route | null {
     "/nosotros": { kind: "about", locale: "es" },
     "/en/about": { kind: "about", locale: "en" },
     "/en/privacy": { kind: "privacy", locale: "en" },
+    "/terminos-de-mensajeria": { kind: "messagingTerms", locale: "es" },
+    "/en/messaging-terms": { kind: "messagingTerms", locale: "en" },
   };
   if (fixed[path]) return fixed[path];
   const resource = path.match(/^\/(en\/)?recursos\/([^/]+)$/);
@@ -92,7 +94,15 @@ export async function generateMetadata({
         ? isEn
           ? "Automation, AI, and software for modern companies"
           : "Automatización, IA y software para empresas"
-        : undefined,
+        : route.kind === "privacy"
+          ? isEn
+            ? "Privacy Policy"
+            : "Política de privacidad"
+          : route.kind === "messagingTerms"
+            ? isEn
+              ? "Messaging Terms"
+              : "Términos de mensajería"
+            : undefined,
     alternates: { canonical },
   };
 }

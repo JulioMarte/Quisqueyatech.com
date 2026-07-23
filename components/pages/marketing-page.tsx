@@ -14,6 +14,7 @@ import { brand } from "@/lib/brand";
 import { getPublishedPost, getPublishedPosts } from "@/lib/server/content";
 import type { Locale } from "@/lib/i18n";
 import { PrivacySections } from "@/components/pages/privacy-sections";
+import { MessagingTerms } from "@/components/pages/messaging-terms";
 import { ResourceGrid } from "@/components/resources/resource-grid";
 
 type PageKind =
@@ -28,10 +29,14 @@ type PageKind =
   | "assessmentSchedule"
   | "resources"
   | "about"
-  | "privacy";
+  | "privacy"
+  | "messagingTerms";
 
 const definitions: Record<
-  Exclude<PageKind, "assessmentNow" | "assessmentSchedule" | "resources" | "about" | "privacy">,
+  Exclude<
+    PageKind,
+    "assessmentNow" | "assessmentSchedule" | "resources" | "about" | "privacy" | "messagingTerms"
+  >,
   Record<
     Locale,
     { eyebrow: string; title: string; lede: string; points: readonly (readonly [string, string])[] }
@@ -227,6 +232,16 @@ export async function MarketingPage({
   if (kind === "resources") return <Resources locale={locale} postSlug={postSlug} />;
   if (kind === "about") return <About locale={locale} />;
   if (kind === "privacy") return <Privacy locale={locale} />;
+  if (kind === "messagingTerms")
+    return (
+      <Section>
+        <Container className="max-w-3xl">
+          <Reveal>
+            <MessagingTerms locale={locale} />
+          </Reveal>
+        </Container>
+      </Section>
+    );
 
   const page = definitions[kind][locale];
   const base = locale === "es" ? "" : "/en";

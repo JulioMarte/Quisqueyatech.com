@@ -27,6 +27,40 @@ worker, luego ejecuta `npm run assessment:doctor`. Si existe
 `ASSESSMENT_HEALTH_PROBE_TOKEN`, el script tambien ejecuta el probe activo de
 LiveKit; para un preview o produccion usa `ASSESSMENT_DOCTOR_URL=https://...`.
 
+## Observabilidad con OpenTelemetry
+
+La app Next.js y el worker LiveKit inicializan OpenTelemetry en Node.js y
+exportan trazas y metricas por OTLP HTTP/protobuf. Configura estas variables en
+Coolify, Docker o `.env.local`:
+
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <token>"
+OTEL_TRACES_EXPORTER=otlp
+OTEL_METRICS_EXPORTER=otlp
+OTEL_LOGS_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_DEPLOYMENT_ENVIRONMENT=production
+```
+
+El servicio web usa `OTEL_SERVICE_NAME=quisqueyatech-web` por defecto. Los
+scripts del worker fijan `OTEL_SERVICE_NAME=quisqueyatech-livekit-agent`.
+Usa `OTEL_ENABLED=false` o `OTEL_SDK_DISABLED=true` para desactivar la
+instrumentacion sin cambiar el build.
+
+Para Grafana Cloud puedes usar el endpoint base OTLP, o fijar endpoints por
+señal si tu collector los exige:
+
+```bash
+GRAFANA_CLOUD_OTLP_ENDPOINT=https://otlp-gateway-prod-REGION.grafana.net/otlp
+GRAFANA_CLOUD_BASIC_AUTH_HEADER="Basic <base64 instance-id:token>"
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/traces"
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/metrics"
+OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/logs"
+OTEL_EXPORTER_OTLP_HEADERS="authorization=${GRAFANA_CLOUD_BASIC_AUTH_HEADER}"
+```
+
 `npx convex codegen` solamente genera los bindings y comprueba tipos locales. No publica las funciones en Convex Cloud y no sustituye a `npx convex dev --once`.
 
 La aplicación funciona en modo demostración sin credenciales externas. Copia `.env.example` y configura servicios según se activen.

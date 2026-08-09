@@ -8,10 +8,12 @@ import {
   type JobContext,
 } from "@livekit/agents";
 import * as google from "@livekit/agents-plugin-google";
-import { ThinkingLevel } from "@google/genai";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { errorCode, fetchBounded } from "./http.js";
+import { startOpenTelemetry } from "./observability.js";
+
+startOpenTelemetry();
 
 type Metadata = {
   assessmentId: string;
@@ -427,7 +429,7 @@ const agent = defineAgent({
         instructions,
         inputAudioTranscription: {},
         outputAudioTranscription: {},
-        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL, includeThoughts: false },
+        thinkingConfig: { thinkingLevel: "minimal" as never, includeThoughts: false },
         realtimeInputConfig: {
           automaticActivityDetection: { silenceDurationMs: 600 },
         },
@@ -442,7 +444,7 @@ const agent = defineAgent({
     let stalledTurnId: string | undefined;
     let turnWatchdog: ReturnType<typeof setTimeout> | undefined;
     let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
-    let lastAgentState = agentMetadataStates.initializing;
+    let lastAgentState: string = agentMetadataStates.initializing;
     let agentStarted = false;
 
     const updateAgentMetadata = (state: string, recoveryCode?: string) => {
@@ -655,12 +657,6 @@ const agent = defineAgent({
       supportId,
       model: runtime.model,
       durationMs: Date.now() - entryStartedAt,
-    });
-    session.generateReply({
-      instructions:
-        metadata.locale === "es"
-          ? "Saluda brevemente como July y pregunta cómo prefiere que le llames."
-          : "Briefly greet the visitor as July and ask how they prefer to be addressed.",
     });
   },
 });

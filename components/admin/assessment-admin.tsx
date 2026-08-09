@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Container, Eyebrow, Section } from "@/components/ui/section";
 import { adminRequest, type AdminPage } from "@/lib/client/admin-response";
 
-type Report = {
+export type AssessmentReport = {
   subject: string;
   executiveSummary: string;
   processSummary: string;
@@ -20,6 +20,7 @@ type Report = {
   openQuestions: string[];
   nextStep: string;
 };
+type Report = AssessmentReport;
 type Summary = {
   assessmentId: string;
   status: string;
@@ -484,7 +485,7 @@ function Evidence({ detail }: { detail: Detail }) {
     </div>
   );
 }
-function ReportEditor({
+export function ReportEditor({
   report,
   busy,
   canSend,

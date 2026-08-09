@@ -65,6 +65,8 @@ export default defineSchema({
     reportSendMessageId: v.optional(v.string()),
     reviewedBy: v.optional(v.string()),
     reviewedAt: v.optional(v.number()),
+    snapshotReviewedBy: v.optional(v.string()),
+    snapshotReviewedAt: v.optional(v.number()),
     sentAt: v.optional(v.number()),
     sendError: v.optional(v.string()),
     recordingConsentAt: v.number(),

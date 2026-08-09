@@ -112,13 +112,13 @@ test("authenticated administrator can load every panel area and log out", async 
   await page.getByLabel("Contraseña").fill(process.env.E2E_ADMIN_PASSWORD!);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/admin/);
-  for (const name of ["Evaluaciones", "Contenido", "Agentes"]) {
-    await page.getByRole("button", { name }).click();
-    await expect(page).toHaveURL(
-      new RegExp(
-        `area=${name === "Evaluaciones" ? "assessments" : name === "Contenido" ? "content" : "agents"}`,
-      ),
-    );
+  for (const [name, path] of [
+    ["Evaluaciones", "/admin/evaluaciones"],
+    ["Contenido", "/admin/contenido"],
+    ["Agentes", "/admin/agentes"],
+  ] as const) {
+    await page.getByRole("link", { name }).click();
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
     const results = await new AxeBuilder({ page }).analyze();
     expect(
       results.violations.filter((item) => item.impact === "critical" || item.impact === "serious"),
@@ -205,7 +205,7 @@ test("authenticated administrator can load every panel area and log out", async 
   expect(conflict.status()).toBe(409);
   expect((await conflict.json()).errorCode).toBe("CONFLICT");
   expect((await context.request.delete(`/api/admin/v1/posts/${created.id}`)).status()).toBe(200);
-  await page.getByRole("button", { name: "Salir" }).click();
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await expect(page).toHaveURL(/\/sign-in/);
 });
 

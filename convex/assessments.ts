@@ -1,7 +1,8 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { AssessmentInterviewEngine } from "../lib/assessment/engine";
+import { AssessmentInterviewEngine, scoreCoverage } from "../lib/assessment/engine";
+import type { AssessmentFieldKey, AssessmentSnapshot } from "../lib/assessment/types";
 import { requireAdmin as requireAdminIdentity } from "./auth";
 import { requireAssessmentStorageSecret } from "./lib/security";
 
@@ -595,7 +596,9 @@ export const adminList = query({
             reportStatus: item.reportStatus,
             reportRevision: item.reportRevision ?? 0,
             stage: item.stage,
-            coverageScore: item.coverageScore,
+            coverageScore:
+              item.coverageScore ??
+              scoreCoverage((item.snapshot as AssessmentSnapshot | undefined)?.fields || {}),
             createdAt: item.createdAt,
             completedAt: item.completedAt,
             lead: lead
@@ -648,6 +651,130 @@ export const adminGetState = query({
         responseP95Ms: percentile(0.95),
       },
     };
+  },
+});
+const adminFieldValidator = v.object({
+  field: v.string(),
+  value: v.string(),
+  evidence: v.string(),
+  status: v.union(
+    v.literal("confirmed"),
+    v.literal("estimated"),
+    v.literal("inferred"),
+    v.literal("pending"),
+  ),
+  confidence: v.number(),
+});
+
+export const adminCorrectSnapshot = mutation({
+  args: {
+    assessmentId: v.string(),
+    expectedRevision: v.number(),
+    fields: v.array(adminFieldValidator),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdminIdentity(ctx);
+    const item = await assessmentById(ctx, args.assessmentId);
+    const current = item.snapshot as AssessmentSnapshot | undefined;
+    if (!current) throw new Error("CONFLICT: assessment has no structured data");
+    if ((current.revision ?? 0) !== args.expectedRevision)
+      throw new Error("CONFLICT: stale assessment snapshot revision");
+    const allowed = new Set<AssessmentFieldKey>([
+      "name",
+      "company",
+      "role",
+      "email",
+      "phone",
+      "businessContext",
+      "candidateProcesses",
+      "priorityProcess",
+      "trigger",
+      "outcome",
+      "owners",
+      "tools",
+      "steps",
+      "exceptions",
+      "volume",
+      "manualWork",
+      "pain",
+      "impact",
+      "desiredOutcome",
+      "successMetric",
+      "constraints",
+      "validators",
+    ]);
+    if (args.fields.some((field) => !allowed.has(field.field as AssessmentFieldKey)))
+      throw new Error("INVALID: unknown assessment field");
+    const output = new AssessmentInterviewEngine().advance(
+      current,
+      {
+        assessmentId: args.assessmentId,
+        eventId: crypto.randomUUID(),
+        reason: "correction",
+        elapsedSeconds: current.elapsedSeconds,
+        updates: args.fields.map((field) => ({
+          ...field,
+          field: field.field as AssessmentFieldKey,
+        })),
+      },
+      Date.now(),
+    );
+    const now = Date.now();
+    await ctx.db.patch(item._id, {
+      snapshot: output.snapshot,
+      stage: output.snapshot.stage,
+      coverageScore: output.coverageScore,
+      snapshotReviewedBy: admin.email,
+      snapshotReviewedAt: now,
+    });
+    const leadPatch: Record<string, unknown> = { updatedAt: now };
+    const fields = output.snapshot.fields;
+    if (fields.name?.status === "confirmed") leadPatch.firstName = fields.name.value;
+    if (fields.company?.status === "confirmed") leadPatch.company = fields.company.value;
+    if (fields.role?.status === "confirmed") leadPatch.role = fields.role.value;
+    if (fields.email?.status === "confirmed") leadPatch.email = fields.email.value;
+    if (fields.phone?.status === "confirmed") leadPatch.phone = fields.phone.value;
+    await ctx.db.patch(item.leadId, leadPatch);
+    return { revision: output.snapshot.revision, coverageScore: output.coverageScore };
+  },
+});
+
+export const adminDelete = mutation({
+  args: { assessmentId: v.string() },
+  handler: async (ctx, args) => {
+    await requireAdminIdentity(ctx);
+    const item = await assessmentByIdOrNull(ctx, args.assessmentId);
+    if (!item) return null;
+    if (item.reportStatus === "sending" && (item.reportSendClaimExpiresAt ?? 0) > Date.now())
+      throw new Error("CONFLICT: report is sending");
+    const sessions = await ctx.db
+      .query("assessmentSessions")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .take(100);
+    const events = await ctx.db
+      .query("assessmentEvents")
+      .withIndex("by_assessment_time", (q) => q.eq("assessmentId", args.assessmentId))
+      .take(500);
+    const telemetry = await ctx.db
+      .query("assessmentTelemetry")
+      .withIndex("by_assessment_id_and_created_at", (q) => q.eq("assessmentId", args.assessmentId))
+      .take(500);
+    const metrics = await ctx.db
+      .query("voiceMetrics")
+      .withIndex("by_assessment", (q) => q.eq("assessmentId", args.assessmentId))
+      .take(100);
+    for (const row of [...sessions, ...events, ...telemetry, ...metrics])
+      await ctx.db.delete(row._id);
+    if (item.audioStorageId) await ctx.storage.delete(item.audioStorageId);
+    const lead = await ctx.db.get(item.leadId);
+    await ctx.db.delete(item._id);
+    const preserveLead = Boolean(lead?.bookingId);
+    if (lead) {
+      if (preserveLead)
+        await ctx.db.patch(lead._id, { assessmentId: undefined, updatedAt: Date.now() });
+      else await ctx.db.delete(lead._id);
+    }
+    return { deleted: true, preservedLead: preserveLead };
   },
 });
 export const adminReview = mutation({

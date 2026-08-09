@@ -32,7 +32,7 @@ export const assessmentConferenceStartSchema = z.object({
   resumeToken: z.string().optional(),
 });
 
-const assessmentFieldKeys = [
+export const assessmentFieldKeys = [
   "name",
   "company",
   "role",
@@ -105,6 +105,33 @@ export const assessmentReviewSchema = z.object({
   expectedRevision: z.number().int().min(0),
   action: z.enum(["save", "approve-and-send"]),
   report: assessmentReportSchema,
+});
+
+export const assessmentAdminCorrectionSchema = z.object({
+  expectedRevision: z.number().int().min(0),
+  fields: z
+    .array(
+      z.object({
+        field: z.enum(assessmentFieldKeys),
+        value: z.string().trim().min(1).max(2000),
+        evidence: z.string().trim().min(1).max(4000),
+        status: z.enum(["confirmed", "estimated", "inferred", "pending"]),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .min(1)
+    .max(24),
+});
+
+export const assessmentBulkDeleteSchema = z.object({
+  assessmentIds: z
+    .array(z.string().uuid())
+    .min(1)
+    .max(25)
+    .refine(
+      (items) => new Set(items).size === items.length,
+      "Las evaluaciones seleccionadas no pueden repetirse.",
+    ),
 });
 
 export const bookingSchema = z.object({

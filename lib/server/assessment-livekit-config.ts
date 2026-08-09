@@ -72,10 +72,14 @@ export function normalizeAssessmentLiveKitUrl(config: RuntimeConfig) {
 }
 
 export function assessmentTurnstileAllowedHostnames() {
-  return (process.env.TURNSTILE_ALLOWED_HOSTNAMES || "")
+  const configured = (process.env.TURNSTILE_ALLOWED_HOSTNAMES || "")
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean);
+  if (configured.length) return configured;
+  return process.env.NODE_ENV === "production"
+    ? ["quisqueyatech.com", "www.quisqueyatech.com"]
+    : ["localhost", "127.0.0.1", "quisqueyatech.com", "www.quisqueyatech.com"];
 }
 
 export function validateAssessmentReadiness(

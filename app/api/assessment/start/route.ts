@@ -32,6 +32,10 @@ import { cleanupAssessmentRoom } from "@/lib/server/livekit";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
 import { validateAssessmentReadiness } from "@/lib/server/assessment-livekit-config";
 
+function isOpaqueConvexServerError(error: unknown) {
+  return error instanceof Error && /^\[Request ID: .+\] Server Error$/.test(error.message);
+}
+
 function requiredLocalCloudVariables() {
   const missing: string[] = [];
   if (!(process.env.CONVEX_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_URL?.trim()))
@@ -333,28 +337,72 @@ export async function POST(request: Request) {
     const nextResumeToken = resumeToken(assessmentId);
     const persistedAt = Date.now();
     const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
+    const conferenceSessionArgs = {
+      assessmentId,
+      ...intake,
+      mode: "now",
+      sessionKey,
+      provider,
+      providerSessionId,
+      supportId: session.supportId,
+      providerModel,
+      providerVoice,
+      frameworkVersion: interviewFrameworkVersion,
+      snapshot,
+      createdAt: persistedAt,
+      audioExpiresAt: persistedAt + 30 * 86400000,
+      transcriptExpiresAt: persistedAt + 90 * 86400000,
+      leadExpiresAt: persistedAt + 365 * 86400000,
+      consentVersion: VOICE_CONSENT_VERSION,
+      startedAt: persistedAt,
+      resumeTokenHash: assessmentTokenHash(nextResumeToken),
+      resumeExpiresAt: persistedAt + 24 * 60 * 60_000,
+    };
     try {
-      await convexMutation("assessments:beginConferenceSession", {
-        assessmentId,
-        ...intake,
-        mode: "now",
-        sessionKey,
-        provider,
-        providerSessionId,
-        supportId: session.supportId,
-        providerModel,
-        providerVoice,
-        frameworkVersion: interviewFrameworkVersion,
-        snapshot,
-        createdAt: persistedAt,
-        audioExpiresAt: persistedAt + 30 * 86400000,
-        transcriptExpiresAt: persistedAt + 90 * 86400000,
-        leadExpiresAt: persistedAt + 365 * 86400000,
-        consentVersion: VOICE_CONSENT_VERSION,
-        startedAt: persistedAt,
-        resumeTokenHash: assessmentTokenHash(nextResumeToken),
-        resumeExpiresAt: persistedAt + 24 * 60 * 60_000,
-      });
+      try {
+        await convexMutation("assessments:beginConferenceSession", conferenceSessionArgs);
+      } catch (error) {
+        if (!isOpaqueConvexServerError(error)) throw error;
+        diagnosticLog(
+          "assessment-start",
+          "begin_conference_session_fallback",
+          {
+            supportId: session.supportId,
+            requestSupportId,
+            assessmentId,
+            reason: "opaque_convex_server_error",
+          },
+          "error",
+        );
+        await convexMutation("assessments:create", {
+          assessmentId,
+          ...intake,
+          mode: "now",
+          provider,
+          snapshot,
+          createdAt: persistedAt,
+          audioExpiresAt: persistedAt + 30 * 86400000,
+          transcriptExpiresAt: persistedAt + 90 * 86400000,
+          leadExpiresAt: persistedAt + 365 * 86400000,
+          consentVersion: VOICE_CONSENT_VERSION,
+        });
+        await convexMutation("assessments:setProviderSession", {
+          assessmentId,
+          sessionKey,
+          provider,
+          providerSessionId,
+          supportId: session.supportId,
+          providerModel,
+          providerVoice,
+          frameworkVersion: interviewFrameworkVersion,
+          startedAt: persistedAt,
+        });
+        await convexMutation("assessments:setResumeCredential", {
+          assessmentId,
+          tokenHash: assessmentTokenHash(nextResumeToken),
+          expiresAt: persistedAt + 24 * 60 * 60_000,
+        });
+      }
     } catch (error) {
       await cleanupAssessmentRoom(dynamicConfig, session.roomName).catch((cleanupError) => {
         diagnosticLog("assessment-start", "room_cleanup_failed", {

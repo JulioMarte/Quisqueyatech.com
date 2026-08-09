@@ -31,3 +31,61 @@ npm run dev
 ```
 
 Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET`, and `NEXT_PUBLIC_SITE_URL`. The worker retrieves session-time Gemini configuration through the authenticated server endpoint and never exposes it to the browser.
+
+## Deploy to LiveKit Cloud
+
+Official references:
+
+- Agent deployment quickstart: https://docs.livekit.io/deploy/agents/quickstart/
+- Deployment management: https://docs.livekit.io/deploy/agents/managing-deployments/
+- Secrets management: https://docs.livekit.io/deploy/agents/secrets/
+- Builds and Dockerfiles: https://docs.livekit.io/deploy/agents/builds/
+- Billing and metering: https://docs.livekit.io/deploy/admin/billing/
+- Pricing: https://livekit.com/pricing
+- Quotas and limits: https://docs.livekit.io/deploy/admin/quotas-and-limits/
+
+This directory is the LiveKit agent project. Run LiveKit CLI commands from here
+so the CLI can use `livekit.toml`.
+
+```bash
+cd services/livekit-agent
+lk cloud auth
+lk project list
+lk project set-default "live-translate-r87y5gh3"
+lk agent deploy
+```
+
+If `livekit.toml` is missing or a new LiveKit Cloud agent must be registered,
+use `lk agent create` instead of `lk agent deploy`. This project already has a
+`livekit.toml` with project subdomain `live-translate-r87y5gh3` and agent id
+`CA_NhXtiwpZB9zh`, so normal updates should use `lk agent deploy`.
+
+Required runtime secrets for this worker:
+
+```bash
+lk agent update-secrets \
+  --secrets "ASSESSMENT_WORKER_SECRET=<same value as the web app>" \
+  --secrets "ASSESSMENT_APP_URL=https://www.quisqueyatech.com"
+```
+
+LiveKit Cloud automatically injects `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and
+`LIVEKIT_API_SECRET` for the associated project, and those values cannot be set
+manually as deployment secrets. Keep application-specific secrets out of source
+control and update them with `lk agent update-secrets`; changing secrets causes a
+rolling restart for new sessions.
+
+Useful operations:
+
+```bash
+lk agent status
+lk agent logs
+lk agent secrets
+lk agent rollback
+```
+
+LiveKit bills hosted agents by agent session minute: time starts after the agent
+connects to a WebRTC or SIP room and stops when the room ends or the agent
+disconnects. The Build plan includes 1,000 agent session minutes and supports up
+to 5 concurrent agent sessions, with possible 10-20 second cold starts. Paid
+plans include larger monthly minute allowances and then bill additional hosted
+agent time at the published per-minute rate.

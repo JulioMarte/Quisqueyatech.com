@@ -30,6 +30,7 @@ import { AuthConfigError, classifyAuthError } from "@/lib/server/auth-errors";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
 import { cleanupAssessmentRoom } from "@/lib/server/livekit";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
+import { validateAssessmentReadiness } from "@/lib/server/assessment-livekit-config";
 
 function requiredLocalCloudVariables() {
   const missing: string[] = [];
@@ -178,11 +179,18 @@ export async function POST(request: Request) {
       verifyTurnstile(turnstileToken, ip, "assessment_start"),
     ]);
 
-    if (!(await providerConfigured("livekit", dynamicConfig))) {
+    const readiness = validateAssessmentReadiness(dynamicConfig, { includeTurnstile: false });
+    if (!readiness.ready || !(await providerConfigured("livekit", dynamicConfig))) {
       diagnosticLog(
         "assessment-start",
         "provider_not_configured",
-        { supportId: requestSupportId, provider: "livekit", durationMs: Date.now() - startedAt },
+        {
+          supportId: requestSupportId,
+          provider: "livekit",
+          code: readiness.code,
+          issues: readiness.issues,
+          durationMs: Date.now() - startedAt,
+        },
         "error",
       );
       return NextResponse.json(
@@ -191,7 +199,8 @@ export async function POST(request: Request) {
             intake.locale === "es"
               ? "LiveKit no está configurado. Revisa las credenciales del proveedor en /admin y el secreto del worker en el entorno del servidor."
               : "LiveKit is not configured. Check provider credentials in /admin and the worker secret in the server environment.",
-          code: "LIVEKIT_NOT_CONFIGURED",
+          code: readiness.code,
+          issues: readiness.issues,
         },
         { status: 503 },
       );

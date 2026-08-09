@@ -22,6 +22,11 @@ opcionalmente, `ASSESSMENT_APP_URL=http://localhost:3000`. Usa
 `npm run dev:local` solamente cuando quieras levantar Convex local de forma
 explicita.
 
+Para comprobar la ruta completa antes de probar con usuarios, levanta Next y el
+worker, luego ejecuta `npm run assessment:doctor`. Si existe
+`ASSESSMENT_HEALTH_PROBE_TOKEN`, el script tambien ejecuta el probe activo de
+LiveKit; para un preview o produccion usa `ASSESSMENT_DOCTOR_URL=https://...`.
+
 `npx convex codegen` solamente genera los bindings y comprueba tipos locales. No publica las funciones en Convex Cloud y no sustituye a `npx convex dev --once`.
 
 La aplicación funciona en modo demostración sin credenciales externas. Copia `.env.example` y configura servicios según se activen.
@@ -56,6 +61,17 @@ Get-Clipboard | npx convex env set AUTH_IP_HASH_SECRET
 Para producción añade `--prod` a cada comando y usa la URL pública exacta, por ejemplo `https://quisqueyatech.com`. Desarrollo y producción son instalaciones independientes.
 
 Comprueba solamente los nombres, sin imprimir secretos:
+
+Si el equipo prueba contra el deployment cloud de produccion desde Next.js
+local, conserva `SITE_URL` en la URL publica y configura una sola vez los
+origenes loopback permitidos en Convex:
+
+```powershell
+npx convex env set AUTH_TRUSTED_ORIGINS "http://localhost:*,http://127.0.0.1:*" --prod
+```
+
+No agregues IPs LAN ni comodines de dominios externos. Esta variable pertenece
+a Convex Cloud, no a `.env.local` ni a Coolify.
 
 ```powershell
 npx convex env list --names-only
@@ -128,7 +144,7 @@ Si la página carga indefinidamente o devuelve 503, confirma que:
 
 - `NEXT_PUBLIC_CONVEX_URL` apunta al deployment de desarrollo correcto.
 - `NEXT_PUBLIC_CONVEX_SITE_URL` corresponde al mismo deployment y termina en `.convex.site`.
-- `SITE_URL` coincide exactamente con el origen del navegador, incluido `https` y el uso de `www`.
+- `SITE_URL` coincide con el dominio canonico; para usar produccion desde localhost, `AUTH_TRUSTED_ORIGINS` incluye los patrones loopback documentados arriba.
 - `BETTER_AUTH_SECRET` existe en ese mismo deployment de Convex.
 - Reiniciaste Next.js después de cambiar variables locales.
 - En producción, la cookie se está enviando por HTTPS.

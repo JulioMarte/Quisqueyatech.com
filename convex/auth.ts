@@ -8,6 +8,7 @@ import { components, internal } from "./_generated/api";
 import type { DataModel, Doc } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import authConfig from "./auth.config";
+import { authTrustedOrigins } from "./lib/authOrigins";
 import { requireAdminApiSecret } from "./lib/security";
 
 function requiredEnvironment(name: "SITE_URL" | "BETTER_AUTH_SECRET") {
@@ -28,7 +29,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     baseURL: siteUrl,
     secret: requiredEnvironment("BETTER_AUTH_SECRET"),
-    trustedOrigins: [siteUrl],
+    trustedOrigins: authTrustedOrigins(siteUrl, process.env.AUTH_TRUSTED_ORIGINS),
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,

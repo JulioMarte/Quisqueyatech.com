@@ -5,6 +5,7 @@ import type { AssessmentSnapshot } from "@/lib/assessment/types";
 import { buildAssessmentReport } from "@/lib/server/assessment-report";
 import { convexMutation, convexQuery } from "@/lib/server/convex";
 import { shouldFinalizeProviderSession } from "@/lib/assessment/finalization";
+import { isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
 
 const schema = z.object({
   assessmentId: z.string().uuid(),
@@ -18,8 +19,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/, "") || "";
-  if (!process.env.ASSESSMENT_WORKER_SECRET || token !== process.env.ASSESSMENT_WORKER_SECRET)
+  if (!isTrustedAssessmentWorker(request))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success)

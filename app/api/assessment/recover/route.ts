@@ -15,6 +15,7 @@ import {
   interviewFrameworkVersion,
   issueLiveKitParticipantToken,
 } from "@/lib/server/voice";
+import { validateAssessmentReadiness } from "@/lib/server/assessment-livekit-config";
 
 const schema = z
   .object({
@@ -134,6 +135,17 @@ export async function POST(request: Request) {
       "recovery_started",
     );
     const config = await runtimeConfig();
+    const readiness = validateAssessmentReadiness(config, { includeTurnstile: false });
+    if (!readiness.ready) {
+      return NextResponse.json(
+        {
+          error: "The agent could not be recovered",
+          code: readiness.code,
+          issues: readiness.issues,
+        },
+        { status: 503 },
+      );
+    }
     const { clients } = createLiveKitClients(config);
     await safeDeleteRoom(clients, parsed.data.roomName);
     const resumeSummary = stored?.snapshot

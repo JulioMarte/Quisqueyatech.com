@@ -40,6 +40,11 @@ anterior fue eliminado para evitar dos rutas de persistencia incompatibles.
 de salud. Para habilitarla, configure un
 `ASSESSMENT_HEALTH_PROBE_TOKEN` aleatorio y llame
 `GET /api/health/assessment?probe=1` con ese valor en `x-health-probe-token`.
+`GET /api/health/assessment` devuelve `status`, `code`, `issues` y `checks`.
+Un deployment no estÃ¡ listo hasta que `code` sea `READY`; cualquier otro valor
+debe tratarse como bloqueante antes de enviar trÃ¡fico real. La prueba activa
+requiere ademÃ¡s que el worker entre a la sala, lea `/api/assessment/worker-config`,
+confirme la configuraciÃ³n de Gemini y permita eliminar la sala diagnÃ³stica.
 La prueba crea una sala diagnóstica, espera la validación del worker y la elimina;
 no debe exponerse como monitor público sin autenticación.
 
@@ -73,6 +78,12 @@ host, use `ASSESSMENT_APP_URL=http://localhost:3000` o deje que caiga en
 `NEXT_PUBLIC_SITE_URL`. Si falta cualquiera de estos valores,
 `/api/assessment/start` responde `LIVEKIT_NOT_CONFIGURED` antes de consumir el
 token de Turnstile o crear una evaluación en Convex.
+
+Use `npm run assessment:doctor` despues de levantar Next. El script carga
+`.env.local`, revisa variables locales, llama el healthcheck pasivo y ejecuta
+el probe activo cuando `ASSESSMENT_HEALTH_PROBE_TOKEN` esta presente. Para
+validar un preview o produccion, configure `ASSESSMENT_DOCTOR_URL` con la URL
+publica antes de ejecutar el script.
 
 El agente debe desplegarse con el nombre exacto `quisqueyatech-assessment`; el JWT
 de cada sala lo despacha explícitamente. La API key de Gemini, modelo y voz se
@@ -123,3 +134,6 @@ guardan cifrados desde el panel y el worker los obtiene mediante
 - Cero funciones Convex invocables sin secreto de servicio y cero claves en bundles.
 - Cierre verificado antes de 15 minutos, reanudación verificada alrededor del minuto 10 en Gemini y SessionReport recibido desde LiveKit.
 - Alertas de latencia, errores, costo y cola de reportes configuradas en la plataforma de observabilidad elegida.
+- Ejecutar `npm run analyze` antes de cambios grandes de UI y revisar que
+  `livekit-client`, editores/admin y dependencias pesadas no entren en rutas de
+  marketing que no las usan.

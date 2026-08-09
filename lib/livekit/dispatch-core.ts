@@ -1,5 +1,6 @@
 export type LiveKitParticipant = { identity: string; kind: number; metadata?: string };
 export type LiveKitDispatch = { id: string; agentName: string; room: string };
+export const liveKitAgentKind = 4;
 
 export type LiveKitDispatchClients = {
   dispatch: {
@@ -48,19 +49,37 @@ function dispatchLog(
   else console.info(line);
 }
 
-function safeAgentMetadata(raw: string | undefined) {
+export function safeJsonObject(raw: string | undefined) {
   try {
     const value = JSON.parse(raw || "{}") as Record<string, unknown>;
-    return {
-      state: typeof value.state === "string" ? value.state.slice(0, 80) : undefined,
-      ready: typeof value.ready === "boolean" ? value.ready : undefined,
-      code: typeof value.code === "string" ? value.code.slice(0, 80) : undefined,
-      diagnosticComplete:
-        typeof value.diagnosticComplete === "boolean" ? value.diagnosticComplete : undefined,
-    };
+    return typeof value === "object" && value ? value : {};
   } catch {
-    return { state: "metadata_parse_failed" };
+    return {};
   }
+}
+
+export function safeAgentMetadata(raw: string | undefined) {
+  const value = safeJsonObject(raw);
+  if (!Object.keys(value).length && raw) return { state: "metadata_parse_failed" };
+  return {
+    state: typeof value.state === "string" ? value.state.slice(0, 80) : undefined,
+    ready: typeof value.ready === "boolean" ? value.ready : undefined,
+    code: typeof value.code === "string" ? value.code.slice(0, 80) : undefined,
+    diagnosticComplete:
+      typeof value.diagnosticComplete === "boolean" ? value.diagnosticComplete : undefined,
+    success: typeof value.success === "boolean" ? value.success : undefined,
+  };
+}
+
+export function agentMetadataState(raw: string | undefined) {
+  const value = safeJsonObject(raw);
+  return {
+    state: typeof value.state === "string" ? value.state : undefined,
+    ready: value.ready === true,
+    diagnosticComplete: value.diagnosticComplete === true,
+    success: value.success === true,
+    code: typeof value.code === "string" ? value.code : undefined,
+  };
 }
 
 export function normalizeLiveKitUrl(raw: string, expectedHostname: string) {
@@ -85,7 +104,7 @@ export async function dispatchAndWaitForAgent({
   supportId,
   timeoutMs = 60_000,
   pollMs = 500,
-  agentKind = 4,
+  agentKind = liveKitAgentKind,
   agentReady = () => true,
   agentFailure,
 }: {

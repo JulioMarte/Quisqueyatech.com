@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
-import { providerConfigured } from "@/lib/server/voice";
 import { createLiveKitClients, probeLiveKitAgent } from "@/lib/server/livekit";
 import { runtimeConfig } from "@/lib/server/runtime-config";
 import { turnstilePublicConfig } from "@/lib/security/turnstile-config";
 import { turnstileAllowedHostnames, turnstileServerConfig } from "@/lib/server/turnstile";
+import {
+  assessmentProvider,
+  validateAssessmentReadiness,
+} from "@/lib/server/assessment-livekit-config";
 
 export async function GET(request: Request) {
-  const provider = "livekit" as const;
+  const provider = assessmentProvider;
   const config = await runtimeConfig();
+  const readiness = validateAssessmentReadiness(config);
   const credentialsReady = Boolean(
     config.livekitUrl && config.livekitApiKey && config.livekitApiSecret,
   );
@@ -30,15 +34,7 @@ export async function GET(request: Request) {
     allowedHostnames: turnstileAllowedHostnames(),
     trustedProxyHeaders: process.env.TRUST_PROXY_HEADERS === "true",
   };
-  const commonReady = Boolean(
-    process.env.NEXT_PUBLIC_CONVEX_URL &&
-    process.env.ASSESSMENT_STORAGE_SECRET &&
-    process.env.ASSESSMENT_TOKEN_SECRET &&
-    turnstile.siteKeyReady &&
-    turnstile.secretReady &&
-    turnstile.trustedProxyHeaders,
-  );
-  const ready = commonReady && (await providerConfigured(provider, config));
+  const ready = readiness.ready;
   const wantsProbe = new URL(request.url).searchParams.get("probe") === "1";
   let activeProbe: { success: boolean; latencyMs?: number; code?: string } | undefined;
   if (wantsProbe) {
@@ -60,13 +56,9 @@ export async function GET(request: Request) {
     {
       status: operational ? "ready" : "not-ready",
       provider,
-      checks: {
-        credentialsReady,
-        projectMatch,
-        workerSecretReady,
-        turnstile,
-        activeProbe,
-      },
+      code: readiness.code,
+      issues: readiness.issues,
+      checks: { credentialsReady, projectMatch, workerSecretReady, turnstile, activeProbe },
     },
     { status: operational ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

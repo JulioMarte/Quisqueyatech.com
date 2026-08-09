@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assessmentTelemetryEvents, telemetryRetentionMs } from "@/lib/assessment/telemetry";
 import { convexMutation } from "@/lib/server/convex";
+import { isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
 
 const schema = z
   .object({
@@ -19,8 +20,7 @@ const schema = z
   .strict();
 
 export async function POST(request: Request) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/, "") || "";
-  if (!process.env.ASSESSMENT_WORKER_SECRET || token !== process.env.ASSESSMENT_WORKER_SECRET)
+  if (!isTrustedAssessmentWorker(request))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)

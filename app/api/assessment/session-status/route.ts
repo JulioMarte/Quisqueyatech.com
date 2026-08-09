@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { convexQuery } from "@/lib/server/convex";
 import { convexMutation } from "@/lib/server/convex";
 import { verifyAssessmentToken } from "@/lib/server/assessment-tokens";
+import { bearerToken, isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
 
 const publicStatuses = new Set([
   "in_progress",
@@ -12,11 +13,7 @@ const publicStatuses = new Set([
 ]);
 
 export async function GET(request: Request) {
-  const authorization = request.headers.get("authorization");
-  const verified = verifyAssessmentToken(
-    authorization?.startsWith("Bearer ") ? authorization.slice(7) : "",
-    "progress",
-  );
+  const verified = verifyAssessmentToken(bearerToken(request), "progress");
   const url = new URL(request.url);
   const assessmentId = url.searchParams.get("assessmentId") || "";
   const sessionKey = url.searchParams.get("sessionKey") || "";
@@ -59,8 +56,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/, "") || "";
-  if (!process.env.ASSESSMENT_WORKER_SECRET || token !== process.env.ASSESSMENT_WORKER_SECRET)
+  if (!isTrustedAssessmentWorker(request))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = (await request.json()) as Record<string, unknown>;
   if (

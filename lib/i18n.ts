@@ -1,38 +1,59 @@
-export type Locale = "es" | "en";
+import {
+  alternateCaseStudyPath,
+  alternateKnownResourcePath,
+  alternateStaticPath,
+  getStaticRouteByPath,
+  localizedRoutes,
+  resourcePath,
+  routePath,
+  type SiteLocale,
+} from "@/lib/routes";
+
+export type Locale = SiteLocale;
 
 export function localeFromPath(pathname: string): Locale {
   return pathname === "/en" || pathname.startsWith("/en/") ? "en" : "es";
 }
 
+/**
+ * Locale-aware helper for callers that still pass a Spanish canonical path.
+ * Prefer routePath()/resourcePath() for new code because translated slugs are explicit there.
+ */
 export function withLocale(locale: Locale, path = "/"): string {
   if (locale === "es") return path;
-  if (path === "/") return "/en";
+  const staticRoute = getStaticRouteByPath(path);
+  if (staticRoute) return localizedRoutes[staticRoute.key].en;
+  if (path === "/") return routePath("home", "en");
   return `/en${path}`;
 }
 
 export function alternatePath(pathname: string): string {
-  const pairs: Record<string, string> = {
-    "/": "/en",
-    "/soluciones": "/en/solutions",
-    "/soluciones/automatizacion": "/en/solutions/automation",
-    "/soluciones/agentes-de-ia": "/en/solutions/ai-agents",
-    "/soluciones/software-e-integraciones": "/en/solutions/software-and-integrations",
-    "/soluciones/clinicas": "/en/solutions/clinics",
-    "/como-trabajamos": "/en/how-we-work",
-    "/evaluacion": "/en/assessment",
-    "/evaluacion/ahora": "/en/assessment/now",
-    "/evaluacion/agendar": "/en/assessment/schedule",
-    "/recursos": "/en/recursos",
-    "/nosotros": "/en/about",
-    "/privacidad": "/en/privacy",
-  };
-  if (pairs[pathname]) return pairs[pathname];
-  const reverse = Object.fromEntries(Object.entries(pairs).map(([es, en]) => [en, es]));
-  if (reverse[pathname]) return reverse[pathname];
+  const staticPath = alternateStaticPath(pathname);
+  if (staticPath) return staticPath;
+
+  const casePath = alternateCaseStudyPath(pathname);
+  if (casePath) return casePath;
+
+  const knownResourcePath = alternateKnownResourcePath(pathname);
+  if (knownResourcePath) return knownResourcePath;
+
+  // For a CMS article whose translated slug is not available in client code,
+  // send the visitor to the other language's resource index instead of inventing
+  // a mixed-language or non-existent URL. Server metadata still resolves exact
+  // article counterparts through translationKey.
+  if (
+    pathname.startsWith(`${routePath("resources", "es")}/`) ||
+    pathname.startsWith(`${routePath("resources", "en")}/`)
+  ) {
+    return routePath("resources", localeFromPath(pathname) === "en" ? "es" : "en");
+  }
+
   return localeFromPath(pathname) === "en"
     ? pathname.replace(/^\/en(?=\/|$)/, "") || "/"
     : `/en${pathname}`;
 }
+
+export { resourcePath, routePath };
 
 export const uiCopy = {
   es: {
@@ -40,7 +61,7 @@ export const uiCopy = {
     method: "Cómo trabajamos",
     resources: "Recursos",
     about: "Nosotros",
-    assessment: "Quiero mi evaluación",
+    assessment: "Contacto",
     language: "EN",
     menu: "Abrir menú",
     close: "Cerrar menú",
@@ -50,7 +71,7 @@ export const uiCopy = {
     method: "How we work",
     resources: "Resources",
     about: "About",
-    assessment: "Get my assessment",
+    assessment: "Contact",
     language: "ES",
     menu: "Open menu",
     close: "Close menu",

@@ -34,8 +34,7 @@ export interface BookingPayload {
   start: string;
   timezone: string;
   channel: ScheduleChannel;
-  processingConsent: true;
-  recordingConsent: boolean;
+  messagingConsent: boolean;
   turnstileToken?: string;
   bookingAttemptId: string;
 }

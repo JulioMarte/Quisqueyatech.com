@@ -384,7 +384,9 @@ export const create = mutation({
     email: v.string(),
     phone: v.string(),
     notes: v.optional(v.string()),
-    recordingConsent: v.boolean(),
+    messagingConsent: v.boolean(),
+    messagingConsentVersion: v.string(),
+    processingConsentVersion: v.string(),
     start: v.string(),
     timezone: v.string(),
     channel: v.union(v.literal("web"), v.literal("phone")),
@@ -478,11 +480,15 @@ export const create = mutation({
       source: "internal-agenda",
       status: "confirmed",
       processingConsentAt: now,
+      processingConsentVersion: args.processingConsentVersion,
       leadExpiresAt: now + 365 * 86_400_000,
       createdAt: now,
       updatedAt: now,
     });
     const endAt = startMs + config.durationMinutes * 60_000;
+    const messagingChannels: Array<"sms" | "whatsapp"> | undefined = args.messagingConsent
+      ? ["sms", "whatsapp"]
+      : undefined;
     const booking = {
       bookingId: args.bookingId,
       leadId,
@@ -502,7 +508,10 @@ export const create = mutation({
       timezone: args.timezone,
       channel: args.channel,
       status: "confirmed",
-      recordingConsentAt: args.recordingConsent ? now : undefined,
+      messagingConsentAt: args.messagingConsent ? now : undefined,
+      messagingConsentVersion: args.messagingConsent ? args.messagingConsentVersion : undefined,
+      messagingConsentLocale: args.messagingConsent ? args.locale : undefined,
+      messagingChannels,
       createdAt: now,
       updatedAt: now,
       callAttempts: 0,

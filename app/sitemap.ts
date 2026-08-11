@@ -16,6 +16,7 @@ const esRoutes = [
   "/recursos",
   "/nosotros",
   "/privacidad",
+  "/terminos-de-mensajeria",
 ];
 const enRoutes = [
   "/en",
@@ -31,6 +32,7 @@ const enRoutes = [
   "/en/recursos",
   "/en/about",
   "/en/privacy",
+  "/en/messaging-terms",
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

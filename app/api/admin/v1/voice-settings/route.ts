@@ -21,6 +21,13 @@ export async function PATCH(request: Request) {
   const trace = requestId(request);
   try {
     if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
+    if (process.env.RUNTIME_CONFIG_SOURCE !== "legacy-encrypted-settings") {
+      return adminFailure(
+        trace,
+        "La configuración de voz se administra en Convex y es de solo lectura aquí.",
+        409,
+      );
+    }
     const stored = await fetchAuthQuery(api.settings.adminGet, {});
     await fetchAuthMutation(api.settings.adminSave, {
       config: { ...(stored.config as Record<string, unknown>), defaultProvider: "livekit" },

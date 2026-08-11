@@ -4,14 +4,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../../.env.local --import tsx src/index.ts dev",
-    "start": "tsx src/index.ts start"
+    "dev": "cross-env OTEL_SERVICE_NAME=quisqueyatech-livekit-agent node --env-file=../../.env.local --import tsx src/launcher.ts dev",
+    "start": "cross-env OTEL_SERVICE_NAME=quisqueyatech-livekit-agent tsx src/launcher.ts start"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
     "@livekit/agents": "^1.5.0",
     "@livekit/agents-plugin-google": "^1.5.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.221.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/instrumentation-console": "^0.3.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
+    "@opentelemetry/sdk-metrics": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.0.0",
+    "quisqueyatech": "file:../..",
     "tsx": "^4.23.1",
     "zod": "^4.4.3"
   }

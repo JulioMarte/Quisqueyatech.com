@@ -22,6 +22,43 @@ import {
 import type { DataModel } from "./dataModel.js";
 
 /**
+ * Typesafe environment variables declared in `convex.config.ts`.
+ */
+type Env = {
+  readonly ADMIN_API_SECRET: string;
+  readonly ASSESSMENT_REPORT_MODEL: string | undefined;
+  readonly ASSESSMENT_STORAGE_SECRET: string;
+  readonly ASSESSMENT_TOKEN_SECRET: string | undefined;
+  readonly ASSESSMENT_WORKER_SECRET: string | undefined;
+  readonly AUTH_IP_HASH_SECRET: string | undefined;
+  readonly EASY_APPOINTMENTS_API_TOKEN: string | undefined;
+  readonly EASY_APPOINTMENTS_PROVIDER_ID: string | undefined;
+  readonly EASY_APPOINTMENTS_SERVICE_ID: string | undefined;
+  readonly EASY_APPOINTMENTS_TIMEZONE: string | undefined;
+  readonly EASY_APPOINTMENTS_URL: string | undefined;
+  readonly EASY_APPOINTMENTS_WEBHOOK_TOKEN: string | undefined;
+  readonly GEMINI_API_KEY: string | undefined;
+  readonly GEMINI_LIVE_MODEL: string | undefined;
+  readonly GEMINI_LIVE_TEMPERATURE: string | undefined;
+  readonly GEMINI_LIVE_VOICE: string | undefined;
+  readonly LEAD_TO_EMAIL: string | undefined;
+  readonly LIVEKIT_API_KEY: string | undefined;
+  readonly LIVEKIT_API_SECRET: string | undefined;
+  readonly LIVEKIT_URL: string | undefined;
+  readonly RESEND_API_KEY: string | undefined;
+  readonly RESEND_FROM_EMAIL: string | undefined;
+  readonly TURNSTILE_SECRET_KEY: string | undefined;
+  readonly TWILIO_ACCOUNT_SID: string | undefined;
+  readonly TWILIO_AUTH_TOKEN: string | undefined;
+  readonly TWILIO_PHONE_NUMBER: string | undefined;
+  readonly ULTRAVOX_API_KEY: string | undefined;
+  readonly ULTRAVOX_API_URL: string | undefined;
+  readonly ULTRAVOX_MODEL: string | undefined;
+  readonly ULTRAVOX_VOICE: string | undefined;
+  readonly ULTRAVOX_WEBHOOK_SECRET: string | undefined;
+};
+
+/**
  * Define a query in this Convex app's public API.
  *
  * This function will be allowed to read your Convex database and will be accessible from the client.
@@ -94,6 +131,11 @@ export declare const internalAction: ActionBuilder<DataModel, "internal">;
  * @returns The wrapped function. Import this function from `convex/http.js` and route it to hook it up.
  */
 export declare const httpAction: HttpActionBuilder;
+
+/**
+ * Typesafe environment variables declared in `convex.config.ts`.
+ */
+export declare const env: Env;
 
 /**
  * A set of services for use within Convex query functions.

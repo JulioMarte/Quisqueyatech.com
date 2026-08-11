@@ -6,8 +6,10 @@ import { buildAssessmentReport } from "@/lib/server/assessment-report";
 import type { AssessmentSnapshot } from "@/lib/assessment/types";
 import { verifyAssessmentToken } from "@/lib/server/assessment-tokens";
 import { redactSensitiveText } from "@/lib/assessment/data-policy";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 export async function POST(request: Request) {
+  await runtimeConfig();
   const authorization = request.headers.get("authorization");
   const verified = verifyAssessmentToken(
     authorization?.startsWith("Bearer ") ? authorization.slice(7) : "",

@@ -5,7 +5,7 @@ import { defaultGeminiLiveModel, defaultGeminiLiveVoice } from "@/lib/server/voi
 import { isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
 
 export async function GET(request: Request) {
-  if (!isTrustedAssessmentWorker(request)) {
+  if (!(await isTrustedAssessmentWorker(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const config = await runtimeConfig();

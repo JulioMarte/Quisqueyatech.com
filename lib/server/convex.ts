@@ -2,11 +2,14 @@ import "server-only";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { AuthConfigurationError } from "@/lib/server/auth-server";
+import { runtimeConfig } from "@/lib/server/runtime-config";
+import { resolveConvexSiteUrl, resolveConvexUrl } from "@/lib/server/convex-url";
 
 let client: ConvexHttpClient | undefined;
 
-function assessmentStorageSecret() {
-  const secret = process.env.ASSESSMENT_STORAGE_SECRET?.trim();
+async function assessmentStorageSecret() {
+  const runtime = await runtimeConfig();
+  const secret = String(runtime.assessmentStorageSecret || "").trim();
   if (!secret) throw new AuthConfigurationError("ASSESSMENT_STORAGE_SECRET is required");
   return secret;
 }
@@ -18,17 +21,7 @@ function adminApiSecret() {
 }
 
 /** Runtime-first URLs so Coolify can set them without a rebuild (server only). */
-export function resolveConvexUrl() {
-  return process.env.CONVEX_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_URL?.trim() || "";
-}
-
-export function resolveConvexSiteUrl() {
-  return (
-    process.env.CONVEX_SITE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim() ||
-    ""
-  ).replace(/\/$/, "");
-}
+export { resolveConvexSiteUrl, resolveConvexUrl } from "@/lib/server/convex-url";
 
 /** Public Convex function prefixes that require ADMIN_API_SECRET. */
 const ADMIN_MACHINE_PREFIXES = [
@@ -48,9 +41,9 @@ function isAdminMachineFunction(name: string) {
   );
 }
 
-function securedArgs(name: string, args: Record<string, unknown>) {
+async function securedArgs(name: string, args: Record<string, unknown>) {
   if (name.startsWith("assessments:")) {
-    return { ...args, serviceSecret: assessmentStorageSecret() };
+    return { ...args, serviceSecret: await assessmentStorageSecret() };
   }
   if (isAdminMachineFunction(name)) {
     if (typeof args.serviceSecret === "string" || typeof args.secret === "string") {
@@ -84,7 +77,7 @@ export async function convexMutation(
 ): Promise<unknown> {
   return getConvexServerClient().mutation(
     makeFunctionReference<"mutation">(name),
-    securedArgs(name, args),
+    await securedArgs(name, args),
   );
 }
 
@@ -94,7 +87,7 @@ export async function convexQuery(
 ): Promise<unknown> {
   return getConvexServerClient().query(
     makeFunctionReference<"query">(name),
-    securedArgs(name, args),
+    await securedArgs(name, args),
   );
 }
 
@@ -104,7 +97,7 @@ export async function convexAction(
 ): Promise<unknown> {
   return getConvexServerClient().action(
     makeFunctionReference<"action">(name),
-    securedArgs(name, args),
+    await securedArgs(name, args),
   );
 }
 

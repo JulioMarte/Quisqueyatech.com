@@ -10,8 +10,28 @@ async function completeContactStep(page: Page) {
   await page.getByLabel("Apellido").fill("Pérez");
   await page.getByLabel(/Correo/).fill("ana@example.com");
   await page.getByLabel(/Celular/).fill("+18095551234");
-  await page.getByLabel(/Acepto el procesamiento/).check();
 }
+
+test("messaging consent is optional and starts unchecked", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await openScheduler(page);
+  const optIn = page.getByLabel(/Acepto recibir de QuisqueyaTech/);
+  await expect(optIn).not.toBeChecked();
+  await completeContactStep(page);
+  await page.getByRole("button", { name: "Continuar a fecha" }).click();
+  await expect(page.getByRole("heading", { name: "Elige un día disponible" })).toBeVisible();
+});
+
+test("the global site language controls the modal without an additional toggle", async ({
+  page,
+}) => {
+  await page.goto("/en?agendar=1");
+  await expect(
+    page.getByRole("dialog", { name: /Tell us about you and your company/i }),
+  ).toBeVisible();
+  await expect(page.getByLabel(/I agree to receive appointment confirmations/)).not.toBeChecked();
+  await expect(page.getByLabel("Select language")).toBeVisible();
+});
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/scheduling/availability?**", async (route) => {
@@ -58,6 +78,7 @@ test("the centered stepper validates navigation and preserves entered data", asy
 test("availability loading blocks stale navigation and confirmation submits only once", async ({
   page,
 }) => {
+  test.slow();
   await page.setViewportSize({ width: 1440, height: 900 });
   let bookings = 0;
   await page.route("**/api/scheduling/book", async (route) => {

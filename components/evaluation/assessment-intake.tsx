@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Clock3, Headphones, Loader2, Mic2, Radio, ShieldCheck } from "lucide-react";
 import { VoiceSession } from "@/components/evaluation/voice-session";
 import { TurnstileField, type TurnstileStatus } from "@/components/security/turnstile-field";
@@ -9,6 +9,8 @@ import { Container, Section } from "@/components/ui/section";
 import type { Locale } from "@/lib/i18n";
 import { getAssessmentVisitorId } from "@/lib/assessment/visitor-id";
 import { turnstilePublicConfig } from "@/lib/security/turnstile-config";
+import type { LocalAudioTrack } from "livekit-client";
+import { consentLinks } from "@/lib/consent";
 type SessionData = {
   provider: "livekit";
   assessmentId: string;
@@ -24,6 +26,10 @@ type SessionData = {
 export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
   const es = locale === "es";
   const [session, setSession] = useState<SessionData | null>(null);
+  const [preparedMicrophone, setPreparedMicrophone] = useState<LocalAudioTrack | null>(null);
+  const [startupStartedAt, setStartupStartedAt] = useState(0);
+  const [loadingStage, setLoadingStage] = useState<"microphone" | "room">("microphone");
+  const startingRef = useRef(false);
   const [consent, setConsent] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRequired = turnstilePublicConfig().enabled;
@@ -33,23 +39,35 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
   const [loading, setLoading] = useState(false);
   const [turnstileResetSignal, setTurnstileResetSignal] = useState(0);
   const [error, setError] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
   const handleTurnstileToken = useCallback((token: string) => {
     setTurnstileToken(token);
   }, []);
   useEffect(() => {
-    setHydrated(true);
-  }, []);
+    if (consent) void import("livekit-client");
+  }, [consent]);
 
   const canStart =
     hydrated && consent && !loading && (!turnstileRequired || turnstileStatus === "verified");
 
   async function startConference() {
-    if (!consent || (turnstileRequired && turnstileStatus !== "verified")) return;
+    if (startingRef.current || !consent || (turnstileRequired && turnstileStatus !== "verified"))
+      return;
+    startingRef.current = true;
     setError("");
     setLoading(true);
+    setLoadingStage("microphone");
+    const requestedAt = Date.now();
+    let microphone: LocalAudioTrack | null = null;
     try {
-      const response = await fetch("/api/assessment/start", {
+      const microphonePromise = import("livekit-client")
+        .then(({ createLocalAudioTrack }) => createLocalAudioTrack())
+        .catch(() => null);
+      const responsePromise = fetch("/api/assessment/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -57,12 +75,18 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
           locale,
           visitorId: getAssessmentVisitorId(window.localStorage),
           turnstileToken,
-          processingConsent: true,
-          recordingConsent: true,
+          processingConsent: consent,
+          recordingConsent: consent,
           resumeToken:
             new URLSearchParams(window.location.hash.replace(/^#/, "")).get("resume") || undefined,
         }),
       });
+      const [response, capturedMicrophone] = await Promise.all([
+        responsePromise,
+        microphonePromise,
+      ]);
+      microphone = capturedMicrophone;
+      setLoadingStage("room");
       const result = await response.json();
       if (!response.ok) {
         const technical = result.code
@@ -98,19 +122,31 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
             support,
         );
       }
+      setStartupStartedAt(requestedAt);
+      setPreparedMicrophone(microphone);
       setSession(result);
     } catch (reason) {
+      microphone?.stop();
       if (turnstileRequired) {
         setTurnstileToken("");
         setTurnstileResetSignal((value) => value + 1);
       }
       setError(reason instanceof Error ? reason.message : "Error");
     } finally {
+      startingRef.current = false;
       setLoading(false);
     }
   }
 
-  if (session) return <VoiceSession locale={locale} session={session} />;
+  if (session)
+    return (
+      <VoiceSession
+        locale={locale}
+        session={session}
+        initialMicrophoneTrack={preparedMicrophone}
+        startupStartedAt={startupStartedAt}
+      />
+    );
 
   const checklist = [
     { icon: Mic2, label: es ? "Micrófono habilitado" : "Microphone enabled" },
@@ -231,16 +267,17 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
               />
               <span>
                 {es
-                  ? "Acepto el procesamiento: audio hasta 30 días, transcripción hasta 90 días y ficha de contacto hasta 12 meses."
-                  : "I consent to processing: audio up to 30 days, transcript up to 90 days, and contact record up to 12 months."}{" "}
+                  ? "Acepto que QuisqueyaTech grabe y procese esta evaluación por voz para generar mi análisis y dar seguimiento a mi solicitud. El audio se conservará hasta 30 días, la transcripción hasta 90 días y la ficha de contacto hasta 12 meses. He leído la "
+                  : "I agree that QuisqueyaTech may record and process this voice assessment to generate my analysis and follow up on my request. Audio is retained for up to 30 days, the transcript for up to 90 days, and the contact record for up to 12 months. I have read the "}
                 <a
                   className="underline"
-                  href={es ? "/privacidad" : "/en/privacy"}
+                  href={consentLinks.privacy(locale)}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {es ? "Ver privacidad" : "View privacy policy"}
+                  {es ? "Política de privacidad" : "Privacy Policy"}
                 </a>
+                .
               </span>
             </label>
 
@@ -261,6 +298,18 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
             {error ? (
               <p role="alert" className="mt-4 rounded-xl bg-rose/15 p-3 text-sm text-rose-200">
                 {error}
+              </p>
+            ) : null}
+
+            {loading ? (
+              <p role="status" className="mt-4 text-center text-sm text-white/70">
+                {loadingStage === "microphone"
+                  ? es
+                    ? "Preparando micrófono…"
+                    : "Preparing microphone…"
+                  : es
+                    ? "Conectando la sala privada…"
+                    : "Connecting the private room…"}
               </p>
             ) : null}
 

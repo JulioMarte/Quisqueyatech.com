@@ -107,9 +107,17 @@ export function Footer() {
           <span>
             © {new Date().getFullYear()} QuisqueyaTech · {brand.location}
           </span>
-          <Link href={isEs ? "/privacidad" : "/en/privacy"} className="hover:text-amber-deep">
-            {isEs ? "Privacidad" : "Privacy"}
-          </Link>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <Link href={isEs ? "/privacidad" : "/en/privacy"} className="hover:text-amber-deep">
+              {isEs ? "Privacidad" : "Privacy"}
+            </Link>
+            <Link
+              href={isEs ? "/terminos-de-mensajeria" : "/en/messaging-terms"}
+              className="hover:text-amber-deep"
+            >
+              {isEs ? "Términos de mensajería" : "Messaging Terms"}
+            </Link>
+          </div>
         </div>
       </Container>
     </footer>

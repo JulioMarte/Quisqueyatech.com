@@ -31,7 +31,7 @@ test("telemetry writes are idempotent and contain only bounded technical fields"
     durationMs: 12_000,
     createdAt: 100,
     expiresAt: 200,
-  };
+  } as const;
   const first = await t.mutation(api.assessments.recordTelemetry, input);
   const duplicate = await t.mutation(api.assessments.recordTelemetry, input);
   expect(duplicate).toBe(first);
@@ -70,4 +70,76 @@ test("session recovery claim reuses the replacement key for the same idempotency
       replacementSessionKey: "ignored-session",
     }),
   ).toEqual({ claimed: false, replacementSessionKey: "new-session" });
+});
+
+test("conference start persists assessment, session, and resume credential atomically", async () => {
+  const t = convexTest(schema, modules);
+  const startedAt = 1_000;
+  const input = {
+    serviceSecret: SERVICE_SECRET,
+    assessmentId: "assessment-fast-start",
+    firstName: "Visitante",
+    lastName: "Web",
+    company: "No informado",
+    role: "No informado",
+    country: "DO",
+    locale: "es" as const,
+    email: "voice@example.invalid",
+    phone: "+10000000000",
+    processingConsent: true,
+    recordingConsent: true,
+    mode: "now",
+    provider: "livekit",
+    frameworkVersion: "test-v1",
+    snapshot: {
+      version: 1 as const,
+      revision: 0,
+      locale: "es" as const,
+      stage: "process" as const,
+      fields: {},
+      probeCounts: {},
+      coverageScore: 0,
+      essentialMissing: [],
+      currentBranch: "process",
+      elapsedSeconds: 0,
+      complete: false,
+      alerts: [],
+      lastUpdatedAt: startedAt,
+    },
+    createdAt: startedAt,
+    audioExpiresAt: startedAt + 1,
+    transcriptExpiresAt: startedAt + 2,
+    leadExpiresAt: startedAt + 3,
+    consentVersion: "test-consent",
+    sessionKey: "session-fast-start",
+    providerSessionId: "room-fast-start",
+    supportId: "support-fast-start",
+    providerModel: "gemini-test",
+    providerVoice: "Aoede",
+    startedAt,
+    resumeTokenHash: "resume-hash",
+    resumeExpiresAt: startedAt + 4,
+  };
+  await t.mutation(api.assessments.beginConferenceSession, input);
+  await t.mutation(api.assessments.beginConferenceSession, input);
+
+  const state = await t.query(api.assessments.getState, {
+    serviceSecret: SERVICE_SECRET,
+    assessmentId: "assessment-fast-start",
+  });
+  const sessions = await t.run((ctx) => ctx.db.query("assessmentSessions").take(10));
+  const assessments = await t.run((ctx) => ctx.db.query("assessments").take(10));
+  const leads = await t.run((ctx) => ctx.db.query("leads").take(10));
+  expect(state).toMatchObject({
+    status: "in_progress",
+    providerSessionId: "room-fast-start",
+    resumeTokenHash: "resume-hash",
+  });
+  expect(sessions).toHaveLength(1);
+  expect(assessments).toHaveLength(1);
+  expect(leads).toHaveLength(1);
+  expect(sessions[0]).toMatchObject({
+    sessionKey: "session-fast-start",
+    status: "active",
+  });
 });

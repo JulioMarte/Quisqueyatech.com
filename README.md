@@ -13,12 +13,14 @@ npm run dev
 
 Nota local actual: `npm run dev` ejecuta solo Next.js y usa las URLs de Convex
 Cloud definidas en `.env.local`. Completa `NEXT_PUBLIC_CONVEX_URL`,
-`NEXT_PUBLIC_CONVEX_SITE_URL` y los secretos runtime locales para probar contra
-Cloud. `CONVEX_URL` y `CONVEX_SITE_URL` son opcionales si las variables
-`NEXT_PUBLIC_*` ya apuntan al mismo deployment. Para probar el worker local con
-`npm run agent:dev`, `.env.local` tambien debe incluir `LIVEKIT_URL`,
-`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET` y,
-opcionalmente, `ASSESSMENT_APP_URL=http://localhost:3000`. Usa
+`NEXT_PUBLIC_CONVEX_SITE_URL` y `ADMIN_API_SECRET` para probar contra Cloud. Los
+secretos de LiveKit, Gemini, Turnstile y la evaluación viven en las variables
+del deployment de Convex. Para revisar o migrar `.env.local` sin mostrar valores,
+usa `npm run assessment:env`; aplica con `assessment:env:dev` y, después de
+validar, con `assessment:env:prod`. Para probar el worker local, `.env.local`
+solo necesita además `ASSESSMENT_WORKER_SECRET` y opcionalmente
+`ASSESSMENT_APP_URL=http://localhost:3000`; LiveKit se obtiene desde Convex antes
+de arrancar el agente. Usa
 `npm run dev:local` solamente cuando quieras levantar Convex local de forma
 explicita.
 
@@ -26,6 +28,40 @@ Para comprobar la ruta completa antes de probar con usuarios, levanta Next y el
 worker, luego ejecuta `npm run assessment:doctor`. Si existe
 `ASSESSMENT_HEALTH_PROBE_TOKEN`, el script tambien ejecuta el probe activo de
 LiveKit; para un preview o produccion usa `ASSESSMENT_DOCTOR_URL=https://...`.
+
+## Observabilidad con OpenTelemetry
+
+La app Next.js y el worker LiveKit inicializan OpenTelemetry en Node.js y
+exportan trazas y metricas por OTLP HTTP/protobuf. Configura estas variables en
+Coolify, Docker o `.env.local`:
+
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com
+OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <token>"
+OTEL_TRACES_EXPORTER=otlp
+OTEL_METRICS_EXPORTER=otlp
+OTEL_LOGS_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_DEPLOYMENT_ENVIRONMENT=production
+```
+
+El servicio web usa `OTEL_SERVICE_NAME=quisqueyatech-web` por defecto. Los
+scripts del worker fijan `OTEL_SERVICE_NAME=quisqueyatech-livekit-agent`.
+Usa `OTEL_ENABLED=false` o `OTEL_SDK_DISABLED=true` para desactivar la
+instrumentacion sin cambiar el build.
+
+Para Grafana Cloud puedes usar el endpoint base OTLP, o fijar endpoints por
+señal si tu collector los exige:
+
+```bash
+GRAFANA_CLOUD_OTLP_ENDPOINT=https://otlp-gateway-prod-REGION.grafana.net/otlp
+GRAFANA_CLOUD_BASIC_AUTH_HEADER="Basic <base64 instance-id:token>"
+OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/traces"
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/metrics"
+OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${GRAFANA_CLOUD_OTLP_ENDPOINT}/v1/logs"
+OTEL_EXPORTER_OTLP_HEADERS="authorization=${GRAFANA_CLOUD_BASIC_AUTH_HEADER}"
+```
 
 `npx convex codegen` solamente genera los bindings y comprueba tipos locales. No publica las funciones en Convex Cloud y no sustituye a `npx convex dev --once`.
 

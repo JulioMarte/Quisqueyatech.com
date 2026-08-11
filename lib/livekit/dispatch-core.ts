@@ -264,3 +264,10 @@ export async function safeDeleteRoom(clients: LiveKitDispatchClients, roomName: 
     dispatchLog("room_cleanup_skipped", { roomName });
   }
 }
+import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
+
+export function agentDispatchRoomConfiguration(agentName: string, metadata: string) {
+  return new RoomConfiguration({
+    agents: [new RoomAgentDispatch({ agentName, metadata })],
+  });
+}

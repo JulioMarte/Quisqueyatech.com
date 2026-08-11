@@ -18,6 +18,8 @@ import {
   type ReactNode,
 } from "react";
 import type { Locale } from "@/lib/i18n";
+import { localeFromPath } from "@/lib/i18n";
+import { usePathname } from "next/navigation";
 
 export type ScheduleSource =
   | "navbar"
@@ -50,17 +52,8 @@ export function ScheduleModalProvider({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [source, setSource] = useState<ScheduleSource>("unknown");
-  const [locale, setLocale] = useState<Locale>(initialLocale);
-
-  // Sync locale from current path so the modal always opens in the
-  // correct language even if the user switched.
-  /* eslint-disable react-hooks/set-state-in-effect -- syncing with external URL state */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const path = window.location.pathname;
-    setLocale(path === "/en" || path.startsWith("/en/") ? "en" : "es");
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  const pathname = usePathname();
+  const locale = pathname ? localeFromPath(pathname) : initialLocale;
 
   // Deep-link support: ?agendar=1 (or ?schedule=open) auto-opens the
   // modal on first mount. Useful for ad campaigns and shared links.
@@ -78,17 +71,6 @@ export function ScheduleModalProvider({
     }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  // Sync locale when the user navigates to a different locale path.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onPopState = () => {
-      const path = window.location.pathname;
-      setLocale(path === "/en" || path.startsWith("/en/") ? "en" : "es");
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
 
   const open = useCallback((next: ScheduleSource = "unknown") => {
     setSource(next);

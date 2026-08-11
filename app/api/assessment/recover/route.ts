@@ -52,6 +52,7 @@ async function recordServerEvent(
 }
 
 export async function POST(request: Request) {
+  await runtimeConfig();
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
   const verified = verifyAssessmentToken(token, "progress");
@@ -155,14 +156,18 @@ export async function POST(request: Request) {
           coverageScore: stored.snapshot.coverageScore,
         })
       : undefined;
-    const session = await createVoiceSession("livekit", {
-      assessmentId: verified.assessmentId,
-      sessionKey: nextSessionKey,
-      locale,
-      name,
-      progressToken: token,
-      resumeSummary,
-    });
+    const session = await createVoiceSession(
+      "livekit",
+      {
+        assessmentId: verified.assessmentId,
+        sessionKey: nextSessionKey,
+        locale,
+        name,
+        progressToken: token,
+        resumeSummary,
+      },
+      config,
+    );
     if (session.provider !== "livekit") throw new Error("LiveKit recovery dispatch failed");
     await convexMutation("assessments:setProviderSession", {
       assessmentId: verified.assessmentId,

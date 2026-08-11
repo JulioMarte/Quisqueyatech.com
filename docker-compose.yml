@@ -98,10 +98,8 @@ services:
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production
-      LIVEKIT_URL: ${LIVEKIT_URL:-}
-      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       ASSESSMENT_WORKER_SECRET: ${ASSESSMENT_WORKER_SECRET:-}
+      CONVEX_SITE_URL: ${CONVEX_SITE_URL:-${NEXT_PUBLIC_CONVEX_SITE_URL:-}}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://www.quisqueyatech.com}
       ASSESSMENT_APP_URL: ${ASSESSMENT_APP_URL:-http://web:3000}
     restart: unless-stopped

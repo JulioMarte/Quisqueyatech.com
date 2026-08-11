@@ -8,8 +8,9 @@ import {
   readAdminJson,
   requestId,
 } from "@/lib/server/admin-content";
-import { fetchAuthMutation, fetchAuthQuery } from "@/lib/server/auth-server";
+import { fetchAuthMutation } from "@/lib/server/auth-server";
 import { encryptSetting, maskLastFour, resolveSafeExternalUrl } from "@/lib/server/secure-config";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 const optionalText = (maximum: number) => z.string().trim().max(maximum).optional();
 const configurationSchema = z
@@ -45,7 +46,33 @@ export async function GET(request: Request) {
   const trace = requestId(request);
   try {
     if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
-    return adminJson(trace, await fetchAuthQuery(api.settings.adminGet, {}));
+    const runtime = await runtimeConfig();
+    return adminJson(trace, {
+      source: "convex-env",
+      readOnly: true,
+      config: {
+        defaultProvider: "livekit",
+        ultravoxApiUrl: runtime.ultravoxApiUrl,
+        ultravoxModel: runtime.ultravoxModel,
+        ultravoxVoice: runtime.ultravoxVoice,
+        livekitUrl: runtime.livekitUrl,
+        geminiLiveModel: runtime.geminiLiveModel,
+        geminiLiveVoice: runtime.geminiLiveVoice,
+      },
+      secrets: Object.fromEntries(
+        [
+          "ultravoxApiKey",
+          "ultravoxWebhookSecret",
+          "livekitApiKey",
+          "livekitApiSecret",
+          "geminiApiKey",
+          "webhookSecret",
+        ].map((key) => {
+          const value = typeof runtime[key] === "string" ? String(runtime[key]) : "";
+          return [key, { configured: Boolean(value), lastFour: value ? value.slice(-4) : "" }];
+        }),
+      ),
+    });
   } catch (error) {
     return adminException(trace, "configuration.get", error);
   }
@@ -55,6 +82,13 @@ export async function PUT(request: Request) {
   const trace = requestId(request);
   try {
     if (!(await authorizeContentRequest(request))) return adminFailure(trace, "Unauthorized", 401);
+    if (process.env.RUNTIME_CONFIG_SOURCE !== "legacy-encrypted-settings") {
+      return adminFailure(
+        trace,
+        "La configuración es de solo lectura. Actualiza las variables del deployment en Convex.",
+        409,
+      );
+    }
     const parsed = updateSchema.safeParse(await readAdminJson(request, 64_000));
     if (!parsed.success)
       return adminFailure(trace, parsed.error.issues[0]?.message || "Invalid configuration", 400);

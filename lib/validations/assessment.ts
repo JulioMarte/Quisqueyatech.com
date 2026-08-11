@@ -127,7 +127,7 @@ export const assessmentBulkDeleteSchema = z.object({
   assessmentIds: z
     .array(z.string().uuid())
     .min(1)
-    .max(25)
+    .max(5)
     .refine(
       (items) => new Set(items).size === items.length,
       "Las evaluaciones seleccionadas no pueden repetirse.",
@@ -156,8 +156,7 @@ export const bookingSchema = z.object({
     .max(160),
   phone,
   notes: z.string().trim().max(1000).optional(),
-  processingConsent: z.literal(true, { error: "Debes aceptar el procesamiento de datos." }),
-  recordingConsent: z.boolean(),
+  messagingConsent: z.boolean(),
   website: z.string().max(0).optional(),
   turnstileToken: z.string().optional(),
   start: z.string().datetime({ message: "El horario seleccionado no es válido." }),

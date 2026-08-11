@@ -72,10 +72,14 @@ export function normalizeAssessmentLiveKitUrl(config: RuntimeConfig) {
 }
 
 export function assessmentTurnstileAllowedHostnames() {
-  return (process.env.TURNSTILE_ALLOWED_HOSTNAMES || "")
+  const configured = (process.env.TURNSTILE_ALLOWED_HOSTNAMES || "")
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean);
+  if (configured.length) return configured;
+  return process.env.NODE_ENV === "production"
+    ? ["quisqueyatech.com", "www.quisqueyatech.com"]
+    : ["localhost", "127.0.0.1", "quisqueyatech.com", "www.quisqueyatech.com"];
 }
 
 export function validateAssessmentReadiness(
@@ -93,15 +97,13 @@ export function validateAssessmentReadiness(
     add("CONVEX_URL_MISSING", "CONVEX_URL or NEXT_PUBLIC_CONVEX_URL is required.");
   if (!(process.env.CONVEX_SITE_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim()))
     add("CONVEX_SITE_URL_MISSING", "CONVEX_SITE_URL or NEXT_PUBLIC_CONVEX_SITE_URL is required.");
-  if (!process.env.ASSESSMENT_TOKEN_SECRET?.trim())
+  if (!(config.assessmentTokenSecret || process.env.ASSESSMENT_TOKEN_SECRET?.trim()))
     add("ASSESSMENT_TOKEN_SECRET_MISSING", "ASSESSMENT_TOKEN_SECRET is required.");
-  if (!process.env.ASSESSMENT_STORAGE_SECRET?.trim())
+  if (!(config.assessmentStorageSecret || process.env.ASSESSMENT_STORAGE_SECRET?.trim()))
     add("ASSESSMENT_STORAGE_SECRET_MISSING", "ASSESSMENT_STORAGE_SECRET is required.");
-  if (!process.env.CONFIG_ENCRYPTION_KEY?.trim())
-    add("CONFIG_ENCRYPTION_KEY_MISSING", "CONFIG_ENCRYPTION_KEY is required.");
   if (!process.env.ADMIN_API_SECRET?.trim())
-    add("ADMIN_API_SECRET_MISSING", "ADMIN_API_SECRET is required for machine-runtime fallback.");
-  if (!process.env.ASSESSMENT_WORKER_SECRET?.trim())
+    add("ADMIN_API_SECRET_MISSING", "ADMIN_API_SECRET is required for the Convex gateway.");
+  if (!(config.assessmentWorkerSecret || process.env.ASSESSMENT_WORKER_SECRET?.trim()))
     add("ASSESSMENT_WORKER_SECRET_MISSING", "ASSESSMENT_WORKER_SECRET is required.");
 
   const appUrl = assessmentAppUrl();
@@ -136,7 +138,7 @@ export function validateAssessmentReadiness(
   if (includeTurnstile) {
     if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim())
       add("TURNSTILE_SITE_KEY_MISSING", "NEXT_PUBLIC_TURNSTILE_SITE_KEY is required.");
-    if (!process.env.TURNSTILE_SECRET_KEY?.trim())
+    if (!(config.turnstileSecretKey || process.env.TURNSTILE_SECRET_KEY?.trim()))
       add("TURNSTILE_SECRET_MISSING", "TURNSTILE_SECRET_KEY is required.");
     if (!assessmentTurnstileAllowedHostnames().length)
       add("TURNSTILE_HOSTNAMES_MISSING", "TURNSTILE_ALLOWED_HOSTNAMES must list public hosts.");
@@ -151,7 +153,9 @@ export function validateAssessmentReadiness(
     checks: {
       appUrlReady: Boolean(appUrl),
       expectedLiveKitHostname: expectedAssessmentLiveKitHostname(),
-      workerSecretReady: Boolean(process.env.ASSESSMENT_WORKER_SECRET?.trim()),
+      workerSecretReady: Boolean(
+        config.assessmentWorkerSecret || process.env.ASSESSMENT_WORKER_SECRET?.trim(),
+      ),
       turnstileAllowedHostnames: assessmentTurnstileAllowedHostnames(),
       trustedProxyHeaders: process.env.TRUST_PROXY_HEADERS === "true",
     },

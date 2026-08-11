@@ -25,6 +25,7 @@ export function alternatePath(pathname: string): string {
     "/recursos": "/en/recursos",
     "/nosotros": "/en/about",
     "/privacidad": "/en/privacy",
+    "/terminos-de-mensajeria": "/en/messaging-terms",
   };
   if (pairs[pathname]) return pairs[pathname];
   const reverse = Object.fromEntries(Object.entries(pairs).map(([es, en]) => [en, es]));

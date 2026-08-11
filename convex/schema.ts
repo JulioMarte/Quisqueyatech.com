@@ -1,5 +1,11 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  assessmentReportValidator,
+  assessmentSnapshotValidator,
+  progressInputValidator,
+  progressOutputValidator,
+} from "./assessmentValidators";
 
 const locale = v.union(v.literal("es"), v.literal("en"));
 const postStatus = v.union(
@@ -27,6 +33,7 @@ export default defineSchema({
     source: v.string(),
     status: v.string(),
     processingConsentAt: v.number(),
+    processingConsentVersion: v.optional(v.string()),
     leadExpiresAt: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -49,13 +56,17 @@ export default defineSchema({
     status: v.string(),
     stage: v.optional(v.string()),
     coverageScore: v.optional(v.number()),
+    // Deprecated after the assessmentV1 backfill; retained for zero-downtime rollback.
     snapshot: v.optional(v.any()),
+    snapshotV1: v.optional(assessmentSnapshotValidator),
     completionReason: v.optional(v.string()),
     resumeTokenHash: v.optional(v.string()),
     resumeExpiresAt: v.optional(v.number()),
     finalizationStartedAt: v.optional(v.number()),
     finalizationClaimedAt: v.optional(v.number()),
+    // Deprecated after the assessmentV1 backfill; retained for zero-downtime rollback.
     reportDraft: v.optional(v.any()),
+    reportDraftV1: v.optional(assessmentReportValidator),
     reportStatus: v.optional(v.string()),
     reportRevision: v.optional(v.number()),
     reportContentHash: v.optional(v.string()),
@@ -75,7 +86,9 @@ export default defineSchema({
     audioExpiresAt: v.number(),
     transcript: v.optional(v.string()),
     transcriptExpiresAt: v.number(),
+    // Deprecated after the assessmentV1 backfill; retained for zero-downtime rollback.
     result: v.optional(v.any()),
+    resultV1: v.optional(assessmentReportValidator),
     durationSeconds: v.optional(v.number()),
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
@@ -103,7 +116,9 @@ export default defineSchema({
     recoveryKey: v.optional(v.string()),
     replacementSessionKey: v.optional(v.string()),
     canonicalTranscript: v.optional(v.string()),
+    // Deprecated after the assessmentV1 backfill; retained for zero-downtime rollback.
     report: v.optional(v.any()),
+    reportV1: v.optional(assessmentReportValidator),
   })
     .index("by_session_key", ["sessionKey"])
     .index("by_assessment", ["assessmentId", "startedAt"])
@@ -127,6 +142,7 @@ export default defineSchema({
     .index("by_event_id", ["eventId"])
     .index("by_assessment_id_and_created_at", ["assessmentId", "createdAt"])
     .index("by_support_id_and_created_at", ["supportId", "createdAt"])
+    .index("by_event_and_created_at", { fields: ["event", "createdAt"], staged: true })
     .index("by_expires_at", ["expiresAt"]),
 
   assessmentEvents: defineTable({
@@ -134,12 +150,23 @@ export default defineSchema({
     eventId: v.string(),
     sessionKey: v.optional(v.string()),
     reason: v.string(),
+    // Deprecated after the assessmentV1 backfill; retained for zero-downtime rollback.
     input: v.any(),
     output: v.any(),
+    inputV1: v.optional(progressInputValidator),
+    outputV1: v.optional(progressOutputValidator),
     createdAt: v.number(),
   })
     .index("by_assessment_event", ["assessmentId", "eventId"])
     .index("by_assessment_time", ["assessmentId", "createdAt"]),
+
+  assessmentAudit: defineTable({
+    assessmentId: v.string(),
+    action: v.literal("deleted"),
+    actorEmail: v.string(),
+    preservedLead: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_assessment_id_and_created_at", ["assessmentId", "createdAt"]),
 
   assessmentRateLimits: defineTable({
     key: v.string(),
@@ -162,6 +189,10 @@ export default defineSchema({
     previousStart: v.optional(v.string()),
     previousStartAt: v.optional(v.number()),
     recordingConsentAt: v.optional(v.number()),
+    messagingConsentAt: v.optional(v.number()),
+    messagingConsentVersion: v.optional(v.string()),
+    messagingConsentLocale: v.optional(locale),
+    messagingChannels: v.optional(v.array(v.union(v.literal("sms"), v.literal("whatsapp")))),
     createdAt: v.number(),
     updatedAt: v.number(),
     callSid: v.optional(v.string()),

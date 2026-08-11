@@ -9,7 +9,9 @@ export function constantTimeEqual(left: string, right: string) {
   return difference === 0;
 }
 
-function requiredSecret(name: "ADMIN_API_SECRET" | "ASSESSMENT_STORAGE_SECRET") {
+function requiredSecret(
+  name: "ADMIN_API_SECRET" | "ASSESSMENT_STORAGE_SECRET" | "ASSESSMENT_WORKER_SECRET",
+) {
   const value = process.env[name]?.trim() ?? "";
   if (!value) {
     throw new ConvexError({
@@ -31,6 +33,14 @@ export function requireAdminApiSecret(secret: string | undefined) {
 /** Assessment pipeline storage auth (separate from admin API secret). */
 export function requireAssessmentStorageSecret(secret: string | undefined) {
   const expected = requiredSecret("ASSESSMENT_STORAGE_SECRET");
+  if (!secret || !constantTimeEqual(secret, expected)) {
+    throw new ConvexError({ code: "UNAUTHORIZED", message: "Unauthorized" });
+  }
+}
+
+/** Machine-to-machine auth for the LiveKit worker -> Convex bootstrap. */
+export function requireAssessmentWorkerSecret(secret: string | undefined) {
+  const expected = requiredSecret("ASSESSMENT_WORKER_SECRET");
   if (!secret || !constantTimeEqual(secret, expected)) {
     throw new ConvexError({ code: "UNAUTHORIZED", message: "Unauthorized" });
   }

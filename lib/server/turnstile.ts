@@ -8,6 +8,7 @@ import {
   type TurnstileMode,
 } from "@/lib/security/turnstile-config";
 import { diagnosticLog } from "@/lib/server/diagnostic-log";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
 
@@ -85,7 +86,11 @@ export async function verifyTurnstile(
   action: TurnstileAction,
 ): Promise<TurnstileResult> {
   const supportId = crypto.randomUUID();
-  const { secret, mode } = turnstileServerConfig();
+  const runtime = await runtimeConfig();
+  const { secret, mode } = turnstileServerConfig(
+    process.env.NODE_ENV,
+    String(runtime.turnstileSecretKey || process.env.TURNSTILE_SECRET_KEY || ""),
+  );
   if (!secret) {
     const failure: TurnstileResult = {
       ok: false,

@@ -4,6 +4,7 @@ import {
   assessmentIntakeSchema,
   type AssessmentIntake,
 } from "@/lib/validations/assessment";
+import { VOICE_CONSENT_VERSION } from "@/lib/consent";
 import { convexMutation } from "@/lib/server/convex";
 import { checkRequestLimit } from "@/lib/server/rate-limit";
 import { verifyTurnstile } from "@/lib/server/turnstile";
@@ -14,6 +15,7 @@ import {
   defaultGeminiLiveModel,
   defaultGeminiLiveVoice,
   interviewFrameworkVersion,
+  providerConfigured,
 } from "@/lib/server/voice";
 import {
   assessmentTokenHash,
@@ -26,8 +28,13 @@ import { requestIp } from "@/lib/server/request-ip";
 import { requestFingerprint } from "@/lib/server/auth";
 import { AuthConfigError, classifyAuthError } from "@/lib/server/auth-errors";
 import { LiveKitDispatchError } from "@/lib/livekit/dispatch-core";
+import { cleanupAssessmentRoom } from "@/lib/server/livekit";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
 import { validateAssessmentReadiness } from "@/lib/server/assessment-livekit-config";
+
+function isOpaqueConvexServerError(error: unknown) {
+  return error instanceof Error && /^\[Request ID: .+\] Server Error$/.test(error.message);
+}
 
 function requiredLocalCloudVariables() {
   const missing: string[] = [];
@@ -37,10 +44,6 @@ function requiredLocalCloudVariables() {
     missing.push("CONVEX_SITE_URL or NEXT_PUBLIC_CONVEX_SITE_URL");
   for (const key of [
     "ADMIN_API_SECRET",
-    "ASSESSMENT_STORAGE_SECRET",
-    "ASSESSMENT_TOKEN_SECRET",
-    "CONFIG_ENCRYPTION_KEY",
-    "ASSESSMENT_WORKER_SECRET",
   ] as const) {
     if (!process.env[key]?.trim()) missing.push(key);
   }
@@ -142,8 +145,8 @@ export async function POST(request: Request) {
         locale: parsed.data.locale,
         email: `voice-${temporaryId}@anonymous.invalid`,
         phone: "+10000000000",
-        processingConsent: true,
-        recordingConsent: true,
+        processingConsent: parsed.data.processingConsent,
+        recordingConsent: parsed.data.recordingConsent,
       };
     } else {
       const parsed = assessmentIntakeSchema.safeParse(body);
@@ -171,9 +174,13 @@ export async function POST(request: Request) {
       localeForLog = intake.locale;
     }
 
-    const dynamicConfig = await runtimeConfig();
+    const [dynamicConfig, turnstile] = await Promise.all([
+      runtimeConfig(),
+      verifyTurnstile(turnstileToken, ip, "assessment_start"),
+    ]);
+
     const readiness = validateAssessmentReadiness(dynamicConfig, { includeTurnstile: false });
-    if (!readiness.ready) {
+    if (!readiness.ready || !(await providerConfigured("livekit", dynamicConfig))) {
       diagnosticLog(
         "assessment-start",
         "provider_not_configured",
@@ -199,7 +206,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const turnstile = await verifyTurnstile(turnstileToken, ip, "assessment_start");
     diagnosticLog("assessment-start", "turnstile_checked", {
       supportId: requestSupportId,
       ok: turnstile.ok,
@@ -268,7 +274,9 @@ export async function POST(request: Request) {
         livekitApiKey: Boolean(dynamicConfig.livekitApiKey),
         livekitApiSecret: Boolean(dynamicConfig.livekitApiSecret),
         geminiApiKey: Boolean(dynamicConfig.geminiApiKey),
-        assessmentWorkerSecret: Boolean(process.env.ASSESSMENT_WORKER_SECRET?.trim()),
+        assessmentWorkerSecret: Boolean(
+          dynamicConfig.assessmentWorkerSecret || process.env.ASSESSMENT_WORKER_SECRET?.trim(),
+        ),
       },
       durationMs: Date.now() - startedAt,
     });
@@ -289,26 +297,6 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     const snapshot = previous?.snapshot || createAssessmentSnapshot(intake.locale);
-    await convexMutation("assessments:create", {
-      assessmentId,
-      ...intake,
-      mode: "now",
-      provider,
-      frameworkVersion: interviewFrameworkVersion,
-      snapshot,
-      createdAt: Date.now(),
-      audioExpiresAt: Date.now() + 30 * 86400000,
-      transcriptExpiresAt: Date.now() + 90 * 86400000,
-      leadExpiresAt: Date.now() + 365 * 86400000,
-      resumeExpiresAt: Date.now() + 24 * 60 * 60_000,
-      consentVersion: "voice-assessment-2026-07-v1",
-    });
-    diagnosticLog("assessment-start", "assessment_created", {
-      supportId: requestSupportId,
-      assessmentId,
-      provider,
-      durationMs: Date.now() - startedAt,
-    });
     const resumeSummary = previous?.snapshot
       ? JSON.stringify({
           fields: previous.snapshot.fields,
@@ -318,14 +306,18 @@ export async function POST(request: Request) {
       : undefined;
     const sessionProgressToken = progressToken(assessmentId);
     const sessionKey = crypto.randomUUID();
-    const session = await createVoiceSession(provider, {
-      assessmentId,
-      sessionKey,
-      locale: intake.locale,
-      name: previous?.lead?.firstName || intake.firstName,
-      progressToken: sessionProgressToken,
-      resumeSummary,
-    });
+    const session = await createVoiceSession(
+      provider,
+      {
+        assessmentId,
+        sessionKey,
+        locale: intake.locale,
+        name: previous?.lead?.firstName || intake.firstName,
+        progressToken: sessionProgressToken,
+        resumeSummary,
+      },
+      dynamicConfig,
+    );
     if (session.provider === "livekit") roomNameForLog = session.roomName;
     diagnosticLog("assessment-start", "voice_session_created", {
       supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
@@ -336,59 +328,113 @@ export async function POST(request: Request) {
       dispatchId: session.provider === "livekit" ? session.dispatchId : undefined,
       durationMs: Date.now() - startedAt,
     });
-    const providerSessionId =
-      session.provider === "ultravox"
-        ? session.callId
-        : session.provider === "livekit"
-          ? session.roomName
-          : session.provider === "gemini-live"
-            ? sessionKey
-            : undefined;
+    if (session.provider !== "livekit") throw new Error("LiveKit session was not created");
+    const providerSessionId = session.roomName;
     const providerModel = String(dynamicConfig.geminiLiveModel || defaultGeminiLiveModel);
     const providerVoice = String(dynamicConfig.geminiLiveVoice || defaultGeminiLiveVoice);
-    await convexMutation("assessments:setProviderSession", {
+    const nextResumeToken = resumeToken(assessmentId);
+    const persistedAt = Date.now();
+    const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
+    const conferenceSessionArgs = {
       assessmentId,
+      ...intake,
+      mode: "now",
       sessionKey,
-      provider: session.provider === "demo" ? provider : session.provider,
+      provider,
       providerSessionId,
-      supportId: session.provider === "livekit" ? session.supportId : undefined,
+      supportId: session.supportId,
       providerModel,
       providerVoice,
       frameworkVersion: interviewFrameworkVersion,
-      startedAt: Date.now(),
-    });
-    diagnosticLog("assessment-start", "provider_session_recorded", {
-      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
+      snapshot,
+      createdAt: persistedAt,
+      audioExpiresAt: persistedAt + 30 * 86400000,
+      transcriptExpiresAt: persistedAt + 90 * 86400000,
+      leadExpiresAt: persistedAt + 365 * 86400000,
+      consentVersion: VOICE_CONSENT_VERSION,
+      startedAt: persistedAt,
+      resumeTokenHash: assessmentTokenHash(nextResumeToken),
+      resumeExpiresAt: persistedAt + 24 * 60 * 60_000,
+    };
+    try {
+      try {
+        await convexMutation("assessments:beginConferenceSession", conferenceSessionArgs);
+      } catch (error) {
+        if (!isOpaqueConvexServerError(error)) throw error;
+        diagnosticLog(
+          "assessment-start",
+          "begin_conference_session_fallback",
+          {
+            supportId: session.supportId,
+            requestSupportId,
+            assessmentId,
+            reason: "opaque_convex_server_error",
+          },
+          "error",
+        );
+        await convexMutation("assessments:create", {
+          assessmentId,
+          ...intake,
+          mode: "now",
+          provider,
+          snapshot,
+          createdAt: persistedAt,
+          audioExpiresAt: persistedAt + 30 * 86400000,
+          transcriptExpiresAt: persistedAt + 90 * 86400000,
+          leadExpiresAt: persistedAt + 365 * 86400000,
+          consentVersion: VOICE_CONSENT_VERSION,
+        });
+        await convexMutation("assessments:setProviderSession", {
+          assessmentId,
+          sessionKey,
+          provider,
+          providerSessionId,
+          supportId: session.supportId,
+          providerModel,
+          providerVoice,
+          frameworkVersion: interviewFrameworkVersion,
+          startedAt: persistedAt,
+        });
+        await convexMutation("assessments:setResumeCredential", {
+          assessmentId,
+          tokenHash: assessmentTokenHash(nextResumeToken),
+          expiresAt: persistedAt + 24 * 60 * 60_000,
+        });
+      }
+    } catch (error) {
+      await cleanupAssessmentRoom(dynamicConfig, session.roomName).catch((cleanupError) => {
+        diagnosticLog("assessment-start", "room_cleanup_failed", {
+          supportId: session.supportId,
+          roomName: session.roomName,
+          error: errorSummary(cleanupError),
+        });
+      });
+      throw error;
+    }
+    if (adminApiSecret) {
+      void convexMutation("funnel:track", {
+        serviceSecret: adminApiSecret,
+        sessionId: assessmentId,
+        locale: intake.locale,
+        name: "assessment_started",
+        assessmentId,
+        createdAt: persistedAt,
+      }).catch((error) => {
+        diagnosticLog("assessment-start", "funnel_write_failed", {
+          supportId: session.supportId,
+          assessmentId,
+          error: errorSummary(error),
+        });
+      });
+    }
+    diagnosticLog("assessment-start", "conference_session_recorded", {
+      supportId: session.supportId,
       requestSupportId,
       assessmentId,
       provider: session.provider,
       roomName: session.provider === "livekit" ? session.roomName : undefined,
       durationMs: Date.now() - startedAt,
     });
-    const nextResumeToken = resumeToken(assessmentId);
-    await convexMutation("assessments:setResumeCredential", {
-      assessmentId,
-      tokenHash: assessmentTokenHash(nextResumeToken),
-      expiresAt: Date.now() + 24 * 60 * 60_000,
-    });
-    diagnosticLog("assessment-start", "resume_credential_recorded", {
-      supportId: session.provider === "livekit" ? session.supportId : requestSupportId,
-      requestSupportId,
-      assessmentId,
-      durationMs: Date.now() - startedAt,
-    });
-    const adminApiSecret = process.env.ADMIN_API_SECRET?.trim();
-    if (adminApiSecret) {
-      await convexMutation("funnel:track", {
-        serviceSecret: adminApiSecret,
-        sessionId: assessmentId,
-        locale: intake.locale,
-        name: "assessment_started",
-        assessmentId,
-        createdAt: Date.now(),
-      });
-    }
-    if (session.provider !== "livekit") throw new Error("LiveKit session was not created");
     diagnosticLog("assessment-start", "response_ready", {
       supportId: session.supportId,
       requestSupportId,

@@ -25,7 +25,10 @@ export function Footer() {
   ];
 
   return (
-    <footer lang={locale} className="border-t border-line bg-white py-10 text-sm text-mute lg:py-12">
+    <footer
+      lang={locale}
+      className="border-t border-line bg-white py-10 text-sm text-mute lg:py-12"
+    >
       <Container>
         <div className="grid gap-x-10 gap-y-9 md:grid-cols-2 lg:grid-cols-[1.4fr_.85fr_.85fr_1.15fr]">
           <div>
@@ -59,15 +62,24 @@ export function Footer() {
             <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-primary">
               {isEs ? "Contacto directo" : "Direct contact"}
             </h2>
-            <a href={contactHref} className="inline-flex min-h-11 items-center gap-2 font-semibold text-primary hover:text-amber-deep">
+            <a
+              href={contactHref}
+              className="inline-flex min-h-11 items-center gap-2 font-semibold text-primary hover:text-amber-deep"
+            >
               <Phone className="h-4 w-4" aria-hidden="true" />
               {contactLabel}
             </a>
-            <a href={`mailto:${brand.publicEmail}`} className="block py-1.5 text-text-2 hover:text-amber-deep">
+            <a
+              href={`mailto:${brand.publicEmail}`}
+              className="block py-1.5 text-text-2 hover:text-amber-deep"
+            >
               {brand.publicEmail}
             </a>
             <span className="block py-1.5 text-text-2">{brand.location}</span>
-            <div className="mt-4 flex flex-wrap gap-2" aria-label={isEs ? "Redes sociales" : "Social networks"}>
+            <div
+              className="mt-4 flex flex-wrap gap-2"
+              aria-label={isEs ? "Redes sociales" : "Social networks"}
+            >
               {socialLinks.map(({ label, href, Icon }) => (
                 <a
                   key={label}
@@ -85,7 +97,9 @@ export function Footer() {
         </div>
 
         <div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-line pt-5 text-xs">
-          <span>© {new Date().getFullYear()} QuisqueyaTech · {brand.location}</span>
+          <span>
+            © {new Date().getFullYear()} QuisqueyaTech · {brand.location}
+          </span>
           <Link href={routePath("privacy", locale)} className="hover:text-amber-deep">
             {isEs ? "Privacidad" : "Privacy"}
           </Link>
@@ -104,7 +118,9 @@ function FooterGroup({
 }) {
   return (
     <div>
-      <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-primary">{title}</h2>
+      <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-primary">
+        {title}
+      </h2>
       {links.map(([href, label]) => (
         <Link key={href} href={href} className="block py-1.5 text-text-2 hover:text-amber-deep">
           {label}

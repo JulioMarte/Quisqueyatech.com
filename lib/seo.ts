@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
-import {
-  localizedRoutes,
-  routePath,
-  type SiteLocale,
-  type StaticRouteKey,
-} from "@/lib/routes";
+import { localizedRoutes, routePath, type SiteLocale, type StaticRouteKey } from "@/lib/routes";
 
 export type SeoDefinition = {
   title: string;
@@ -179,11 +174,7 @@ export function absoluteUrl(path: string): string {
   return `${brand.siteUrl}${path === "/" ? "" : path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export function localizedAlternates(
-  esPath: string,
-  enPath: string,
-  canonicalLocale: SiteLocale,
-) {
+export function localizedAlternates(esPath: string, enPath: string, canonicalLocale: SiteLocale) {
   const es = absoluteUrl(esPath);
   const en = absoluteUrl(enPath);
   return {
@@ -262,9 +253,7 @@ export function pageMetadata(page: LegacySeoPage): Metadata {
   };
 }
 
-export function breadcrumbJsonLd(
-  items: readonly { name: string; path: string }[],
-) {
+export function breadcrumbJsonLd(items: readonly { name: string; path: string }[]) {
   return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -324,7 +313,8 @@ export function personJsonLd() {
 export function serviceBreadcrumbs(key: StaticRouteKey, locale: SiteLocale) {
   const homeName = locale === "es" ? "Inicio" : "Home";
   const currentName = seoPages[key][locale].title;
-  if (key === "home") return breadcrumbJsonLd([{ name: homeName, path: routePath("home", locale) }]);
+  if (key === "home")
+    return breadcrumbJsonLd([{ name: homeName, path: routePath("home", locale) }]);
   return breadcrumbJsonLd([
     { name: homeName, path: routePath("home", locale) },
     { name: currentName, path: routePath(key, locale) },

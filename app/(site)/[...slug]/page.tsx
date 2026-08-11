@@ -6,11 +6,7 @@ import { HomePageContent } from "@/components/sections/home";
 import { brand } from "@/lib/brand";
 import { getCaseStudy } from "@/lib/case-studies";
 import { getPublishedPost, getPublishedPosts } from "@/lib/server/content";
-import {
-  absoluteUrl,
-  localizedAlternates,
-  localizedPageMetadata,
-} from "@/lib/seo";
+import { absoluteUrl, localizedAlternates, localizedPageMetadata } from "@/lib/seo";
 import {
   caseStudyPath,
   caseStudySlugs,
@@ -131,10 +127,7 @@ export async function generateStaticParams() {
     paths.add(caseStudyPath(key, "en"));
   }
 
-  const [esPosts, enPosts] = await Promise.all([
-    getPublishedPosts("es"),
-    getPublishedPosts("en"),
-  ]);
+  const [esPosts, enPosts] = await Promise.all([getPublishedPosts("es"), getPublishedPosts("en")]);
   esPosts.forEach((post) => paths.add(resourcePath("es", post.slug)));
   enPosts.forEach((post) => paths.add(resourcePath("en", post.slug)));
 

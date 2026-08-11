@@ -53,9 +53,7 @@ export function resourcePath(locale: SiteLocale, slug: string): string {
 }
 
 export type CaseStudyKey =
-  | "connections-rd"
-  | "the-vocal-room-academy"
-  | "dominican-consulate-boston";
+  "connections-rd" | "the-vocal-room-academy" | "dominican-consulate-boston";
 
 export const caseStudySlugs: Record<CaseStudyKey, Record<SiteLocale, string>> = {
   "connections-rd": {

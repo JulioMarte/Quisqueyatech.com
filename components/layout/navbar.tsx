@@ -41,13 +41,19 @@ export function Navbar() {
   const contactLabel = brand.publicPhoneDisplay || (isEs ? "Hablar con nosotros" : "Talk to us");
 
   return (
-    <header lang={locale} className="sticky top-0 z-50 border-b border-line bg-white/95 backdrop-blur-md">
+    <header
+      lang={locale}
+      className="sticky top-0 z-50 border-b border-line bg-white/95 backdrop-blur-md"
+    >
       <Container className="grid h-[68px] grid-cols-[auto_1fr_auto] items-center gap-4">
         <Link href={routePath("home", locale)} aria-label="QuisqueyaTech" onClick={closeMobileMenu}>
           <BrandLockup priority showDescriptor={false} />
         </Link>
 
-        <nav className="hidden items-center justify-self-center gap-1 lg:flex" aria-label={isEs ? "Principal" : "Main"}>
+        <nav
+          className="hidden items-center justify-self-center gap-1 lg:flex"
+          aria-label={isEs ? "Principal" : "Main"}
+        >
           {links.map((link) => (
             <Link
               key={link.href}
@@ -87,7 +93,9 @@ export function Navbar() {
           className="inline-flex h-11 w-11 items-center justify-center justify-self-end rounded-lg border border-line bg-white text-text transition-colors hover:bg-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-larimar-deep lg:hidden"
           aria-expanded={open}
           aria-controls={mobileMenuId}
-          aria-label={open ? (isEs ? "Cerrar menú" : "Close menu") : isEs ? "Abrir menú" : "Open menu"}
+          aria-label={
+            open ? (isEs ? "Cerrar menú" : "Close menu") : isEs ? "Abrir menú" : "Open menu"
+          }
           onClick={() => setOpen((value) => !value)}
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -126,7 +134,11 @@ export function Navbar() {
                   <span className="text-xs font-semibold uppercase tracking-wider text-mute">
                     {isEs ? "Idioma" : "Language"}
                   </span>
-                  <LanguageSwitch locale={locale} alternateHref={alternatePath(pathname)} onNavigate={closeMobileMenu} />
+                  <LanguageSwitch
+                    locale={locale}
+                    alternateHref={alternatePath(pathname)}
+                    onNavigate={closeMobileMenu}
+                  />
                 </div>
                 <a
                   href={contactHref}
@@ -161,13 +173,37 @@ function LanguageSwitch({
     >
       {locale === "es" ? (
         <>
-          <span className="inline-flex min-w-11 items-center justify-center bg-white px-2 text-xs font-bold text-primary shadow-sm" aria-current="true">ES</span>
-          <Link href={alternateHref} hrefLang="en" onClick={onNavigate} className="inline-flex min-w-11 items-center justify-center px-2 text-xs font-semibold text-mute transition-colors hover:bg-white hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-larimar-deep">EN</Link>
+          <span
+            className="inline-flex min-w-11 items-center justify-center bg-white px-2 text-xs font-bold text-primary shadow-sm"
+            aria-current="true"
+          >
+            ES
+          </span>
+          <Link
+            href={alternateHref}
+            hrefLang="en"
+            onClick={onNavigate}
+            className="inline-flex min-w-11 items-center justify-center px-2 text-xs font-semibold text-mute transition-colors hover:bg-white hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-larimar-deep"
+          >
+            EN
+          </Link>
         </>
       ) : (
         <>
-          <Link href={alternateHref} hrefLang="es" onClick={onNavigate} className="inline-flex min-w-11 items-center justify-center px-2 text-xs font-semibold text-mute transition-colors hover:bg-white hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-larimar-deep">ES</Link>
-          <span className="inline-flex min-w-11 items-center justify-center bg-white px-2 text-xs font-bold text-primary shadow-sm" aria-current="true">EN</span>
+          <Link
+            href={alternateHref}
+            hrefLang="es"
+            onClick={onNavigate}
+            className="inline-flex min-w-11 items-center justify-center px-2 text-xs font-semibold text-mute transition-colors hover:bg-white hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-larimar-deep"
+          >
+            ES
+          </Link>
+          <span
+            className="inline-flex min-w-11 items-center justify-center bg-white px-2 text-xs font-bold text-primary shadow-sm"
+            aria-current="true"
+          >
+            EN
+          </span>
         </>
       )}
     </div>

@@ -8,7 +8,11 @@ const legacyAreas: Record<string, string> = {
   configuration: "/admin/configuracion",
 };
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ area?: string }> }) {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ area?: string }>;
+}) {
   const { area } = await searchParams;
   redirect((area && legacyAreas[area]) || "/admin/agenda");
 }

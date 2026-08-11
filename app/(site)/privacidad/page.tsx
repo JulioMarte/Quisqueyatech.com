@@ -19,7 +19,10 @@ export default function PrivacyPage() {
             Última actualización: agosto de 2026. QuisqueyaTech opera desde {brand.location}.
           </p>
           <PrivacySections />
-          <Link href={routePath("home", "es")} className="mt-10 inline-block font-semibold text-amber-deep">
+          <Link
+            href={routePath("home", "es")}
+            className="mt-10 inline-block font-semibold text-amber-deep"
+          >
             ← Volver al inicio
           </Link>
         </Container>

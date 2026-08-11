@@ -68,7 +68,10 @@ export function MarketingContactForm({ locale }: { locale: Locale }) {
     }
 
     setError("");
-    const subject = locale === "es" ? `Consulta de ${business} · QuisqueyaTech` : `Inquiry from ${business} · QuisqueyaTech`;
+    const subject =
+      locale === "es"
+        ? `Consulta de ${business} · QuisqueyaTech`
+        : `Inquiry from ${business} · QuisqueyaTech`;
     const body = [
       `${locale === "es" ? "Nombre" : "Name"}: ${name}`,
       `${locale === "es" ? "Empresa" : "Company"}: ${business}`,
@@ -89,7 +92,11 @@ export function MarketingContactForm({ locale }: { locale: Locale }) {
     "mt-1.5 w-full rounded-[var(--radius-md)] border border-line bg-white px-3.5 py-3 text-sm text-text outline-none transition placeholder:text-mute focus:border-tech focus:ring-2 focus:ring-larimar/30";
 
   return (
-    <form onSubmit={submit} className="rounded-2xl border border-line bg-white p-6 shadow-[0_24px_60px_-38px_rgba(8,47,73,.45)] sm:p-7" noValidate>
+    <form
+      onSubmit={submit}
+      className="rounded-2xl border border-line bg-white p-6 shadow-[0_24px_60px_-38px_rgba(8,47,73,.45)] sm:p-7"
+      noValidate
+    >
       <div className="mb-6">
         <h3 className="font-display text-2xl font-bold text-primary">{c.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-text-2">{c.body}</p>
@@ -141,7 +148,11 @@ export function MarketingContactForm({ locale }: { locale: Locale }) {
         </label>
       </div>
 
-      {error ? <p role="alert" className="mt-4 text-sm font-medium text-rose">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-4 text-sm font-medium text-rose">
+          {error}
+        </p>
+      ) : null}
 
       <button
         type="submit"

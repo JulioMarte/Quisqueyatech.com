@@ -25,8 +25,7 @@ const copy = {
     eyebrow: "Consultoría tecnológica para empresas",
     titleA: "Tu negocio no necesita más software.",
     titleB: "Necesita menos problemas.",
-    lede:
-      "Entendemos cómo trabaja tu empresa, encontramos dónde se pierden tiempo, clientes o visibilidad y construimos la solución correcta: web, automatización, IA o software a medida.",
+    lede: "Entendemos cómo trabaja tu empresa, encontramos dónde se pierden tiempo, clientes o visibilidad y construimos la solución correcta: web, automatización, IA o software a medida.",
     call: "Llamar ahora",
     contact: "Cuéntanos qué está pasando",
     notes: ["Español e inglés", "Atención directa", "Tecnología después del problema"],
@@ -44,9 +43,18 @@ const copy = {
     problemBody:
       "Una página bonita o una nueva app no ayudan si el proceso sigue perdiendo información o dejando clientes sin seguimiento.",
     problems: [
-      ["Leads que se enfrían", "Llamadas, mensajes o formularios entran, pero el siguiente paso no está definido o llega demasiado tarde."],
-      ["Trabajo manual repetido", "El equipo copia datos, persigue respuestas y prepara reportes que podrían coordinarse mejor."],
-      ["Poca visibilidad", "Hay actividad, pero nadie puede explicar con confianza qué fuente, página o flujo produjo una oportunidad."],
+      [
+        "Leads que se enfrían",
+        "Llamadas, mensajes o formularios entran, pero el siguiente paso no está definido o llega demasiado tarde.",
+      ],
+      [
+        "Trabajo manual repetido",
+        "El equipo copia datos, persigue respuestas y prepara reportes que podrían coordinarse mejor.",
+      ],
+      [
+        "Poca visibilidad",
+        "Hay actividad, pero nadie puede explicar con confianza qué fuente, página o flujo produjo una oportunidad.",
+      ],
     ],
     servicesEyebrow: "Servicios",
     servicesTitle: "Usamos la herramienta que corresponde al cuello de botella.",
@@ -76,8 +84,7 @@ const copy = {
     eyebrow: "Technology consulting for businesses",
     titleA: "Your business does not need more software.",
     titleB: "It needs fewer problems.",
-    lede:
-      "We learn how your company works, find where time, customers, or visibility are being lost, and build the right solution: web, automation, AI, or focused software.",
+    lede: "We learn how your company works, find where time, customers, or visibility are being lost, and build the right solution: web, automation, AI, or focused software.",
     call: "Call now",
     contact: "Tell us what is happening",
     notes: ["English and Spanish", "Direct support", "Technology comes after the problem"],
@@ -95,9 +102,18 @@ const copy = {
     problemBody:
       "A polished website or another application does not help if the process still loses information or leaves customers without follow-up.",
     problems: [
-      ["Leads go cold", "Calls, messages, or forms arrive, but the next step is undefined or happens too late."],
-      ["Manual work repeats", "The team copies data, chases responses, and prepares reports that could be coordinated better."],
-      ["Visibility is weak", "There is activity, but nobody can confidently explain which source, page, or workflow produced an opportunity."],
+      [
+        "Leads go cold",
+        "Calls, messages, or forms arrive, but the next step is undefined or happens too late.",
+      ],
+      [
+        "Manual work repeats",
+        "The team copies data, chases responses, and prepares reports that could be coordinated better.",
+      ],
+      [
+        "Visibility is weak",
+        "There is activity, but nobody can confidently explain which source, page, or workflow produced an opportunity.",
+      ],
     ],
     servicesEyebrow: "Services",
     servicesTitle: "We use the tool that fits the bottleneck.",
@@ -217,8 +233,13 @@ export async function MarketingHomePage({ locale }: { locale: SiteLocale }) {
               <h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight text-primary">
                 {c.diagnosisTitle}
               </h2>
-              <p className="mt-5 max-w-[58ch] text-lg leading-relaxed text-text-2">{c.diagnosisBody}</p>
-              <Link href={routePath("method", locale)} className="mt-6 inline-flex min-h-11 items-center gap-2 font-semibold text-tech">
+              <p className="mt-5 max-w-[58ch] text-lg leading-relaxed text-text-2">
+                {c.diagnosisBody}
+              </p>
+              <Link
+                href={routePath("method", locale)}
+                className="mt-6 inline-flex min-h-11 items-center gap-2 font-semibold text-tech"
+              >
                 {es ? "Ver cómo trabajamos" : "See how we work"} <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -227,7 +248,9 @@ export async function MarketingHomePage({ locale }: { locale: SiteLocale }) {
             {c.diagnosisSteps.map(([number, title, body], index) => (
               <StaggerItem key={number} index={index}>
                 <div className="grid grid-cols-[54px_1fr] gap-4 rounded-2xl border border-line bg-white p-5 shadow-[0_18px_45px_-38px_rgba(8,47,73,.45)]">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary font-mono text-sm font-bold text-white">{number}</span>
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary font-mono text-sm font-bold text-white">
+                    {number}
+                  </span>
                   <div>
                     <h3 className="font-display text-xl font-bold text-primary">{title}</h3>
                     <p className="mt-1.5 leading-relaxed text-text-2">{body}</p>
@@ -265,44 +288,68 @@ export async function MarketingHomePage({ locale }: { locale: SiteLocale }) {
           <div className="grid gap-4 md:grid-cols-2">
             {serviceCards(locale).map(({ icon: Icon, title, body, href }, index) => (
               <Reveal key={href} delay={index * 0.04}>
-                <Link href={href} className="group block h-full rounded-2xl border border-line bg-white p-7 transition hover:-translate-y-1 hover:border-larimar-deep/30 hover:shadow-lg">
+                <Link
+                  href={href}
+                  className="group block h-full rounded-2xl border border-line bg-white p-7 transition hover:-translate-y-1 hover:border-larimar-deep/30 hover:shadow-lg"
+                >
                   <Icon className="h-11 w-11 rounded-xl bg-primary p-2.5 text-white" />
                   <h3 className="mt-5 font-display text-2xl font-bold text-primary">{title}</h3>
                   <p className="mt-2 leading-relaxed text-text-2">{body}</p>
                   <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-amber-deep">
-                    {es ? "Explorar" : "Explore"} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    {es ? "Explorar" : "Explore"}{" "}
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Link>
               </Reveal>
             ))}
           </div>
-          <Link href={routePath("solutions", locale)} className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-tech">
-            {es ? "Ver todos los servicios" : "View all services"} <ArrowRight className="h-4 w-4" />
+          <Link
+            href={routePath("solutions", locale)}
+            className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-tech"
+          >
+            {es ? "Ver todos los servicios" : "View all services"}{" "}
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </Container>
       </Section>
 
       <Section className="bg-primary text-white">
         <Container>
-          <SectionHead dark eyebrow={c.selectedWork} title={c.selectedWorkTitle} lede={c.selectedWorkBody} />
+          <SectionHead
+            dark
+            eyebrow={c.selectedWork}
+            title={c.selectedWorkTitle}
+            lede={c.selectedWorkBody}
+          />
           <StaggerGroup className="grid gap-4 lg:grid-cols-3">
             {caseStudies.map((study, index) => {
               const item = study.locale[locale];
               return (
                 <StaggerItem key={study.key} index={index}>
-                  <Link href={caseStudyPath(study.key, locale)} className="group flex h-full flex-col rounded-2xl border border-white/15 bg-white/[.06] p-7 backdrop-blur transition hover:-translate-y-1 hover:bg-white/[.09]">
-                    <span className="text-xs font-semibold uppercase tracking-[.16em] text-larimar">{item.category}</span>
-                    <h3 className="mt-4 font-display text-2xl font-bold text-white">{study.client}</h3>
+                  <Link
+                    href={caseStudyPath(study.key, locale)}
+                    className="group flex h-full flex-col rounded-2xl border border-white/15 bg-white/[.06] p-7 backdrop-blur transition hover:-translate-y-1 hover:bg-white/[.09]"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-[.16em] text-larimar">
+                      {item.category}
+                    </span>
+                    <h3 className="mt-4 font-display text-2xl font-bold text-white">
+                      {study.client}
+                    </h3>
                     <p className="mt-3 flex-1 leading-relaxed text-white/70">{item.summary}</p>
                     <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-amber">
-                      {es ? "Ver caso" : "View case"} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      {es ? "Ver caso" : "View case"}{" "}
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </span>
                   </Link>
                 </StaggerItem>
               );
             })}
           </StaggerGroup>
-          <Link href={routePath("caseStudies", locale)} className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-larimar">
+          <Link
+            href={routePath("caseStudies", locale)}
+            className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-larimar"
+          >
             {es ? "Todos los casos" : "All case studies"} <ArrowRight className="h-4 w-4" />
           </Link>
         </Container>
@@ -313,23 +360,53 @@ export async function MarketingHomePage({ locale }: { locale: SiteLocale }) {
           <Reveal>
             <div>
               <Eyebrow>{c.measureEyebrow}</Eyebrow>
-              <h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight text-primary">{c.measureTitle}</h2>
-              <p className="mt-5 max-w-[58ch] text-lg leading-relaxed text-text-2">{c.measureBody}</p>
+              <h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight text-primary">
+                {c.measureTitle}
+              </h2>
+              <p className="mt-5 max-w-[58ch] text-lg leading-relaxed text-text-2">
+                {c.measureBody}
+              </p>
             </div>
           </Reveal>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              [Search, es ? "Origen y tráfico" : "Source and traffic", es ? "Cómo llegaron y qué páginas atrajeron intención." : "How people arrived and which pages created intent."],
-              [Phone, es ? "Llamadas y contactos" : "Calls and contacts", es ? "Acciones que indican que una visita quiere avanzar." : "Actions showing that a visit wants to move forward."],
-              [MessageSquareText, es ? "Leads y solicitudes" : "Leads and requests", es ? "Qué entró al proceso y cuál es su próximo paso." : "What entered the process and what happens next."],
-              [BarChart3, es ? "Conversión y seguimiento" : "Conversion and follow-up", es ? "Qué terminó en una acción comercial verificable." : "What ended in a verifiable commercial action."],
+              [
+                Search,
+                es ? "Origen y tráfico" : "Source and traffic",
+                es
+                  ? "Cómo llegaron y qué páginas atrajeron intención."
+                  : "How people arrived and which pages created intent.",
+              ],
+              [
+                Phone,
+                es ? "Llamadas y contactos" : "Calls and contacts",
+                es
+                  ? "Acciones que indican que una visita quiere avanzar."
+                  : "Actions showing that a visit wants to move forward.",
+              ],
+              [
+                MessageSquareText,
+                es ? "Leads y solicitudes" : "Leads and requests",
+                es
+                  ? "Qué entró al proceso y cuál es su próximo paso."
+                  : "What entered the process and what happens next.",
+              ],
+              [
+                BarChart3,
+                es ? "Conversión y seguimiento" : "Conversion and follow-up",
+                es
+                  ? "Qué terminó en una acción comercial verificable."
+                  : "What ended in a verifiable commercial action.",
+              ],
             ].map(([Icon, title, body], index) => {
               const CardIcon = Icon as typeof Search;
               return (
                 <Reveal key={String(title)} delay={index * 0.04}>
                   <div className="h-full rounded-2xl border border-line bg-white p-6">
                     <CardIcon className="h-9 w-9 rounded-lg bg-larimar-soft p-2 text-tech" />
-                    <h3 className="mt-4 font-display text-lg font-bold text-primary">{String(title)}</h3>
+                    <h3 className="mt-4 font-display text-lg font-bold text-primary">
+                      {String(title)}
+                    </h3>
                     <p className="mt-2 text-sm leading-relaxed text-text-2">{String(body)}</p>
                   </div>
                 </Reveal>
@@ -370,20 +447,32 @@ export async function MarketingHomePage({ locale }: { locale: SiteLocale }) {
       {posts.length ? (
         <Section>
           <Container>
-            <SectionHead eyebrow={c.resourcesEyebrow} title={c.resourcesTitle} lede={c.resourcesBody} />
+            <SectionHead
+              eyebrow={c.resourcesEyebrow}
+              title={c.resourcesTitle}
+              lede={c.resourcesBody}
+            />
             <div className="grid gap-4 md:grid-cols-3">
               {posts.map((post) => (
                 <article key={post.slug} className="rounded-2xl border border-line bg-white p-6">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-deep">{post.category}</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-deep">
+                    {post.category}
+                  </span>
                   <h3 className="mt-3 font-display text-xl font-bold text-primary">{post.title}</h3>
                   <p className="mt-3 text-sm leading-relaxed text-text-2">{post.excerpt}</p>
-                  <Link href={resourcePath(locale, post.slug)} className="mt-5 inline-flex min-h-11 items-center gap-2 font-semibold text-tech">
+                  <Link
+                    href={resourcePath(locale, post.slug)}
+                    className="mt-5 inline-flex min-h-11 items-center gap-2 font-semibold text-tech"
+                  >
                     {c.read} <ArrowRight className="h-4 w-4" />
                   </Link>
                 </article>
               ))}
             </div>
-            <Link href={routePath("resources", locale)} className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-tech">
+            <Link
+              href={routePath("resources", locale)}
+              className="mt-7 inline-flex min-h-11 items-center gap-2 font-semibold text-tech"
+            >
               {es ? "Todos los recursos" : "All resources"} <ArrowRight className="h-4 w-4" />
             </Link>
           </Container>
@@ -395,12 +484,24 @@ export async function MarketingHomePage({ locale }: { locale: SiteLocale }) {
           <Reveal>
             <div>
               <Eyebrow>{c.contactEyebrow}</Eyebrow>
-              <h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight text-primary">{c.contactTitle}</h2>
-              <p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-text-2">{c.contactBody}</p>
-              <a href={brand.publicPhoneHref} className="mt-6 inline-flex min-h-11 items-center gap-2 font-semibold text-primary hover:text-amber-deep">
+              <h2 className="mt-4 max-w-[18ch] font-display text-[clamp(32px,4vw,48px)] font-bold leading-tight text-primary">
+                {c.contactTitle}
+              </h2>
+              <p className="mt-5 max-w-[56ch] text-lg leading-relaxed text-text-2">
+                {c.contactBody}
+              </p>
+              <a
+                href={brand.publicPhoneHref}
+                className="mt-6 inline-flex min-h-11 items-center gap-2 font-semibold text-primary hover:text-amber-deep"
+              >
                 <Phone className="h-4 w-4" /> {brand.publicPhoneDisplay}
               </a>
-              <a href={`mailto:${brand.publicEmail}`} className="mt-2 block text-sm text-text-2 hover:text-tech">{brand.publicEmail}</a>
+              <a
+                href={`mailto:${brand.publicEmail}`}
+                className="mt-2 block text-sm text-text-2 hover:text-tech"
+              >
+                {brand.publicEmail}
+              </a>
             </div>
           </Reveal>
           <Reveal delay={0.06}>

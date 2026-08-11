@@ -26,7 +26,8 @@ export const caseStudies: readonly CaseStudy[] = [
     locale: {
       es: {
         category: "Experiencia web",
-        title: "Una presencia digital más clara para presentar el proyecto y convertir interés en acción.",
+        title:
+          "Una presencia digital más clara para presentar el proyecto y convertir interés en acción.",
         summary:
           "Trabajo de arquitectura de información, diseño responsive y desarrollo web para organizar la propuesta de valor y facilitar los próximos pasos del visitante.",
         context:
@@ -44,7 +45,8 @@ export const caseStudies: readonly CaseStudy[] = [
       },
       en: {
         category: "Web experience",
-        title: "A clearer digital presence designed to present the project and move interest toward action.",
+        title:
+          "A clearer digital presence designed to present the project and move interest toward action.",
         summary:
           "Information architecture, responsive design, and web development organized around the value proposition and the visitor's next step.",
         context:
@@ -69,7 +71,8 @@ export const caseStudies: readonly CaseStudy[] = [
     locale: {
       es: {
         category: "Web + flujo de inscripción",
-        title: "Una experiencia enfocada en explicar la oferta y reducir fricción desde interés hasta inscripción.",
+        title:
+          "Una experiencia enfocada en explicar la oferta y reducir fricción desde interés hasta inscripción.",
         summary:
           "Sitio web, flujo de registro y automatización operativa para conectar mejor la presentación del programa con el siguiente paso del estudiante.",
         context:
@@ -87,7 +90,8 @@ export const caseStudies: readonly CaseStudy[] = [
       },
       en: {
         category: "Web + enrollment flow",
-        title: "An experience focused on explaining the offer and reducing friction from interest to enrollment.",
+        title:
+          "An experience focused on explaining the offer and reducing friction from interest to enrollment.",
         summary:
           "Website, registration flow, and operational automation connecting the program presentation with the student's next step.",
         context:
@@ -111,7 +115,8 @@ export const caseStudies: readonly CaseStudy[] = [
     locale: {
       es: {
         category: "Información pública",
-        title: "Una experiencia web para organizar información institucional y facilitar el acceso a servicios y comunicaciones.",
+        title:
+          "Una experiencia web para organizar información institucional y facilitar el acceso a servicios y comunicaciones.",
         summary:
           "Trabajo en WordPress, estructura de contenido y operación digital orientado a presentar información institucional de forma más accesible.",
         context:
@@ -129,7 +134,8 @@ export const caseStudies: readonly CaseStudy[] = [
       },
       en: {
         category: "Public information",
-        title: "A web experience built to organize institutional information and make services and communications easier to access.",
+        title:
+          "A web experience built to organize institutional information and make services and communications easier to access.",
         summary:
           "WordPress, content structure, and digital operations work focused on making institutional information easier to navigate.",
         context:

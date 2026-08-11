@@ -170,7 +170,9 @@ export function CaseStudyDetail({
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(creativeWorkJsonLd).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(creativeWorkJsonLd).replace(/</g, "\\u003c"),
+        }}
       />
     </div>
   );

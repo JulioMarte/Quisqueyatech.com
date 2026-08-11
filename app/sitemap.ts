@@ -2,12 +2,7 @@ import type { MetadataRoute } from "next";
 import { caseStudies } from "@/lib/case-studies";
 import { getPublishedPosts } from "@/lib/server/content";
 import { absoluteUrl } from "@/lib/seo";
-import {
-  caseStudyPath,
-  localizedRoutes,
-  resourcePath,
-  type StaticRouteKey,
-} from "@/lib/routes";
+import { caseStudyPath, localizedRoutes, resourcePath, type StaticRouteKey } from "@/lib/routes";
 
 const staticKeys: readonly StaticRouteKey[] = [
   "home",
@@ -69,10 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
   }
 
-  const [esPosts, enPosts] = await Promise.all([
-    getPublishedPosts("es"),
-    getPublishedPosts("en"),
-  ]);
+  const [esPosts, enPosts] = await Promise.all([getPublishedPosts("es"), getPublishedPosts("en")]);
   const enByTranslation = new Map(
     enPosts.filter((post) => post.translationKey).map((post) => [post.translationKey, post]),
   );

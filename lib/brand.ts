@@ -5,8 +5,7 @@ const siteUrl = configuredSiteUrl
 
 const publicPhoneDisplay =
   process.env.NEXT_PUBLIC_CONTACT_PHONE_DISPLAY?.trim() || "+1 (829) 445-8366";
-const publicPhoneE164 =
-  process.env.NEXT_PUBLIC_CONTACT_PHONE_E164?.trim() || "+18294458366";
+const publicPhoneE164 = process.env.NEXT_PUBLIC_CONTACT_PHONE_E164?.trim() || "+18294458366";
 
 export const brand = {
   name: "QuisqueyaTech",

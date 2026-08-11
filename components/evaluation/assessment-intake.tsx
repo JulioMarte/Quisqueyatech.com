@@ -38,7 +38,8 @@ export function AssessmentIntake({ locale }: { locale: Locale; mode: "now" }) {
     setTurnstileToken(token);
   }, []);
   useEffect(() => {
-    setHydrated(true);
+    const frame = window.requestAnimationFrame(() => setHydrated(true));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const canStart =

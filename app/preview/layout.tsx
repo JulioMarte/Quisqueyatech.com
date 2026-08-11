@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PreviewClosingCta } from "@/components/experiments/preview-closing-cta";
 import { PreviewFooter } from "@/components/experiments/preview-footer";
 import { Navbar } from "@/components/layout/navbar";
 import "./preview.css";
@@ -18,6 +19,7 @@ export default function PreviewLayout({ children }: Readonly<{ children: React.R
     <>
       <Navbar />
       <div className="preview-variant-content">{children}</div>
+      <PreviewClosingCta />
       <PreviewFooter />
     </>
   );

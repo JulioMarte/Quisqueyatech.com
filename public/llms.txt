@@ -29,7 +29,7 @@ No se atribuyen métricas, crecimiento, retorno, reseñas ni resultados cuantita
 ## Principios
 
 - Business first: la tecnología se selecciona después de entender el problema.
-- Custom experience, shared infrastructure cuando la solución lo permite.
+- Experiencia personalizada e infraestructura compartida cuando la solución lo permite.
 - Los agentes de IA no sustituyen las reglas autoritativas de negocio.
 - Los casos y resultados se documentan sin afirmaciones inventadas.
 - La medición debe conectar tráfico y acciones con resultados de negocio cuando la infraestructura lo permita.

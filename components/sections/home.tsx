@@ -190,7 +190,7 @@ const copy = {
     ],
     processEyebrow: "How we work",
     processTitle: "Understand → prioritize → build → measure.",
-    processLde:
+    processLede:
       "A useful project starts with a concrete conversation about daily work, not a list of technologies.",
     steps: [
       ["01", "Understand", "Map how work arrives, who touches it, which tools are involved, and where friction appears."],

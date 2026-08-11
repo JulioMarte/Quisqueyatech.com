@@ -49,14 +49,9 @@ export function BrandLockup({
   return (
     <span className="inline-flex items-center gap-2.5">
       <LogoMark size={size} priority={priority} />
-      <span
-        className={cn(
-          "font-display font-extrabold tracking-[-0.02em]",
-          textSize,
-          light ? "text-white" : "text-text",
-        )}
-      >
-        QuisqueyaTech
+      <span className={cn("font-display font-extrabold tracking-[-0.02em]", textSize)}>
+        <span className={light ? "text-white" : "text-text"}>Quisqueya</span>
+        <span className="text-amber-deep">Tech</span>
         {showDescriptor && (
           <small
             className={cn(

@@ -7,6 +7,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { useMemo, useState } from "react";
 import type { ResourcePost } from "@/lib/content";
 import type { Locale } from "@/lib/i18n";
+import { resourcePath } from "@/lib/routes";
 
 export function ResourceGrid({ posts, locale }: { posts: ResourcePost[]; locale: Locale }) {
   const allLabel = locale === "es" ? "Todos" : "All";
@@ -25,6 +26,7 @@ export function ResourceGrid({ posts, locale }: { posts: ResourcePost[]; locale:
       ),
     [allLabel, category, posts, query],
   );
+
   return (
     <>
       <div className="mt-10 flex flex-col gap-4 rounded-2xl border border-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -100,7 +102,7 @@ export function ResourceGrid({ posts, locale }: { posts: ResourcePost[]; locale:
                   </p>
                   <Link
                     className="interactive-link mt-5 inline-flex min-h-11 items-center gap-2 font-semibold text-tech"
-                    href={`${locale === "en" ? "/en" : ""}/recursos/${post.slug}`}
+                    href={resourcePath(locale, post.slug)}
                   >
                     {locale === "es" ? "Leer recurso" : "Read resource"}
                     <ArrowRight className="motion-arrow h-4 w-4" />

@@ -79,143 +79,207 @@ Take strategic inspiration from the clarity of `icreateyoursite.com`:
 - direct human contact;
 - conversion sections that do not require learning a product first.
 
-Do **not** copy its layout, copy, visuals, claims, numbers, testimonials, or assets.
+Do **not** copy another site's layout, assets, testimonials, statistics, copy, or brand identity.
 
-## Homepage hierarchy
+## Primary CTA
 
-The homepage should prioritize:
+The primary commercial CTA is direct contact, with phone first when appropriate.
 
-1. Hero: business outcome + direct phone CTA.
-2. Problem framing: show that QuisqueyaTech understands how SMB operations fail in practice.
-3. Services: web/SEO, automation, AI customer systems, software/integrations.
-4. Case studies / selected work.
-5. Measurement: make traffic, calls, leads, requests, conversions, and follow-up measurable where applicable.
-6. Process: understand → prioritize → build → measure.
-7. Blog/resources.
-8. Contact: phone + lightweight lead form.
+Public contact defaults:
 
-Do not reintroduce the assessment flow as the primary CTA.
-Do not reintroduce scheduling UI into the site layout.
+- Phone: `+1 (829) 445-8366`
+- E.164: `+18294458366`
+- Email: `info@quisqueyatech.com`
 
-## CTA strategy
+Do not route the primary marketing journey through the legacy Assessment Platform or scheduling system.
 
-Primary CTA: direct contact phone number.
+A contact form may ask about the business and the problem, but it must remain a marketing intake surface. Long-term operational state belongs outside this repository.
 
-Configuration:
+## Homepage information architecture
 
-- `NEXT_PUBLIC_CONTACT_PHONE_DISPLAY` = human-readable number.
-- `NEXT_PUBLIC_CONTACT_PHONE_E164` = E.164 number used in `tel:` links.
+A strong homepage should communicate approximately this sequence:
 
-If the phone is not configured, gracefully fall back to email/contact rather than inventing or displaying a fake number.
+1. What QuisqueyaTech helps improve.
+2. How we approach business problems.
+3. Common friction worth solving.
+4. Services/capabilities.
+5. Selected real work/case studies.
+6. Measurement / evidence.
+7. Process: understand → prioritize → build → measure.
+8. Useful resources/content.
+9. Direct contact.
 
-Secondary CTA: contact section/form.
+The homepage should not become a giant feature catalog.
 
-Avoid competing CTAs such as “start assessment now” and “schedule assessment.”
+## Services
 
-## Contact form
+The public service architecture should support at least:
 
-Keep the spirit of the original lead form: short, conversational, business-focused.
+- Websites and SEO;
+- Process automation;
+- AI agents;
+- Custom software and integrations.
 
-Ask for enough information to understand the situation, not enough to create friction.
+Vertical pages, such as clinics, can demonstrate how these capabilities apply to an industry but must not contaminate the core positioning or make unsupported claims.
 
-Useful fields:
+Service pages should behave as useful pillar pages. They should explain the business problem, signals that the service fits, what can be built, design principles, FAQs, relevant evidence, and a clear next step.
 
-- name;
-- company;
-- email;
-- phone/WhatsApp;
-- area of interest;
-- short description of the current problem.
-
-The question should effectively be:
-
-> Show us what is happening in your business today.
-
-Do not ask visitors to diagnose their own technical solution.
-
-The marketing website may later send this data to a dedicated lead/request API. Do not make the website database the long-term system of record for operational workflows.
+Do not inflate word count merely for SEO.
 
 ## Case studies
 
-Present real work without fabricated performance claims.
+Case studies are a core credibility asset.
 
-Current examples suitable for presentation include:
+Use real projects only. Current selected work includes:
 
 - Connections RD;
 - The Vocal Room Academy;
 - Dominican Consulate in Boston.
 
-Until verified metrics are available, describe:
+For each case, prefer:
 
 - context;
 - objective/problem;
-- what was built;
-- relevant technologies/process;
+- constraints when known;
+- solution/approach;
+- delivered work;
+- screenshots or live project where appropriate;
+- measurable outcomes only when the data is verifiable.
 
-Do not invent conversion lifts, revenue, traffic, ranking improvements, client quotes, or statistics.
+Never invent conversion improvements, revenue, ROI, traffic, reviews, ratings, or client quotes.
 
-## Measurement philosophy
+## SEO architecture
 
-A major QuisqueyaTech differentiator should be that delivered systems can be measured.
+SEO is part of the site architecture, not a metadata patch.
 
-Where relevant, design projects so reporting can eventually connect:
+Every indexable page should have:
+
+- a unique useful title;
+- a useful description;
+- self-referencing canonical;
+- Open Graph/social metadata when appropriate;
+- structured data only when it truthfully describes the page;
+- internal links that reflect the actual information hierarchy.
+
+The site should expose a generated sitemap and robots policy.
+
+Prefer static rendering or ISR for marketing content. Do not introduce request-bound APIs in global layouts without a concrete need.
+
+### Localized slugs are mandatory
+
+A public URL must belong to one language. Do not create mixed-language paths by blindly adding `/en` to a Spanish slug.
+
+Correct examples:
 
 ```text
-Visitor / source
-      ↓
-Contact / lead
-      ↓
-Request
-      ↓
-Booking / action
-      ↓
-Customer / outcome
+/recursos
+/en/resources
+
+/casos
+/en/case-studies
+
+/soluciones/automatizacion
+/en/solutions/automation
+
+/soluciones/agentes-de-ia
+/en/solutions/ai-agents
 ```
 
-For the marketing site itself, preserve clean analytics hooks and SEO. Do not build a full analytics platform inside this repository.
+Translated articles may have completely different slugs:
+
+```text
+/recursos/como-detectar-procesos-que-conviene-automatizar
+/en/resources/how-to-find-the-right-processes-to-automate
+```
+
+Use a stable translation key to associate translated content. Slug equality is not a translation mechanism.
+
+Proper names may remain unchanged when translating them would be artificial. Conceptual route names should be translated.
+
+Static route pairs are centralized in `lib/routes.ts`; do not reconstruct them ad hoc.
+
+For every real ES/EN equivalent, metadata should expose reciprocal `hreflang` links and an `x-default`. The canonical must always point to the current language's own URL.
+
+## Structured data
+
+Use structured data conservatively and accurately.
+
+Useful types include:
+
+- Organization / ProfessionalService and ContactPoint;
+- Person for the founder profile;
+- BlogPosting for real articles;
+- BreadcrumbList;
+- CreativeWork for documented case studies.
+
+Do not create fake FAQ rich-result schemes, ratings, reviews, addresses, prices, awards, credentials, or performance data.
+
+## Content strategy
+
+Do not turn Resources into a generic AI-news blog.
+
+Prefer content clusters around the problems QuisqueyaTech actually solves:
+
+- websites, SEO and conversion;
+- lead capture and follow-up;
+- automation;
+- AI reception and agents;
+- booking/request handling concepts;
+- reporting and attribution;
+- integrations and business systems.
+
+Content should be useful to a business owner or technical buyer even if they never hire QuisqueyaTech.
+
+## Measurement
+
+The desired measurement model is broader than page views:
+
+```text
+source / traffic
+      ↓
+contact action
+      ↓
+lead / request
+      ↓
+commercial outcome
+```
+
+The marketing site can instrument public actions, but future business-state attribution should integrate with a dedicated external system rather than rebuilding CRM/booking infrastructure inside this repository.
+
+Do not claim metrics that are not currently measured.
 
 ## Engineering constraints
 
-- Preserve bilingual ES/EN behavior.
-- Preserve accessible keyboard/focus behavior.
-- Preserve semantic HTML and heading hierarchy.
-- Keep SEO metadata canonical and accurate.
-- No fake stats, awards, clients, testimonials, or guarantees.
-- Avoid adding dependencies unless necessary.
-- Prefer existing design tokens/components.
-- Avoid giant client components when server components are sufficient.
-- Do not put secrets in `NEXT_PUBLIC_*` variables.
-- A public phone number is not a secret; provider credentials are.
-- Do not delete Assessment/Scheduling backend code during a visual-only task unless specifically instructed. First remove public coupling, then extract/delete infrastructure in a separate refactor.
-- Do not break blog/content while separating operational features.
+- Keep public content crawlable without requiring client-side discovery.
+- Preserve accessibility and keyboard behavior.
+- Maintain responsive behavior.
+- Avoid unnecessary client components.
+- Prefer one source of truth for routes and metadata relationships.
+- Keep external operational systems behind contracts/APIs.
+- Do not add Assessment/Scheduling dependencies back into the marketing journey.
+- Keep implementation straightforward; avoid microfrontend or microservice architecture for a marketing website.
+- Validate lint, formatting, typecheck, tests, and production build before merge.
 
-## Acceptance criteria for the visual separation phase
+## Search Console
 
-- No homepage CTA sends visitors into the AI assessment.
-- No homepage CTA opens scheduling.
-- Marketing layout no longer mounts the scheduling modal provider/host.
-- Navbar focuses on Services, Case Studies, Resources, About, and Contact.
-- Primary navbar CTA is the configured phone/contact action.
-- Homepage clearly explains the business-first positioning above the fold.
-- Services are understandable without technical jargon.
-- Real selected work is visible.
-- Measurement/analytics philosophy is visible without fake metrics.
-- Blog/resources remain present.
-- Contact form remains short and business-focused.
-- ES and EN pages use the same information architecture.
-- Mobile experience remains first-class.
+The site supports `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` for Search Console verification metadata.
 
-## Review mindset
+Do not claim Search Console is configured or verified until a real verification token has been supplied and the property is verified.
 
-Be adversarial about every section.
+Once verified, submit `/sitemap.xml` and monitor indexation, canonical selection, queries, Core Web Vitals, structured-data errors, and legacy redirects.
 
-Ask:
+## Scope discipline
 
-- Does this help a business owner understand what QuisqueyaTech does?
-- Does it show a business outcome instead of a technology feature?
-- Does it create trust?
-- Does it provide evidence?
-- Does it move the visitor toward contacting us?
-- Is this section necessary?
+This repository can temporarily contain legacy Assessment/Scheduling implementation while extraction is in progress. That temporary presence is not permission to depend on it from the new public marketing experience.
 
-If a section exists mainly because it was already in the repository, that is not a valid reason to keep it.
+When removing old public URLs:
+
+- use a permanent redirect only when there is a genuinely equivalent replacement;
+- otherwise allow the old URL to return the appropriate 404/410 instead of redirecting users and crawlers to unrelated content;
+- do not use `robots.txt` to hide a retired URL if crawlers need to observe its removal.
+
+The final question for every change should be:
+
+> Does this make QuisqueyaTech easier to understand, trust, find, contact, or evaluate as a business-systems partner?
+
+If not, it probably does not belong in the public marketing website.

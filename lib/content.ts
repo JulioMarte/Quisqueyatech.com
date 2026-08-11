@@ -44,7 +44,11 @@ Una automatización útil resuelve un problema repetible y medible. Antes de ele
 
 El mejor primer proyecto suele tener volumen suficiente, reglas relativamente estables y un responsable claro. Evita comenzar por el proceso más complejo de la empresa: comienza por uno que permita demostrar valor y aprender sin poner en riesgo la operación.
 
-La evaluación inicial de QuisqueyaTech ayuda a convertir estas observaciones en una ruta priorizada.`,
+## Qué debería pasar antes de construir
+
+Documenta el flujo actual, identifica dónde se pierde tiempo o una oportunidad y define qué resultado demostraría que el cambio funcionó. Si todavía no puedes describir ese resultado, probablemente es pronto para automatizar.
+
+QuisqueyaTech parte de esa conversación: entender cómo funciona el negocio antes de decidir si la respuesta correcta es automatización, una mejora web, una integración o software específico.`,
   },
   {
     locale: "en",
@@ -71,7 +75,11 @@ Useful automation fixes a repeatable, measurable problem. Before choosing softwa
 
 The best first project usually has enough volume, stable rules, and a clear owner. Do not begin with the most complicated workflow in the company. Start with one that can prove value without putting operations at risk.
 
-QuisqueyaTech's initial assessment turns these observations into a prioritized path forward.`,
+## What should happen before you build
+
+Document the current workflow, identify where time or an opportunity is being lost, and define which outcome would prove the change worked. If that outcome is still unclear, it is probably too early to automate.
+
+QuisqueyaTech starts with that conversation: understand how the business works before deciding whether the right answer is automation, a better website, an integration, or focused software.`,
   },
 ];
 

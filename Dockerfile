@@ -63,6 +63,7 @@ RUN set -eux; \
     echo "ERROR: NEXT_PUBLIC_TURNSTILE_SITE_KEY is required for production builds."; \
     exit 1; \
   fi; \
+  npm run og; \
   npx next build --webpack
 
 FROM node:24-bookworm-slim AS runner

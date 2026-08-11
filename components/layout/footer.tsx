@@ -7,6 +7,7 @@ import { BrandLockup } from "@/components/brand/logo";
 import { Container } from "@/components/ui/section";
 import { brand } from "@/lib/brand";
 import { localeFromPath } from "@/lib/i18n";
+import { routePath } from "@/lib/routes";
 import { SiFacebook, SiInstagram, SiX } from "react-icons/si";
 import { FaLinkedinIn } from "react-icons/fa6";
 
@@ -15,6 +16,7 @@ export function Footer() {
   const isEs = locale === "es";
   const contactHref = brand.publicPhoneHref || `mailto:${brand.publicEmail}`;
   const contactLabel = brand.publicPhoneDisplay || (isEs ? "Hablar con nosotros" : "Talk to us");
+  const contactAnchor = isEs ? "contacto" : "contact";
   const socialLinks = [
     { label: "Instagram", href: brand.social.instagram, Icon: SiInstagram },
     { label: "Facebook", href: brand.social.facebook, Icon: SiFacebook },
@@ -23,7 +25,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-line bg-white py-10 text-sm text-mute lg:py-12">
+    <footer lang={locale} className="border-t border-line bg-white py-10 text-sm text-mute lg:py-12">
       <Container>
         <div className="grid gap-x-10 gap-y-9 md:grid-cols-2 lg:grid-cols-[1.4fr_.85fr_.85fr_1.15fr]">
           <div>
@@ -37,36 +39,20 @@ export function Footer() {
 
           <FooterGroup
             title={isEs ? "Explorar" : "Explore"}
-            links={
-              isEs
-                ? [
-                    ["/soluciones", "Servicios"],
-                    ["/#casos", "Casos"],
-                    ["/recursos", "Recursos"],
-                  ]
-                : [
-                    ["/en/solutions", "Services"],
-                    ["/en#case-studies", "Case studies"],
-                    ["/en/recursos", "Resources"],
-                  ]
-            }
+            links={[
+              [routePath("solutions", locale), isEs ? "Servicios" : "Services"],
+              [routePath("caseStudies", locale), isEs ? "Casos" : "Case studies"],
+              [routePath("resources", locale), isEs ? "Recursos" : "Resources"],
+            ]}
           />
 
           <FooterGroup
             title={isEs ? "Compañía" : "Company"}
-            links={
-              isEs
-                ? [
-                    ["/como-trabajamos", "Cómo trabajamos"],
-                    ["/nosotros", "Nosotros"],
-                    ["/#contacto", "Contacto"],
-                  ]
-                : [
-                    ["/en/how-we-work", "How we work"],
-                    ["/en/about", "About"],
-                    ["/en#contacto", "Contact"],
-                  ]
-            }
+            links={[
+              [routePath("method", locale), isEs ? "Cómo trabajamos" : "How we work"],
+              [routePath("about", locale), isEs ? "Nosotros" : "About"],
+              [`${routePath("home", locale)}#${contactAnchor}`, isEs ? "Contacto" : "Contact"],
+            ]}
           />
 
           <div>
@@ -100,7 +86,7 @@ export function Footer() {
 
         <div className="mt-8 flex flex-wrap justify-between gap-3 border-t border-line pt-5 text-xs">
           <span>© {new Date().getFullYear()} QuisqueyaTech · {brand.location}</span>
-          <Link href={isEs ? "/privacidad" : "/en/privacy"} className="hover:text-amber-deep">
+          <Link href={routePath("privacy", locale)} className="hover:text-amber-deep">
             {isEs ? "Privacidad" : "Privacy"}
           </Link>
         </div>

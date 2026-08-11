@@ -12,7 +12,6 @@ import {
   Workflow,
 } from "lucide-react";
 import { MarketingContactForm } from "@/components/forms/marketing-contact-form";
-import { ButtonLink } from "@/components/ui/button";
 import { DawnSweep, KineticText } from "@/components/ui/hero-motion";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/motion";
 import { Container, Eyebrow, Section, SectionHead } from "@/components/ui/section";
@@ -191,7 +190,7 @@ const copy = {
     ],
     processEyebrow: "How we work",
     processTitle: "Understand → prioritize → build → measure.",
-    processLede:
+    processLde:
       "A useful project starts with a concrete conversation about daily work, not a list of technologies.",
     steps: [
       ["01", "Understand", "Map how work arrives, who touches it, which tools are involved, and where friction appears."],
@@ -348,7 +347,7 @@ export async function HomePageContent({ locale }: { locale: Locale }) {
         <Container>
           <SectionHead eyebrow={c.casesEyebrow} title={c.casesTitle} lede={c.casesLede} />
           <div className="grid gap-5 lg:grid-cols-3">
-            {c.cases.map((item, index) => {
+            {c.cases.map((item) => {
               const content = (
                 <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-white transition hover:-translate-y-1 hover:shadow-lg">
                   <div className="flex min-h-40 items-end bg-gradient-to-br from-primary via-primary-2 to-tech p-6 text-white">

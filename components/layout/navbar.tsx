@@ -8,7 +8,8 @@ import { useEffect, useId, useState } from "react";
 import { BrandLockup } from "@/components/brand/logo";
 import { Container } from "@/components/ui/section";
 import { brand } from "@/lib/brand";
-import { alternatePath, localeFromPath, withLocale } from "@/lib/i18n";
+import { alternatePath, localeFromPath } from "@/lib/i18n";
+import { routePath } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -28,21 +29,21 @@ export function Navbar() {
   }, [open]);
 
   const links = [
-    { href: isEs ? "/soluciones" : "/en/solutions", label: isEs ? "Servicios" : "Services" },
-    { href: isEs ? "/#casos" : "/en#case-studies", label: isEs ? "Casos" : "Case studies" },
-    { href: withLocale(locale, "/recursos"), label: isEs ? "Recursos" : "Resources" },
-    { href: isEs ? "/nosotros" : "/en/about", label: isEs ? "Nosotros" : "About" },
+    { href: routePath("solutions", locale), label: isEs ? "Servicios" : "Services" },
+    { href: routePath("caseStudies", locale), label: isEs ? "Casos" : "Case studies" },
+    { href: routePath("resources", locale), label: isEs ? "Recursos" : "Resources" },
+    { href: routePath("about", locale), label: isEs ? "Nosotros" : "About" },
   ];
 
-  const isActive = (href: string) => !href.includes("#") && (pathname === href || pathname.startsWith(`${href}/`));
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const closeMobileMenu = () => setOpen(false);
   const contactHref = brand.publicPhoneHref || `mailto:${brand.publicEmail}`;
   const contactLabel = brand.publicPhoneDisplay || (isEs ? "Hablar con nosotros" : "Talk to us");
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-white/95 backdrop-blur-md">
+    <header lang={locale} className="sticky top-0 z-50 border-b border-line bg-white/95 backdrop-blur-md">
       <Container className="grid h-[68px] grid-cols-[auto_1fr_auto] items-center gap-4">
-        <Link href={withLocale(locale)} aria-label="QuisqueyaTech" onClick={closeMobileMenu}>
+        <Link href={routePath("home", locale)} aria-label="QuisqueyaTech" onClick={closeMobileMenu}>
           <BrandLockup priority showDescriptor={false} />
         </Link>
 

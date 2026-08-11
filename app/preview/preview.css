@@ -1,0 +1,13 @@
+/*
+ * Visual previews intentionally share one QuisqueyaTech brand shell.
+ * The variant component still contains its original local nav/footer so each
+ * exploration remains portable, but they are suppressed inside preview routes
+ * in favor of the shared Navbar + original-main PreviewFooter from the layout.
+ */
+.preview-variant-content > div > section:first-child > .relative.z-20 {
+  display: none;
+}
+
+.preview-variant-content footer {
+  display: none;
+}

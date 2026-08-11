@@ -38,11 +38,13 @@ export function BrandLockup({
   size = "md",
   priority,
   showDescriptor = true,
+  descriptor = brand.descriptor,
 }: {
   light?: boolean;
   size?: "sm" | "md" | "lg";
   priority?: boolean;
   showDescriptor?: boolean;
+  descriptor?: string;
 }) {
   const textSize = size === "sm" ? "text-base" : size === "lg" ? "text-lg" : "text-[17px]";
 
@@ -59,7 +61,7 @@ export function BrandLockup({
               light ? "text-white/60" : "text-mute",
             )}
           >
-            {brand.descriptor}
+            {descriptor}
           </small>
         )}
       </span>

@@ -3,17 +3,17 @@ import { brand } from "@/lib/brand";
 
 export const seo = {
   homeEs: {
-    title: "Automatización, IA y software para empresas",
+    title: "Tecnología y sistemas para empresas | QuisqueyaTech",
     description:
-      "Evaluamos cómo opera tu empresa y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad.",
+      "QuisqueyaTech analiza cómo funciona tu negocio y construye sitios web, automatizaciones, IA e integraciones para reducir fricción, captar mejor y medir resultados.",
     url: brand.siteUrl,
     locale: "es_DO",
     image: "/og/home-hero-v2.png",
   },
   homeEn: {
-    title: "Automation, AI, and software for modern companies",
+    title: "Business systems, web, automation and AI | QuisqueyaTech",
     description:
-      "We assess how your company operates and build automation, AI agents, and software that improve productivity.",
+      "QuisqueyaTech learns how your business works and builds websites, automation, AI and integrations that reduce friction, improve lead handling and make results measurable.",
     url: `${brand.siteUrl}/en`,
     locale: "en_US",
     image: "/og/home-hero-v2.png",
@@ -61,6 +61,7 @@ export const organizationJsonLd = {
   description: seo.homeEs.description,
   url: brand.siteUrl,
   email: brand.publicEmail,
+  ...(brand.publicPhoneDisplay ? { telephone: brand.publicPhoneDisplay } : {}),
   logo: `${brand.siteUrl}/brand/logo-mark-512.png`,
   founder: { "@type": "Person", name: brand.founder.name, jobTitle: brand.founder.role },
   address: { "@type": "PostalAddress", addressLocality: "Puerto Plata", addressCountry: "DO" },

@@ -24,9 +24,14 @@ export async function GET(request: Request) {
       projectMatch = false;
     }
   }
-  const workerSecretReady = Boolean(process.env.ASSESSMENT_WORKER_SECRET);
+  const workerSecretReady = Boolean(
+    config.assessmentWorkerSecret || process.env.ASSESSMENT_WORKER_SECRET,
+  );
   const publicTurnstile = turnstilePublicConfig();
-  const serverTurnstile = turnstileServerConfig();
+  const serverTurnstile = turnstileServerConfig(
+    process.env.NODE_ENV,
+    String(config.turnstileSecretKey || process.env.TURNSTILE_SECRET_KEY || ""),
+  );
   const turnstile = {
     mode: serverTurnstile.mode,
     siteKeyReady: publicTurnstile.enabled,
@@ -58,7 +63,15 @@ export async function GET(request: Request) {
       provider,
       code: readiness.code,
       issues: readiness.issues,
-      checks: { credentialsReady, projectMatch, workerSecretReady, turnstile, activeProbe },
+      checks: {
+        credentialsReady,
+        projectMatch,
+        workerSecretReady,
+        geminiReady: Boolean(config.geminiApiKey),
+        configurationSource: process.env.ADMIN_API_SECRET ? "convex-env" : "env-fallback",
+        turnstile,
+        activeProbe,
+      },
     },
     { status: operational ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

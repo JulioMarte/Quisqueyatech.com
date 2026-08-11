@@ -44,10 +44,6 @@ function requiredLocalCloudVariables() {
     missing.push("CONVEX_SITE_URL or NEXT_PUBLIC_CONVEX_SITE_URL");
   for (const key of [
     "ADMIN_API_SECRET",
-    "ASSESSMENT_STORAGE_SECRET",
-    "ASSESSMENT_TOKEN_SECRET",
-    "CONFIG_ENCRYPTION_KEY",
-    "ASSESSMENT_WORKER_SECRET",
   ] as const) {
     if (!process.env[key]?.trim()) missing.push(key);
   }
@@ -278,7 +274,9 @@ export async function POST(request: Request) {
         livekitApiKey: Boolean(dynamicConfig.livekitApiKey),
         livekitApiSecret: Boolean(dynamicConfig.livekitApiSecret),
         geminiApiKey: Boolean(dynamicConfig.geminiApiKey),
-        assessmentWorkerSecret: Boolean(process.env.ASSESSMENT_WORKER_SECRET?.trim()),
+        assessmentWorkerSecret: Boolean(
+          dynamicConfig.assessmentWorkerSecret || process.env.ASSESSMENT_WORKER_SECRET?.trim(),
+        ),
       },
       durationMs: Date.now() - startedAt,
     });

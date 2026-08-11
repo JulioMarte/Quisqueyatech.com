@@ -11,9 +11,6 @@ import * as google from "@livekit/agents-plugin-google";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { errorCode, fetchBounded } from "./http.js";
-import { startOpenTelemetry } from "./observability.js";
-
-startOpenTelemetry();
 
 type Metadata = {
   assessmentId: string;
@@ -666,10 +663,14 @@ function elapsedSeconds(startedAt: number) {
 }
 
 export default agent;
-cli.runApp(
-  new ServerOptions({
-    agent: fileURLToPath(import.meta.url),
-    agentName: "quisqueyatech-assessment",
-    numIdleProcesses: 1,
-  }),
-);
+
+export function runAssessmentAgent() {
+  return cli.runApp(
+    new ServerOptions({
+      agent: fileURLToPath(import.meta.url),
+      agentName: "quisqueyatech-assessment",
+      initializeProcessTimeout: 30_000,
+      numIdleProcesses: 1,
+    }),
+  );
+}

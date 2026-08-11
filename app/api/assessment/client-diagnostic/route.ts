@@ -4,8 +4,10 @@ import { verifyAssessmentToken } from "@/lib/server/assessment-tokens";
 import { allowRequest } from "@/lib/server/rate-limit";
 import { convexMutation } from "@/lib/server/convex";
 import { telemetryRetentionMs } from "@/lib/assessment/telemetry";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 export async function POST(request: Request) {
+  await runtimeConfig();
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
   const verified = verifyAssessmentToken(token, "progress");

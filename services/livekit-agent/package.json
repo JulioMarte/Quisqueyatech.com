@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cross-env OTEL_SERVICE_NAME=quisqueyatech-livekit-agent node --env-file=../../.env.local --import tsx src/index.ts dev",
-    "start": "cross-env OTEL_SERVICE_NAME=quisqueyatech-livekit-agent tsx src/index.ts start"
+    "dev": "cross-env OTEL_SERVICE_NAME=quisqueyatech-livekit-agent node --env-file=../../.env.local --import tsx src/launcher.ts dev",
+    "start": "cross-env OTEL_SERVICE_NAME=quisqueyatech-livekit-agent tsx src/launcher.ts start"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
@@ -24,6 +24,7 @@
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "cross-env": "^10.1.0",
     "dotenv": "^17.0.0",
+    "quisqueyatech": "file:../..",
     "tsx": "^4.23.1",
     "zod": "^4.4.3"
   }

@@ -13,12 +13,14 @@ npm run dev
 
 Nota local actual: `npm run dev` ejecuta solo Next.js y usa las URLs de Convex
 Cloud definidas en `.env.local`. Completa `NEXT_PUBLIC_CONVEX_URL`,
-`NEXT_PUBLIC_CONVEX_SITE_URL` y los secretos runtime locales para probar contra
-Cloud. `CONVEX_URL` y `CONVEX_SITE_URL` son opcionales si las variables
-`NEXT_PUBLIC_*` ya apuntan al mismo deployment. Para probar el worker local con
-`npm run agent:dev`, `.env.local` tambien debe incluir `LIVEKIT_URL`,
-`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET` y,
-opcionalmente, `ASSESSMENT_APP_URL=http://localhost:3000`. Usa
+`NEXT_PUBLIC_CONVEX_SITE_URL` y `ADMIN_API_SECRET` para probar contra Cloud. Los
+secretos de LiveKit, Gemini, Turnstile y la evaluación viven en las variables
+del deployment de Convex. Para revisar o migrar `.env.local` sin mostrar valores,
+usa `npm run assessment:env`; aplica con `assessment:env:dev` y, después de
+validar, con `assessment:env:prod`. Para probar el worker local, `.env.local`
+solo necesita además `ASSESSMENT_WORKER_SECRET` y opcionalmente
+`ASSESSMENT_APP_URL=http://localhost:3000`; LiveKit se obtiene desde Convex antes
+de arrancar el agente. Usa
 `npm run dev:local` solamente cuando quieras levantar Convex local de forma
 explicita.
 

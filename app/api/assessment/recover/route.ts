@@ -52,6 +52,7 @@ async function recordServerEvent(
 }
 
 export async function POST(request: Request) {
+  await runtimeConfig();
   const authorization = request.headers.get("authorization");
   const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
   const verified = verifyAssessmentToken(token, "progress");

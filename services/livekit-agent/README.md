@@ -4,7 +4,7 @@ This Node.js worker is intentionally deployed separately from the Next.js applic
 
 ## Required contract
 
-- Keep `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `ASSESSMENT_WORKER_SECRET` in worker infrastructure.
+- Keep only `CONVEX_SITE_URL`, `ASSESSMENT_WORKER_SECRET`, and `ASSESSMENT_APP_URL` in worker infrastructure. LiveKit and Gemini credentials are loaded from the selected Convex deployment.
 - Fetch the editable Gemini model, voice, temperature, and API key from the authenticated `/api/assessment/worker-config` endpoint at the start of every session.
 - Register with the exact agent name `quisqueyatech-assessment` and accept explicit dispatches for rooms whose names start with `assessment-`.
 - Use the same discovery sequence documented in `Docs/README.md`: process, tools, volume, manual work, problem, impact, constraints, and desired outcome.
@@ -30,7 +30,12 @@ npm run dev
 # npm run agent:dev
 ```
 
-Configure `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, `ASSESSMENT_WORKER_SECRET`, and `NEXT_PUBLIC_SITE_URL`. The worker retrieves session-time Gemini configuration through the authenticated server endpoint and never exposes it to the browser.
+Configure `CONVEX_SITE_URL`, `ASSESSMENT_WORKER_SECRET`, and `NEXT_PUBLIC_SITE_URL`. The worker retrieves LiveKit at startup from Convex and session-time Gemini configuration through the authenticated server endpoint; neither is exposed to the browser.
+
+`LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` present in a local or
+container environment are intentionally ignored and overwritten by the Convex
+bootstrap. This prevents stale or revoked local credentials from shadowing the
+selected deployment.
 
 ## Deploy to LiveKit Cloud
 

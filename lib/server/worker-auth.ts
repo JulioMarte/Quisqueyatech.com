@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { runtimeSecret } from "@/lib/server/runtime-secret-cache";
 
 export function bearerToken(request: Request) {
   return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
@@ -11,5 +12,8 @@ export function safeEqualSecret(expected: string | undefined, received: string |
 }
 
 export function isTrustedAssessmentWorker(request: Request) {
-  return safeEqualSecret(process.env.ASSESSMENT_WORKER_SECRET, bearerToken(request));
+  return safeEqualSecret(
+    runtimeSecret("assessmentWorkerSecret") || process.env.ASSESSMENT_WORKER_SECRET,
+    bearerToken(request),
+  );
 }

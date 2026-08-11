@@ -1,9 +1,14 @@
 import "server-only";
-import { convexMachineFetch } from "@/lib/server/convex";
 import { diagnosticLog, errorSummary } from "@/lib/server/diagnostic-log";
-import { decryptSetting } from "@/lib/server/secure-config";
+import { resolveConvexSiteUrl } from "@/lib/server/convex-url";
+import { fetchMachineRuntime } from "@/lib/server/machine-runtime-core";
+import { rememberRuntimeSecrets } from "@/lib/server/runtime-secret-cache";
 
 export type RuntimeConfig = Record<string, string | boolean | number | undefined>;
+
+const CACHE_MS = 30_000;
+let cached: { expiresAt: number; config: RuntimeConfig } | undefined;
+let pending: Promise<RuntimeConfig> | undefined;
 
 function optionalNumber(value: string | undefined) {
   if (!value) return undefined;
@@ -28,25 +33,37 @@ export async function runtimeConfig(): Promise<RuntimeConfig> {
     livekitApiSecret: process.env.LIVEKIT_API_SECRET,
     geminiApiKey: process.env.GEMINI_API_KEY,
   };
-  const siteUrl =
-    process.env.CONVEX_SITE_URL?.trim() || process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.trim();
+  const siteUrl = resolveConvexSiteUrl();
   if (!process.env.ADMIN_API_SECRET || !siteUrl) {
+    rememberRuntimeSecrets(fallback);
     logRuntimeConfig("env-fallback", fallback, {
       reason: !process.env.ADMIN_API_SECRET ? "missing_admin_secret" : "missing_convex_site_url",
     });
     return fallback;
   }
+  if (cached && cached.expiresAt > Date.now()) return cached.config;
+  if (pending) return pending;
+  pending = loadConvexRuntime(siteUrl, process.env.ADMIN_API_SECRET, fallback);
   try {
-    // Ciphertexts travel only over the machine HTTP gateway (Bearer secret),
-    // not a public Convex query with secret-in-args.
-    const stored = await convexMachineFetch<{
-      config: RuntimeConfig;
-      secrets: Record<string, string>;
-    }>("/machine/runtime");
-    const decoded = Object.fromEntries(
-      Object.entries(stored.secrets).map(([name, value]) => [name, decryptSetting(value)]),
+    return await pending;
+  } finally {
+    pending = undefined;
+  }
+}
+
+async function loadConvexRuntime(
+  siteUrl: string,
+  secret: string,
+  fallback: RuntimeConfig,
+): Promise<RuntimeConfig> {
+  try {
+    const stored = await fetchMachineRuntime<RuntimeConfig>(
+      `${siteUrl}/machine/runtime`,
+      secret,
     );
-    const config = { ...fallback, ...stored.config, ...decoded };
+    const config = compactMerge(fallback, stored.config);
+    rememberRuntimeSecrets(config);
+    cached = { config, expiresAt: Date.now() + CACHE_MS };
     logRuntimeConfig("convex-runtime", config);
     return config;
   } catch (error) {
@@ -57,10 +74,22 @@ export async function runtimeConfig(): Promise<RuntimeConfig> {
       "error",
     );
     logRuntimeConfig("env-fallback", fallback, { reason: "convex_runtime_failed" });
+    rememberRuntimeSecrets(fallback);
     // Environment variables remain the transition fallback until every
     // deployment has the encrypted settings and machine gateway configured.
     return fallback;
   }
+}
+
+function compactMerge(fallback: RuntimeConfig, primary: RuntimeConfig) {
+  return Object.fromEntries(
+    Object.entries({ ...fallback, ...primary }).filter(([, value]) => value !== undefined),
+  ) as RuntimeConfig;
+}
+
+export function clearRuntimeConfigCache() {
+  cached = undefined;
+  pending = undefined;
 }
 
 function logRuntimeConfig(

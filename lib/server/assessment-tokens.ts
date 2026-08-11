@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { VoiceProviderId } from "@/lib/assessment/types";
+import { runtimeSecret } from "@/lib/server/runtime-secret-cache";
 
 type TokenPurpose = "progress" | "resume" | "provider-override";
 type TokenPayload = {
@@ -12,7 +13,7 @@ type TokenPayload = {
 };
 
 function secret() {
-  const value = process.env.ASSESSMENT_TOKEN_SECRET;
+  const value = runtimeSecret("assessmentTokenSecret") || process.env.ASSESSMENT_TOKEN_SECRET;
   if (value) return value;
   if (process.env.NODE_ENV !== "production") return "local-development-assessment-secret-change-me";
   throw new Error("ASSESSMENT_TOKEN_SECRET is required in production");

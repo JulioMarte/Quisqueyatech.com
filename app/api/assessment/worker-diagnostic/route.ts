@@ -20,7 +20,7 @@ const schema = z
   .strict();
 
 export async function POST(request: Request) {
-  if (!isTrustedAssessmentWorker(request))
+  if (!(await isTrustedAssessmentWorker(request)))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)

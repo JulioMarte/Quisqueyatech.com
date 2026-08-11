@@ -23,6 +23,7 @@ import type * as machineHttp from "../machineHttp.js";
 import type * as migrations from "../migrations.js";
 import type * as posts from "../posts.js";
 import type * as retention from "../retention.js";
+import type * as runtimeEnvironment from "../runtimeEnvironment.js";
 import type * as settings from "../settings.js";
 import type * as webhookDelivery from "../webhookDelivery.js";
 import type * as webhookHttp from "../webhookHttp.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   posts: typeof posts;
   retention: typeof retention;
+  runtimeEnvironment: typeof runtimeEnvironment;
   settings: typeof settings;
   webhookDelivery: typeof webhookDelivery;
   webhookHttp: typeof webhookHttp;

@@ -4,11 +4,13 @@ import { convexMutation } from "@/lib/server/convex";
 import { verifyAssessmentToken } from "@/lib/server/assessment-tokens";
 import { assessmentProgressSchema } from "@/lib/validations/assessment";
 import { bearerToken, isTrustedAssessmentWorker } from "@/lib/server/worker-auth";
+import { runtimeConfig } from "@/lib/server/runtime-config";
 
 export async function POST(request: Request) {
+  await runtimeConfig();
   const token = bearerToken(request);
   const verified = verifyAssessmentToken(token, "progress");
-  const trustedWorker = isTrustedAssessmentWorker(request);
+  const trustedWorker = await isTrustedAssessmentWorker(request);
   if (!verified?.assessmentId && !trustedWorker)
     return NextResponse.json({ error: "Invalid or expired assessment token" }, { status: 401 });
   const parsed = assessmentProgressSchema.safeParse(await request.json());

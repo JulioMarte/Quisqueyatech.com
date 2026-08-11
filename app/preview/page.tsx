@@ -14,7 +14,9 @@ export default function PreviewIndexPage() {
             Cuatro formas de hacer que QuisqueyaTech se sienta más visual.
           </h1>
           <p className="mt-6 max-w-[64ch] text-lg leading-relaxed text-text-2">
-            Estas rutas son previews no indexables. Comparten la identidad de QuisqueyaTech, pero exploran cuatro ritmos visuales distintos antes de elegir una dirección final para producción.
+            Estas rutas son previews no indexables. Comparten la identidad de QuisqueyaTech, pero
+            exploran cuatro ritmos visuales distintos antes de elegir una dirección final para
+            producción.
           </p>
         </div>
 

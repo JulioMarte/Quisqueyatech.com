@@ -29,6 +29,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - name: Emit formatted hero
+        run: |
+          npx prettier --write components/sections/business-impact-hero.tsx
+          echo "FORMATTED_HERO_BASE64_BEGIN"
+          base64 -w0 components/sections/business-impact-hero.tsx
+          echo
+          echo "FORMATTED_HERO_BASE64_END"
+          exit 1
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test

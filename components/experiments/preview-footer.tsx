@@ -33,7 +33,13 @@ export function PreviewFooter() {
       <Container>
         <div className="grid gap-x-8 gap-y-9 md:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.72fr_1.08fr_.95fr] lg:gap-x-10">
           <div>
-            <BrandLockup />
+            <BrandLockup
+              descriptor={
+                isEs
+                  ? "Automatización, IA y software para empresas"
+                  : "Automation, AI and software for businesses"
+              }
+            />
             <p className="mt-3 max-w-[32ch] text-text-2">
               {isEs
                 ? "Automatización, agentes de IA y software para empresas que quieren operar con más claridad."

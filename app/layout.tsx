@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Poppins } from "next/font/google";
 import { MotionProvider } from "@/components/ui/motion";
 import { brand } from "@/lib/brand";
-import { seo } from "@/lib/seo";
+import { seoPages } from "@/lib/seo";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -20,10 +19,15 @@ const jetbrains = JetBrains_Mono({
   display: "swap",
 });
 
+const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+
 export const metadata: Metadata = {
   metadataBase: new URL(brand.siteUrl),
-  title: { default: seo.homeEs.title, template: "%s | QuisqueyaTech" },
-  description: seo.homeEs.description,
+  title: {
+    default: `${seoPages.home.es.title} | ${brand.name}`,
+    template: `%s | ${brand.name}`,
+  },
+  description: seoPages.home.es.description,
   authors: [{ name: brand.founder.name }],
   creator: brand.name,
   publisher: brand.name,
@@ -32,13 +36,13 @@ export const metadata: Metadata = {
     apple: "/brand/apple-touch-icon.png",
   },
   robots: { index: true, follow: true },
+  verification: googleVerification ? { google: googleVerification } : undefined,
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const locale = (await headers()).get("x-quisqueya-locale") === "en" ? "en" : "es";
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
-      lang={locale}
+      lang="es"
       className={`${inter.variable} ${poppins.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans text-text">

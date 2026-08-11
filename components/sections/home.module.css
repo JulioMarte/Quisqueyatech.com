@@ -1,0 +1,3 @@
+.withoutLegacyHero > div > section:first-child {
+  display: none;
+}

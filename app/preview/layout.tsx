@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { PreviewFooter } from "@/components/experiments/preview-footer";
+import { Navbar } from "@/components/layout/navbar";
+import "./preview.css";
 
 export const metadata: Metadata = {
   title: "Visual direction previews",
@@ -11,5 +14,11 @@ export const metadata: Metadata = {
 };
 
 export default function PreviewLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return (
+    <>
+      <Navbar />
+      <div className="preview-variant-content">{children}</div>
+      <PreviewFooter />
+    </>
+  );
 }

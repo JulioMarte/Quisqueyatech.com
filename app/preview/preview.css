@@ -1,10 +1,18 @@
 /*
  * Visual previews intentionally share one QuisqueyaTech brand shell.
  * The variant component still contains its original local nav/footer so each
- * exploration remains portable, but they are suppressed inside preview routes
- * in favor of the shared Navbar + original-main PreviewFooter from the layout.
+ * exploration remains portable, but the preview routes now provide a separate
+ * business-impact hero and shared Navbar + original-main footer.
  */
 .preview-variant-content > div > section:first-child > .relative.z-20 {
+  display: none;
+}
+
+/* The first section inside each legacy visual direction was its original hero.
+ * It remains in the component for portability, but the review route replaces
+ * it with the new conversion/business-metrics hero above it.
+ */
+.legacy-preview-variant > div > section:first-child {
   display: none;
 }
 

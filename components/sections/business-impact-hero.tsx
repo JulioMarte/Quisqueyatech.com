@@ -50,7 +50,12 @@ const spanishCopy: Record<BusinessHeroVariant, HeroCopy> = {
     secondaryHref: "#contacto",
     proof: ["Web + SEO", "Automatización", "IA aplicada", "Software e integraciones"],
     metrics: [
-      { label: "Visitas monitorizadas", value: "2,847", helper: "tráfico mensual", icon: LineChart },
+      {
+        label: "Visitas monitorizadas",
+        value: "2,847",
+        helper: "tráfico mensual",
+        icon: LineChart,
+      },
       { label: "Nuevos leads", value: "+12", helper: "esta semana", icon: Users },
       { label: "Tiempo de respuesta", value: "2m 14s", helper: "promedio", icon: Clock3 },
       { label: "Seguimiento", value: "100%", helper: "con próximo paso", icon: Check },
@@ -65,7 +70,12 @@ const spanishCopy: Record<BusinessHeroVariant, HeroCopy> = {
     secondaryHref: routePath("caseStudies", "es"),
     proof: ["Claridad comercial", "SEO", "Conversión", "Medición"],
     metrics: [
-      { label: "Website traffic", value: "2,847", helper: "visitas monitorizadas", icon: TrendingUp },
+      {
+        label: "Website traffic",
+        value: "2,847",
+        helper: "visitas monitorizadas",
+        icon: TrendingUp,
+      },
       { label: "Search intent", value: "18", helper: "consultas relevantes", icon: Search },
       { label: "Nuevos leads", value: "+12", helper: "esta semana", icon: Users },
       { label: "Conversión", value: "4.8%", helper: "ejemplo de medición", icon: Gauge },
@@ -96,7 +106,12 @@ const spanishCopy: Record<BusinessHeroVariant, HeroCopy> = {
     secondaryHref: routePath("solutions", "es"),
     proof: ["Discover", "Respond", "Operate", "Measure"],
     metrics: [
-      { label: "Requests", value: "126", helper: "procesadas esta semana", icon: MessageSquareText },
+      {
+        label: "Requests",
+        value: "126",
+        helper: "procesadas esta semana",
+        icon: MessageSquareText,
+      },
       { label: "Calls routed", value: "92%", helper: "con destino definido", icon: Phone },
       { label: "Response", value: "2m 14s", helper: "promedio", icon: Clock3 },
       { label: "Workflow events", value: "18", helper: "señales instrumentadas", icon: Workflow },
@@ -195,14 +210,22 @@ function GrowthHero({ copy }: { copy: HeroCopy }) {
         <Reveal delay={0.08} variant="scale">
           <div className="relative mx-auto w-full max-w-[590px] py-8 sm:py-12">
             <div className="absolute -left-2 top-0 z-20 rounded-2xl border border-white/90 bg-white/90 px-4 py-3 shadow-xl backdrop-blur sm:-left-7">
-              <p className="text-[10px] font-bold uppercase tracking-[.15em] text-text-2">New leads</p>
+              <p className="text-[10px] font-bold uppercase tracking-[.15em] text-text-2">
+                New leads
+              </p>
               <p className="mt-1 font-display text-2xl font-bold text-primary">+12</p>
             </div>
             <div className="absolute -right-1 bottom-1 z-20 rounded-2xl border border-white/90 bg-white/90 px-4 py-3 shadow-xl backdrop-blur sm:-right-7">
-              <p className="text-[10px] font-bold uppercase tracking-[.15em] text-text-2">Search intent</p>
+              <p className="text-[10px] font-bold uppercase tracking-[.15em] text-text-2">
+                Search intent
+              </p>
               <p className="mt-1 font-display text-2xl font-bold text-primary">18</p>
             </div>
-            <MetricsBoard metrics={copy.metrics} label="Growth dashboard · datos ilustrativos" compact />
+            <MetricsBoard
+              metrics={copy.metrics}
+              label="Growth dashboard · datos ilustrativos"
+              compact
+            />
           </div>
         </Reveal>
       </div>
@@ -230,10 +253,16 @@ function ConsultancyHero({ copy }: { copy: HeroCopy }) {
           <div className="rounded-[2rem] border border-white/10 bg-white/[.055] p-4 shadow-2xl backdrop-blur-xl sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-4 border-b border-white/10 pb-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/35">Operational snapshot</p>
-                <p className="mt-1 font-display text-lg font-bold">Friction → next step → evidence</p>
+                <p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/35">
+                  Operational snapshot
+                </p>
+                <p className="mt-1 font-display text-lg font-bold">
+                  Friction → next step → evidence
+                </p>
               </div>
-              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-200">VISIBLE</span>
+              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                VISIBLE
+              </span>
             </div>
             <MetricGrid metrics={copy.metrics} dark />
             <IllustrativeNote dark />
@@ -297,7 +326,9 @@ function LocalHero({ copy }: { copy: HeroCopy }) {
               <Phone className="h-10 w-10 rounded-xl bg-white/10 p-2.5 text-larimar" />
               <div>
                 <p className="text-xs text-white/50">Desde el primer contacto</p>
-                <p className="font-display text-lg font-bold">Encontrar → contactar → avanzar → medir</p>
+                <p className="font-display text-lg font-bold">
+                  Encontrar → contactar → avanzar → medir
+                </p>
               </div>
             </div>
             <MetricGrid metrics={copy.metrics} />
@@ -329,26 +360,44 @@ function MetricsBoard({
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> demo
         </span>
       </div>
-      <div className={compact ? "mt-4 grid gap-3 sm:grid-cols-2" : "mt-5 grid gap-3 sm:grid-cols-2"}>
+      <div
+        className={compact ? "mt-4 grid gap-3 sm:grid-cols-2" : "mt-5 grid gap-3 sm:grid-cols-2"}
+      >
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
           return (
-            <div key={metric.label} className={`rounded-2xl border border-line bg-white ${compact ? "p-4" : "p-5"}`}>
+            <div
+              key={metric.label}
+              className={`rounded-2xl border border-line bg-white ${compact ? "p-4" : "p-5"}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-text-2">{metric.label}</p>
-                  <p className={`${compact ? "mt-2 text-2xl" : "mt-3 text-3xl"} font-display font-bold tracking-tight text-primary`}>
+                  <p
+                    className={`${compact ? "mt-2 text-2xl" : "mt-3 text-3xl"} font-display font-bold tracking-tight text-primary`}
+                  >
                     {metric.value}
                   </p>
                 </div>
-                <Icon className={`h-9 w-9 rounded-xl p-2 ${index % 2 === 0 ? "bg-larimar-soft text-tech" : "bg-orange-100 text-amber-deep"}`} />
+                <Icon
+                  className={`h-9 w-9 rounded-xl p-2 ${index % 2 === 0 ? "bg-larimar-soft text-tech" : "bg-orange-100 text-amber-deep"}`}
+                />
               </div>
               <p className="mt-2 text-xs text-mute">{metric.helper}</p>
               {index === 0 ? (
                 <div className="mt-4 h-8 overflow-hidden">
                   <svg viewBox="0 0 160 32" className="h-full w-full" aria-hidden="true">
-                    <path d="M0 27 C18 26 28 23 42 21 C62 18 71 18 90 13 C110 8 129 11 160 2" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-tech" />
-                    <path d="M0 27 C18 26 28 23 42 21 C62 18 71 18 90 13 C110 8 129 11 160 2 L160 32 L0 32 Z" className="fill-sky-100/70" />
+                    <path
+                      d="M0 27 C18 26 28 23 42 21 C62 18 71 18 90 13 C110 8 129 11 160 2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      className="text-tech"
+                    />
+                    <path
+                      d="M0 27 C18 26 28 23 42 21 C62 18 71 18 90 13 C110 8 129 11 160 2 L160 32 L0 32 Z"
+                      className="fill-sky-100/70"
+                    />
                   </svg>
                 </div>
               ) : null}
@@ -369,16 +418,36 @@ function MetricGrid({ metrics, dark = false }: { metrics: readonly Metric[]; dar
         return (
           <div
             key={metric.label}
-            className={dark ? "rounded-2xl border border-white/10 bg-[#0b3048] p-5" : "rounded-2xl border border-line bg-bg-2/70 p-5"}
+            className={
+              dark
+                ? "rounded-2xl border border-white/10 bg-[#0b3048] p-5"
+                : "rounded-2xl border border-line bg-bg-2/70 p-5"
+            }
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className={dark ? "text-xs font-semibold text-white/50" : "text-xs font-semibold text-text-2"}>{metric.label}</p>
-                <p className={`mt-2 font-display text-3xl font-bold ${dark ? "text-white" : "text-primary"}`}>{metric.value}</p>
+                <p
+                  className={
+                    dark
+                      ? "text-xs font-semibold text-white/50"
+                      : "text-xs font-semibold text-text-2"
+                  }
+                >
+                  {metric.label}
+                </p>
+                <p
+                  className={`mt-2 font-display text-3xl font-bold ${dark ? "text-white" : "text-primary"}`}
+                >
+                  {metric.value}
+                </p>
               </div>
-              <Icon className={`h-9 w-9 rounded-xl p-2 ${dark ? "bg-white/10 text-larimar" : index % 2 === 0 ? "bg-larimar-soft text-tech" : "bg-orange-100 text-amber-deep"}`} />
+              <Icon
+                className={`h-9 w-9 rounded-xl p-2 ${dark ? "bg-white/10 text-larimar" : index % 2 === 0 ? "bg-larimar-soft text-tech" : "bg-orange-100 text-amber-deep"}`}
+              />
             </div>
-            <p className={dark ? "mt-2 text-xs text-white/40" : "mt-2 text-xs text-mute"}>{metric.helper}</p>
+            <p className={dark ? "mt-2 text-xs text-white/40" : "mt-2 text-xs text-mute"}>
+              {metric.helper}
+            </p>
           </div>
         );
       })}
@@ -388,7 +457,9 @@ function MetricGrid({ metrics, dark = false }: { metrics: readonly Metric[]; dar
 
 function HeroEyebrow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
   return (
-    <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[.15em] ${dark ? "border-white/10 bg-white/[.05] text-larimar" : "border-larimar-deep/15 bg-white/75 text-tech shadow-sm backdrop-blur"}`}>
+    <div
+      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[.15em] ${dark ? "border-white/10 bg-white/[.05] text-larimar" : "border-larimar-deep/15 bg-white/75 text-tech shadow-sm backdrop-blur"}`}
+    >
       <Sparkles className="h-4 w-4" /> {children}
     </div>
   );
@@ -396,10 +467,7 @@ function HeroEyebrow({ children, dark = false }: { children: React.ReactNode; da
 
 function HeroActions({ copy, dark = false }: { copy: HeroCopy; dark?: boolean }) {
   const secondary = copy.secondaryHref.startsWith("#") ? (
-    <a
-      href={copy.secondaryHref}
-      className={secondaryClass(dark)}
-    >
+    <a href={copy.secondaryHref} className={secondaryClass(dark)}>
       {copy.secondary} <ArrowRight className="h-4 w-4" />
     </a>
   ) : (
@@ -431,7 +499,9 @@ function secondaryClass(dark: boolean) {
 
 function ProofRow({ items, dark = false }: { items: readonly string[]; dark?: boolean }) {
   return (
-    <div className={`mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm ${dark ? "text-white/55" : "text-text-2"}`}>
+    <div
+      className={`mt-7 flex flex-wrap gap-x-5 gap-y-2 text-sm ${dark ? "text-white/55" : "text-text-2"}`}
+    >
       {items.map((item) => (
         <span key={item} className="inline-flex items-center gap-1.5">
           <Check className={`h-4 w-4 ${dark ? "text-larimar" : "text-success"}`} />
@@ -445,7 +515,8 @@ function ProofRow({ items, dark = false }: { items: readonly string[]; dark?: bo
 function IllustrativeNote({ dark = false }: { dark?: boolean }) {
   return (
     <p className={`mt-4 text-[11px] leading-relaxed ${dark ? "text-white/35" : "text-mute"}`}>
-      Datos ilustrativos para mostrar el tipo de señales que un sistema conectado puede instrumentar; no representan resultados atribuidos a clientes.
+      Datos ilustrativos para mostrar el tipo de señales que un sistema conectado puede
+      instrumentar; no representan resultados atribuidos a clientes.
     </p>
   );
 }

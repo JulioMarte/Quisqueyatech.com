@@ -3,8 +3,10 @@ const siteUrl = configuredSiteUrl
   .replace(/^https:\/\/quisqueyatech\.com\/?$/i, "https://www.quisqueyatech.com")
   .replace(/\/$/, "");
 
-const publicPhoneDisplay = process.env.NEXT_PUBLIC_CONTACT_PHONE_DISPLAY?.trim() || "";
-const publicPhoneE164 = process.env.NEXT_PUBLIC_CONTACT_PHONE_E164?.trim() || "";
+const publicPhoneDisplay =
+  process.env.NEXT_PUBLIC_CONTACT_PHONE_DISPLAY?.trim() || "+1 (829) 445-8366";
+const publicPhoneE164 =
+  process.env.NEXT_PUBLIC_CONTACT_PHONE_E164?.trim() || "+18294458366";
 
 export const brand = {
   name: "QuisqueyaTech",
@@ -14,7 +16,7 @@ export const brand = {
   siteUrl,
   publicEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com",
   publicPhoneDisplay,
-  publicPhoneHref: publicPhoneE164 ? `tel:${publicPhoneE164}` : "",
+  publicPhoneHref: `tel:${publicPhoneE164}`,
   location: "Puerto Plata, República Dominicana",
   locationShort: "República Dominicana · Servicio internacional",
   founder: {

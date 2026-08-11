@@ -16,6 +16,7 @@ export const brand = {
   siteUrl,
   publicEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com",
   publicPhoneDisplay,
+  publicPhoneE164,
   publicPhoneHref: `tel:${publicPhoneE164}`,
   location: "Puerto Plata, República Dominicana",
   locationShort: "República Dominicana · Servicio internacional",

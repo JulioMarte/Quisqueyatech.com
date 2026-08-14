@@ -3,6 +3,7 @@ import "../styles/global.css";
 import "../styles/footer.css";
 import Navbar from "../components/layout/Navbar.astro";
 import Footer from "../components/layout/Footer.astro";
+import { getAlternatePath, siteConfig } from "../config/site";
 import type { Locale } from "../types/ui";
 
 interface Props {
@@ -21,43 +22,27 @@ const {
   image = "/og/home-hero-v2.png",
 } = Astro.props;
 
-const site = import.meta.env.PUBLIC_SITE_URL || "https://www.quisqueyatech.com";
-const publicEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com";
+const site = import.meta.env.PUBLIC_SITE_URL || siteConfig.defaultUrl;
+const publicEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || siteConfig.defaultEmail;
 const cleanPath = path ? `/${path.replace(/^\//, "")}` : locale === "en" ? "/en" : "/";
-const routePairs: Record<string, string> = {
-  "/": "/en",
-  "/soluciones": "/en/solutions",
-  "/soluciones/automatizacion": "/en/solutions/automation",
-  "/soluciones/agentes-de-ia": "/en/solutions/ai-agents",
-  "/soluciones/software-e-integraciones": "/en/solutions/software-and-integrations",
-  "/soluciones/clinicas": "/en/solutions/clinics",
-  "/como-trabajamos": "/en/how-we-work",
-  "/evaluacion": "/en/assessment",
-  "/evaluacion/ahora": "/en/assessment/now",
-  "/evaluacion/agendar": "/en/assessment/schedule",
-  "/recursos": "/en/recursos",
-  "/nosotros": "/en/about",
-  "/privacidad": "/en/privacy",
-};
-const reversePairs = Object.fromEntries(Object.entries(routePairs).map(([es, en]) => [en, es]));
-const alternatePath = routePairs[cleanPath] || reversePairs[cleanPath] || (locale === "en" ? cleanPath.replace(/^\/en(?=\/|$)/, "") || "/" : `/en${cleanPath}`);
+const alternatePath = getAlternatePath(cleanPath, locale);
 const canonical = new URL(cleanPath, site).toString();
 const alternate = new URL(alternatePath, site).toString();
-const fullTitle = `${title} | QuisqueyaTech`;
+const fullTitle = `${title} | ${siteConfig.name}`;
 const socialImage = new URL(image, site).toString();
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "ProfessionalService",
   "@id": `${site.replace(/\/$/, "")}/#business`,
-  name: "QuisqueyaTech",
+  name: siteConfig.name,
   description: "Evaluamos cómo opera tu empresa y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad.",
   url: site,
   email: publicEmail,
   logo: new URL("/brand/logo-mark-512.png", site).toString(),
   founder: {
     "@type": "Person",
-    name: "Julio Alberto Marte Balbuena",
-    jobTitle: "Fundador y consultor de automatización e IA",
+    name: siteConfig.founder.name,
+    jobTitle: siteConfig.founder.roleEs,
   },
   address: {
     "@type": "PostalAddress",
@@ -66,10 +51,10 @@ const organizationJsonLd = {
   },
   areaServed: ["DO", "US", "Worldwide"],
   sameAs: [
-    "https://instagram.com/quisqueyait",
-    "https://facebook.com/quisqueyait",
-    "https://x.com/quisqueyait",
-    "https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072",
+    siteConfig.social.instagram,
+    siteConfig.social.facebook,
+    siteConfig.social.x,
+    siteConfig.founder.linkedIn,
   ],
 };
 ---
@@ -79,9 +64,9 @@ const organizationJsonLd = {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="description" content={description} />
-  <meta name="author" content="Julio Alberto Marte Balbuena" />
-  <meta name="creator" content="QuisqueyaTech" />
-  <meta name="publisher" content="QuisqueyaTech" />
+  <meta name="author" content={siteConfig.founder.name} />
+  <meta name="creator" content={siteConfig.name} />
+  <meta name="publisher" content={siteConfig.name} />
   <meta name="robots" content="index,follow" />
   <meta name="theme-color" content="#082F49" />
   <title>{fullTitle}</title>
@@ -90,7 +75,7 @@ const organizationJsonLd = {
   <link rel="alternate" hreflang={locale} href={canonical} />
   <link rel="alternate" hreflang="x-default" href={new URL("/", site).toString()} />
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="QuisqueyaTech" />
+  <meta property="og:site_name" content={siteConfig.name} />
   <meta property="og:title" content={fullTitle} />
   <meta property="og:description" content={description} />
   <meta property="og:url" content={canonical} />

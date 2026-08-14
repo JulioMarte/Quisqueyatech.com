@@ -1,85 +1,117 @@
 ---
 import "../styles/global.css";
 import "../styles/footer.css";
-import { solutionLinks, type Locale } from "../data/pages";
-interface Props { title:string; description:string; locale?:Locale; path?:string; image?:string; }
-const { title, description, locale="es", path="", image="/og/home-hero-v2.png" } = Astro.props;
+import Navbar from "../components/layout/Navbar.astro";
+import Footer from "../components/layout/Footer.astro";
+import type { Locale } from "../types/ui";
+
+interface Props {
+  title: string;
+  description: string;
+  locale?: Locale;
+  path?: string;
+  image?: string;
+}
+
+const {
+  title,
+  description,
+  locale = "es",
+  path = "",
+  image = "/og/home-hero-v2.png",
+} = Astro.props;
+
 const site = import.meta.env.PUBLIC_SITE_URL || "https://www.quisqueyatech.com";
 const publicEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com";
-const cleanPath = path ? `/${path.replace(/^\//,"")}` : locale === "en" ? "/en" : "/";
-const routePairs:Record<string,string>={"/":"/en","/soluciones":"/en/solutions","/soluciones/automatizacion":"/en/solutions/automation","/soluciones/agentes-de-ia":"/en/solutions/ai-agents","/soluciones/software-e-integraciones":"/en/solutions/software-and-integrations","/soluciones/clinicas":"/en/solutions/clinics","/como-trabajamos":"/en/how-we-work","/evaluacion":"/en/assessment","/evaluacion/ahora":"/en/assessment/now","/evaluacion/agendar":"/en/assessment/schedule","/recursos":"/en/recursos","/nosotros":"/en/about","/privacidad":"/en/privacy"};
-const reverse=Object.fromEntries(Object.entries(routePairs).map(([es,en])=>[en,es]));
-const other=routePairs[cleanPath]||reverse[cleanPath]||(locale==="en"?(cleanPath.replace(/^\/en(?=\/|$)/,"")||"/"):`/en${cleanPath}`);
-const canonical=new URL(cleanPath,site).toString();
-const alternate=new URL(other,site).toString();
-const nav=locale==="es"?{solutions:"Soluciones",method:"Cómo trabajamos",resources:"Recursos",about:"Nosotros",assessment:"Quiero mi evaluación",all:"Ver todas las soluciones",company:"Compañía",contact:"Contacto",privacy:"Privacidad",lang:"Idioma",follow:"Síguenos"}:{solutions:"Solutions",method:"How we work",resources:"Resources",about:"About",assessment:"Get my assessment",all:"View all solutions",company:"Company",contact:"Contact",privacy:"Privacy",lang:"Language",follow:"Follow us"};
-const root=locale==="es"?"/":"/en";
-const solutions=locale==="es"?"/soluciones":"/en/solutions";
-const assessment=locale==="es"?"/evaluacion":"/en/assessment";
-const links=[[locale==="es"?"/como-trabajamos":"/en/how-we-work",nav.method],[locale==="es"?"/recursos":"/en/recursos",nav.resources],[locale==="es"?"/nosotros":"/en/about",nav.about]];
-const active=(href:string)=>cleanPath===href||cleanPath.startsWith(`${href}/`);
-const fullTitle=`${title} | QuisqueyaTech`;
-const descriptions=locale==="es"?["Reduce trabajo manual y errores repetidos.","Conversaciones y tareas con control humano.","Conecta herramientas y datos aislados.","Aplicaciones para recepción y seguimiento."]:["Reduce manual work and recurring errors.","Conversations and tasks with human oversight.","Connect isolated tools and data.","Applications for intake and follow-up."];
-const footerSolutions=locale==="es"?[["/soluciones/automatizacion","Automatización"],["/soluciones/agentes-de-ia","Agentes de IA"],["/soluciones/software-e-integraciones","Software e integraciones"]]:[["/en/solutions/automation","Automation"],["/en/solutions/ai-agents","AI agents"],["/en/solutions/software-and-integrations","Software and integrations"]];
-const footerCompany=locale==="es"?[["/como-trabajamos","Cómo trabajamos"],["/nosotros","Nosotros"],["/recursos","Recursos"]]:[["/en/how-we-work","How we work"],["/en/about","About"],["/en/recursos","Resources"]];
+const cleanPath = path ? `/${path.replace(/^\//, "")}` : locale === "en" ? "/en" : "/";
+const routePairs: Record<string, string> = {
+  "/": "/en",
+  "/soluciones": "/en/solutions",
+  "/soluciones/automatizacion": "/en/solutions/automation",
+  "/soluciones/agentes-de-ia": "/en/solutions/ai-agents",
+  "/soluciones/software-e-integraciones": "/en/solutions/software-and-integrations",
+  "/soluciones/clinicas": "/en/solutions/clinics",
+  "/como-trabajamos": "/en/how-we-work",
+  "/evaluacion": "/en/assessment",
+  "/evaluacion/ahora": "/en/assessment/now",
+  "/evaluacion/agendar": "/en/assessment/schedule",
+  "/recursos": "/en/recursos",
+  "/nosotros": "/en/about",
+  "/privacidad": "/en/privacy",
+};
+const reversePairs = Object.fromEntries(Object.entries(routePairs).map(([es, en]) => [en, es]));
+const alternatePath = routePairs[cleanPath] || reversePairs[cleanPath] || (locale === "en" ? cleanPath.replace(/^\/en(?=\/|$)/, "") || "/" : `/en${cleanPath}`);
+const canonical = new URL(cleanPath, site).toString();
+const alternate = new URL(alternatePath, site).toString();
+const fullTitle = `${title} | QuisqueyaTech`;
+const socialImage = new URL(image, site).toString();
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  "@id": `${site.replace(/\/$/, "")}/#business`,
+  name: "QuisqueyaTech",
+  description: "Evaluamos cómo opera tu empresa y diseñamos automatizaciones, agentes de IA y software que mejoran la productividad.",
+  url: site,
+  email: publicEmail,
+  logo: new URL("/brand/logo-mark-512.png", site).toString(),
+  founder: {
+    "@type": "Person",
+    name: "Julio Alberto Marte Balbuena",
+    jobTitle: "Fundador y consultor de automatización e IA",
+  },
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Puerto Plata",
+    addressCountry: "DO",
+  },
+  areaServed: ["DO", "US", "Worldwide"],
+  sameAs: [
+    "https://instagram.com/quisqueyait",
+    "https://facebook.com/quisqueyait",
+    "https://x.com/quisqueyait",
+    "https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072",
+  ],
+};
 ---
 <!doctype html>
 <html lang={locale}>
 <head>
-<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="description" content={description}/><meta name="theme-color" content="#082F49"/>
-<title>{fullTitle}</title><link rel="canonical" href={canonical}/><link rel="alternate" hreflang={locale==="es"?"en":"es"} href={alternate}/><link rel="alternate" hreflang={locale} href={canonical}/><link rel="alternate" hreflang="x-default" href={new URL("/",site).toString()}/>
-<meta property="og:type" content="website"/><meta property="og:site_name" content="QuisqueyaTech"/><meta property="og:title" content={fullTitle}/><meta property="og:description" content={description}/><meta property="og:url" content={canonical}/><meta property="og:image" content={new URL(image,site).toString()}/><meta property="og:locale" content={locale==="es"?"es_DO":"en_US"}/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content={fullTitle}/><meta name="twitter:description" content={description}/><meta name="twitter:image" content={new URL(image,site).toString()}/>
-<link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png"/><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content={description} />
+  <meta name="author" content="Julio Alberto Marte Balbuena" />
+  <meta name="creator" content="QuisqueyaTech" />
+  <meta name="publisher" content="QuisqueyaTech" />
+  <meta name="robots" content="index,follow" />
+  <meta name="theme-color" content="#082F49" />
+  <title>{fullTitle}</title>
+  <link rel="canonical" href={canonical} />
+  <link rel="alternate" hreflang={locale === "es" ? "en" : "es"} href={alternate} />
+  <link rel="alternate" hreflang={locale} href={canonical} />
+  <link rel="alternate" hreflang="x-default" href={new URL("/", site).toString()} />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="QuisqueyaTech" />
+  <meta property="og:title" content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={socialImage} />
+  <meta property="og:locale" content={locale === "es" ? "es_DO" : "en_US"} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={fullTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={socialImage} />
+  <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script type="application/ld+json" set:html={JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c")} />
 </head>
 <body>
-<a class="skip-link" href="#content">{locale==="es"?"Saltar al contenido":"Skip to content"}</a>
-<header class="site-header">
-  <div class="container nav-shell">
-    <a class="brand-lockup" href={root} aria-label="QuisqueyaTech"><img src="/brand/logo-mark.png" width="40" height="40" alt=""/><span class="brand-name">QuisqueyaTech</span></a>
-    <nav class="desktop-nav" aria-label={locale==="es"?"Principal":"Main"}>
-      <div class:list={["nav-drop",active(solutions)&&"is-active"]}>
-        <a class="nav-link solutions-trigger" href={solutions}>{nav.solutions}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        <div class="mega-menu"><div class="mega-grid">{solutionLinks[locale].map(([href,label],i)=><a class:list={["mega-item",active(href)&&"active"]} href={href}><strong>{label}</strong><span>{descriptions[i]}</span></a>)}</div><a class="mega-all" href={solutions}><span>{nav.all}</span><span>→</span></a></div>
-      </div>
-      {links.map(([href,label])=><a class:list={["nav-link",active(href)&&"is-active"]} href={href}>{label}</a>)}
-    </nav>
-    <div class="desktop-actions"><div class="language-switch" aria-label={nav.lang}>{locale==="es"?<><span aria-current="true">ES</span><a href={other} hreflang="en">EN</a></>:<><a href={other} hreflang="es">ES</a><span aria-current="true">EN</span></>}</div><a class="button button-primary" href={assessment}>{nav.assessment}</a></div>
-    <button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu"><span class="menu-open">☰</span><span class="menu-close">×</span></button>
-  </div>
-  <div id="mobile-menu" class="mobile-menu"><div class="container mobile-menu-inner"><details><summary>{nav.solutions}<span>⌄</span></summary><div class="mobile-solutions">{solutionLinks[locale].map(([href,label])=><a href={href}>{label}</a>)}<a class="mobile-all" href={solutions}>{nav.all} →</a></div></details>{links.map(([href,label])=><a href={href}>{label}</a>)}<div class="mobile-divider"></div><div class="mobile-language"><small>{nav.lang}</small><div class="language-switch">{locale==="es"?<><span>ES</span><a href={other}>EN</a></>:<><a href={other}>ES</a><span>EN</span></>}</div></div><a class="button button-primary mobile-cta" href={assessment}>{nav.assessment}</a></div></div>
-</header>
-<main id="content"><slot/></main>
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div>
-        <a class="footer-brand" href={root}><img src="/brand/logo-mark.png" width="40" height="40" alt=""/><span><strong>QuisqueyaTech</strong><small>Automatización, IA y software para empresas</small></span></a>
-        <p class="footer-intro">{locale==="es"?"Automatización, agentes de IA y software para empresas que quieren operar con más claridad.":"Automation, AI agents, and software for companies that want clearer operations."}</p>
-      </div>
-      <div><h2 class="footer-group-title">{nav.solutions}</h2>{footerSolutions.map(([href,label])=><a class="footer-link" href={href}>{label}</a>)}</div>
-      <div><h2 class="footer-group-title">{nav.company}</h2>{footerCompany.map(([href,label])=><a class="footer-link" href={href}>{label}</a>)}</div>
-      <div>
-        <h2 class="footer-group-title">{nav.contact}</h2>
-        <a class="footer-link" href={`mailto:${publicEmail}`}>{publicEmail}</a>
-        <span class="footer-location">Puerto Plata, República Dominicana</span>
-        <p class="footer-contact-note">{locale==="es"?"Atención directa desde República Dominicana para proyectos locales e internacionales.":"Direct support from the Dominican Republic for local and international projects."}</p>
-      </div>
-      <div>
-        <h2 class="footer-group-title">{nav.follow}</h2>
-        <div class="social-grid">
-          <a class="social-link" href="https://instagram.com/quisqueyait" target="_blank" rel="noopener noreferrer" aria-label="Instagram de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg><span>Instagram</span></a>
-          <a class="social-link" href="https://facebook.com/quisqueyait" target="_blank" rel="noopener noreferrer" aria-label="Facebook de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8h3V4h-3c-3 0-5 2-5 5v2H6v4h3v5h4v-5h3l1-4h-4V9c0-.7.3-1 1-1Z" fill="currentColor"/></svg><span>Facebook</span></a>
-          <a class="social-link" href="https://x.com/quisqueyait" target="_blank" rel="noopener noreferrer" aria-label="X de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l14 16M19 4 5 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>X</span></a>
-          <a class="social-link" href="https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="3" height="11" fill="currentColor"/><circle cx="5.5" cy="5.5" r="1.8" fill="currentColor"/><path d="M10 9h3v1.6c1-1.3 2.2-2 4-2 3 0 4 2 4 5.2V20h-3v-5.5c0-1.8-.6-2.8-2.1-2.8-1.7 0-2.9 1.2-2.9 3.4V20h-3Z" fill="currentColor"/></svg><span>LinkedIn</span></a>
-        </div>
-      </div>
-    </div>
-    <div class="footer-bottom"><span>© {new Date().getFullYear()} QuisqueyaTech · Puerto Plata, República Dominicana</span><a href={locale==="es"?"/privacidad":"/en/privacy"}>{nav.privacy}</a></div>
-  </div>
-</footer>
-<script is:inline>
-const button=document.querySelector('.mobile-toggle');const menu=document.querySelector('#mobile-menu');button?.addEventListener('click',()=>{const open=menu?.classList.toggle('open');button.setAttribute('aria-expanded',String(Boolean(open)));document.body.classList.toggle('menu-opened',Boolean(open));});document.querySelectorAll('#mobile-menu a').forEach(a=>a.addEventListener('click',()=>{menu?.classList.remove('open');button?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-opened');}));
-</script>
-<script src="/site-motion.js" defer></script>
-</body></html>
+  <a class="skip-link" href="#content">{locale === "es" ? "Saltar al contenido" : "Skip to content"}</a>
+  <Navbar locale={locale} currentPath={cleanPath} alternatePath={alternatePath} />
+  <main id="content"><slot /></main>
+  <Footer locale={locale} publicEmail={publicEmail} />
+  <script src="/site-motion.js" defer></script>
+</body>
+</html>

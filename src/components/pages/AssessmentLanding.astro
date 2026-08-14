@@ -1,0 +1,24 @@
+---
+import type { StaticPage } from "../../data/pages";
+import { AssessmentChoice } from "../react/marketing/AssessmentChoice";
+
+interface Props { page: StaticPage }
+const { page } = Astro.props;
+const isEn = page.locale === "en";
+const nowPath = isEn ? "/en/assessment/now" : "/evaluacion/ahora";
+const schedulePath = isEn ? "/en/assessment/schedule" : "/evaluacion/agendar";
+---
+<section class="marketing-hero">
+  <div class="container">
+    <div class="motion-reveal">
+      <span class="eyebrow">{page.eyebrow}</span>
+      <h1>{page.title}</h1>
+      <p class="marketing-lede">{page.lede}</p>
+    </div>
+  </div>
+</section>
+<section class="section marketing-body">
+  <div class="container">
+    <AssessmentChoice locale={page.locale} nowPath={nowPath} schedulePath={schedulePath} />
+  </div>
+</section>

@@ -1,0 +1,39 @@
+name: Astro static site
+
+on:
+  push:
+    branches: [development, dev, main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.20.0
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build static site
+        env:
+          PUBLIC_SITE_URL: https://www.quisqueyatech.com
+          PUBLIC_CONTACT_EMAIL: info@quisqueyatech.com
+          PUBLIC_LIVEKIT_ASSESSMENT_URL: ${{ secrets.PUBLIC_LIVEKIT_ASSESSMENT_URL }}
+          PUBLIC_ASSESSMENT_SCHEDULE_URL: ${{ secrets.PUBLIC_ASSESSMENT_SCHEDULE_URL }}
+        run: npm run build
+      - name: Verify static artifact
+        run: |
+          test -f dist/index.html
+          test -f dist/en/index.html
+          test -f dist/sitemap.xml
+          test -f dist/robots.txt
+          test -f dist/brand/logo-mark.png
+          if find dist -type f \( -name 'server.js' -o -name '*.php' \) | grep -q .; then
+            echo 'Unexpected server runtime artifact found'
+            exit 1
+          fi

@@ -23,7 +23,7 @@ jobs:
         run: npm run check
       - name: Build static site
         env:
-          PUBLIC_SITE_URL: https://www.quisqueyatech.com
+          PUBLIC_SITE_URL: https://preview.quisqueyatech.com
           PUBLIC_CONTACT_EMAIL: info@quisqueyatech.com
           PUBLIC_LIVEKIT_ASSESSMENT_URL: ${{ secrets.PUBLIC_LIVEKIT_ASSESSMENT_URL }}
           PUBLIC_ASSESSMENT_SCHEDULE_URL: ${{ secrets.PUBLIC_ASSESSMENT_SCHEDULE_URL }}
@@ -39,3 +39,24 @@ jobs:
             echo 'Unexpected server runtime artifact found'
             exit 1
           fi
+      - name: Build deployment image
+        run: |
+          docker build \
+            --build-arg PUBLIC_SITE_URL=https://preview.quisqueyatech.com \
+            -t quisqueyatech-preview:test .
+      - name: Smoke test Nginx on ports 80 and 3000
+        run: |
+          docker run -d --name quisqueyatech-preview -p 18080:80 -p 13000:3000 quisqueyatech-preview:test
+          trap 'docker logs quisqueyatech-preview || true; docker rm -f quisqueyatech-preview || true' EXIT
+
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl --fail --show-error --silent http://127.0.0.1:18080/healthz
+          curl --fail --show-error --silent http://127.0.0.1:13000/healthz
+          curl --fail --show-error --silent http://127.0.0.1:18080/ | grep -q '<!doctype html>'
+          curl --fail --show-error --silent http://127.0.0.1:13000/en | grep -q '<!doctype html>'

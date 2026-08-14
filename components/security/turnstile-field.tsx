@@ -156,7 +156,8 @@ export function TurnstileField({
     if (previousResetSignal.current === resetSignal) return;
     previousResetSignal.current = resetSignal;
     if (!siteKey) return;
-    retry();
+    const frame = window.requestAnimationFrame(retry);
+    return () => window.cancelAnimationFrame(frame);
   }, [resetSignal, retry, siteKey]);
 
   if (!siteKey) return null;

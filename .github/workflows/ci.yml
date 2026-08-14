@@ -16,6 +16,9 @@ jobs:
     env:
       NEXT_PUBLIC_SITE_URL: https://www.quisqueyatech.com
       NEXT_PUBLIC_CONTACT_EMAIL: info@quisqueyatech.com
+      NEXT_PUBLIC_CONTACT_PHONE_DISPLAY: "+1 (829) 445-8366"
+      NEXT_PUBLIC_CONTACT_PHONE_E164: "+18294458366"
+      NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
       NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
       NEXT_PUBLIC_CONVEX_SITE_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_SITE_URL }}
     steps:
@@ -29,3 +32,6 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}

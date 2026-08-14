@@ -35,6 +35,33 @@ const nextConfig: NextConfig = {
   output: "standalone",
   distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
+  },
+  async redirects() {
+    return [
+      {
+        source: "/en/recursos",
+        destination: "/en/resources",
+        permanent: true,
+      },
+      {
+        source: "/en/recursos/:slug*",
+        destination: "/en/resources/:slug*",
+        permanent: true,
+      },
+      {
+        source: "/clinicas",
+        destination: "/soluciones/clinicas",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

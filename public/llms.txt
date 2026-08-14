@@ -1,29 +1,40 @@
 # QuisqueyaTech
 
-QuisqueyaTech diseña automatizaciones, agentes de inteligencia artificial, software e integraciones para empresas.
+QuisqueyaTech es una firma de consultoría tecnológica con base en Puerto Plata, República Dominicana. Trabaja con empresas dentro y fuera del país.
 
-La firma opera desde Puerto Plata, República Dominicana, y trabaja con empresas dentro y fuera del país. Primero evalúa cómo funciona un proceso; después recomienda e implementa la tecnología que produce un resultado operativo verificable.
+El enfoque comienza por entender cómo funciona el negocio, identificar dónde se pierden tiempo, clientes o visibilidad y después elegir la tecnología apropiada. Sitios web, SEO, automatización, agentes de IA, integraciones y software específico son herramientas; no son el producto por sí solas.
 
-## Oferta de entrada
+## Servicios
 
-- Evaluación inicial sin costo mediante un agente de voz.
-- Conversación estructurada de 12–15 minutos en español o inglés.
-- Tres oportunidades preliminares y un próximo paso recomendado.
-- La evaluación no sustituye un diagnóstico operativo formal.
+- Sitios web y SEO orientados a negocio, conversión y medición.
+- Automatización de procesos, seguimiento, traspasos y reportes.
+- Agentes de IA de voz y texto conectados a herramientas y límites explícitos.
+- Software e integraciones cuando una solución genérica no encaja con el workflow real.
 
-## Soluciones
+## Cómo trabaja QuisqueyaTech
 
-- Automatización de procesos.
-- Agentes de IA de voz y texto.
-- Software e integraciones.
-- Aplicaciones para clínicas, presentadas como posibilidades y no como casos de éxito.
+1. Entender el proceso actual.
+2. Priorizar la fricción que justifica inversión.
+3. Construir la intervención más pequeña que pueda cambiar el resultado.
+4. Medir uso y resultados verificables antes de ampliar alcance.
+
+## Trabajo seleccionado
+
+- Connections RD: arquitectura de información, diseño responsive y desarrollo web.
+- The Vocal Room Academy: sitio web, flujo de inscripción y automatización operativa.
+- Consulado Dominicano en Boston: WordPress, estructura de contenido y operación digital.
+
+No se atribuyen métricas, crecimiento, retorno, reseñas ni resultados cuantitativos a estos proyectos sin evidencia verificable.
 
 ## Principios
 
-- No se publican clientes, métricas, testimonios ni experiencia no verificable.
-- La tecnología se selecciona después de entender el proceso.
-- Los proyectos se diseñan con controles y escalamiento humano.
+- Business first: la tecnología se selecciona después de entender el problema.
+- Experiencia personalizada e infraestructura compartida cuando la solución lo permite.
+- Los agentes de IA no sustituyen las reglas autoritativas de negocio.
+- Los casos y resultados se documentan sin afirmaciones inventadas.
+- La medición debe conectar tráfico y acciones con resultados de negocio cuando la infraestructura lo permita.
 
-Sitio: https://quisqueyatech.com
+Sitio: https://www.quisqueyatech.com
+Teléfono: +1 (829) 445-8366
 Correo: info@quisqueyatech.com
 Fundador: Julio Alberto Marte Balbuena

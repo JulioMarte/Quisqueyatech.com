@@ -11,7 +11,6 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  # GHCR requires lowercase image names
   IMAGE_NAME: ghcr.io/juliomarte/quisqueyatech.com
 
 jobs:
@@ -22,6 +21,9 @@ jobs:
     env:
       NEXT_PUBLIC_SITE_URL: https://www.quisqueyatech.com
       NEXT_PUBLIC_CONTACT_EMAIL: info@quisqueyatech.com
+      NEXT_PUBLIC_CONTACT_PHONE_DISPLAY: ${{ vars.NEXT_PUBLIC_CONTACT_PHONE_DISPLAY }}
+      NEXT_PUBLIC_CONTACT_PHONE_E164: ${{ vars.NEXT_PUBLIC_CONTACT_PHONE_E164 }}
+      NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
       NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
       NEXT_PUBLIC_CONVEX_SITE_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_SITE_URL }}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
@@ -101,13 +103,13 @@ jobs:
           build-args: |
             NEXT_PUBLIC_SITE_URL=https://www.quisqueyatech.com
             NEXT_PUBLIC_CONTACT_EMAIL=info@quisqueyatech.com
+            NEXT_PUBLIC_CONTACT_PHONE_DISPLAY=${{ vars.NEXT_PUBLIC_CONTACT_PHONE_DISPLAY }}
+            NEXT_PUBLIC_CONTACT_PHONE_E164=${{ vars.NEXT_PUBLIC_CONTACT_PHONE_E164 }}
+            NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=${{ vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
             NEXT_PUBLIC_CONVEX_URL=${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
             NEXT_PUBLIC_CONVEX_SITE_URL=${{ secrets.NEXT_PUBLIC_CONVEX_SITE_URL }}
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
 
-  # Method A: Coolify pulls GHCR image via deploy webhook.
-  # Method B (Dockerfile build on Coolify): leave COOLIFY_WEBHOOK_URL empty and
-  # let Coolify autodeploy from git with Dockerfile + build args.
   deploy-coolify:
     needs: build-and-push
     runs-on: ubuntu-latest

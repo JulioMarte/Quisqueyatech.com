@@ -38,25 +38,22 @@ export function BrandLockup({
   size = "md",
   priority,
   showDescriptor = true,
+  descriptor = brand.descriptor,
 }: {
   light?: boolean;
   size?: "sm" | "md" | "lg";
   priority?: boolean;
   showDescriptor?: boolean;
+  descriptor?: string;
 }) {
   const textSize = size === "sm" ? "text-base" : size === "lg" ? "text-lg" : "text-[17px]";
 
   return (
     <span className="inline-flex items-center gap-2.5">
       <LogoMark size={size} priority={priority} />
-      <span
-        className={cn(
-          "font-display font-extrabold tracking-[-0.02em]",
-          textSize,
-          light ? "text-white" : "text-text",
-        )}
-      >
-        QuisqueyaTech
+      <span className={cn("font-display font-extrabold tracking-[-0.02em]", textSize)}>
+        <span className={light ? "text-white" : "text-text"}>Quisqueya</span>
+        <span className="text-amber-deep">Tech</span>
         {showDescriptor && (
           <small
             className={cn(
@@ -64,7 +61,7 @@ export function BrandLockup({
               light ? "text-white/60" : "text-mute",
             )}
           >
-            {brand.descriptor}
+            {descriptor}
           </small>
         )}
       </span>

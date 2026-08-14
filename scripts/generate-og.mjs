@@ -4,9 +4,9 @@ import sharp from "sharp";
 const cards = [
   {
     file: "home.png",
-    eyebrow: "AUTOMATIZACIÓN · IA · SOFTWARE",
-    title: "La tecnología correcta, trabajando como un solo sistema.",
-    body: "Evaluaciones e implementación para empresas dentro y fuera de República Dominicana.",
+    eyebrow: "SISTEMAS · AUTOMATIZACIÓN · PRESENCIA DIGITAL",
+    title: "Tecnología que resuelve problemas reales del negocio.",
+    body: "Entendemos el proceso, construimos lo necesario y medimos el resultado.",
   },
   {
     file: "clinicas.png",
@@ -49,28 +49,24 @@ const heroSocialSvg = `<svg width="1200" height="630" viewBox="0 0 1200 630" xml
   <circle cx="90" cy="-60" r="330" fill="url(#amberHalo)"/>
   <circle cx="1120" cy="625" r="370" fill="url(#blueHalo)"/>
   <g font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
-    <text x="600" y="63" font-size="18" font-weight="700" letter-spacing="2.7" fill="#0369A1">AUTOMATIZACIÓN, IA Y SOFTWARE PARA EMPRESAS</text>
-    <text x="600" y="133" font-size="49" font-weight="800" fill="#082F49">Tu empresa no necesita más herramientas.</text>
-    <text x="600" y="190" font-size="49" font-weight="800" fill="url(#headline)">Necesita que trabajen juntas.</text>
-    <text x="600" y="232" font-size="19" fill="#475569">Conectamos procesos, personas y tecnología para que tu empresa avance.</text>
+    <text x="600" y="72" font-size="18" font-weight="700" letter-spacing="2.7" fill="#0369A1">CONSULTORÍA TECNOLÓGICA PARA EMPRESAS</text>
+    <text x="600" y="150" font-size="52" font-weight="800" fill="#082F49">Tu negocio no necesita más software.</text>
+    <text x="600" y="211" font-size="52" font-weight="800" fill="url(#headline)">Necesita menos problemas.</text>
+    <text x="600" y="258" font-size="20" fill="#475569">Entendemos el proceso, construimos lo necesario y medimos el resultado.</text>
   </g>
-  <g font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" filter="url(#shadow)">
-    <rect x="347" y="262" width="235" height="48" rx="24" fill="#F97316"/>
-    <text x="464.5" y="292" fill="#FFFFFF" text-anchor="middle">Evaluación inicial sin costo</text>
-    <rect x="598" y="262" width="255" height="48" rx="24" fill="#FFFFFF" stroke="#CBD5E1"/>
-    <text x="725.5" y="292" fill="#082F49" text-anchor="middle">Disponible en español e inglés</text>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" text-anchor="middle" filter="url(#shadow)">
+    <rect x="110" y="342" width="220" height="62" rx="18" fill="#FFFFFF" stroke="#BAE6FD"/>
+    <text x="220" y="379" fill="#082F49">Web + SEO</text>
+    <rect x="365" y="342" width="220" height="62" rx="18" fill="#FFFFFF" stroke="#FED7AA"/>
+    <text x="475" y="379" fill="#082F49">Automatización</text>
+    <rect x="620" y="342" width="220" height="62" rx="18" fill="#FFFFFF" stroke="#BAE6FD"/>
+    <text x="730" y="379" fill="#082F49">IA aplicada</text>
+    <rect x="875" y="342" width="220" height="62" rx="18" fill="#FFFFFF" stroke="#FED7AA"/>
+    <text x="985" y="379" fill="#082F49">Software a medida</text>
   </g>
-  <g font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" text-anchor="middle">
-    <path d="M245 405 C330 405 380 470 515 470 M600 405 L600 470 M955 405 C870 405 820 470 685 470" fill="none" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
-    <rect x="130" y="368" width="230" height="64" rx="16" fill="#FFFFFF" stroke="#BAE6FD" filter="url(#shadow)"/>
-    <text x="245" y="407" fill="#082F49">Automatización</text>
-    <rect x="485" y="368" width="230" height="64" rx="16" fill="#FFFFFF" stroke="#FED7AA" filter="url(#shadow)"/>
-    <text x="600" y="407" fill="#082F49">Agentes de IA</text>
-    <rect x="840" y="368" width="230" height="64" rx="16" fill="#FFFFFF" stroke="#BAE6FD" filter="url(#shadow)"/>
-    <text x="955" y="407" fill="#082F49">Software</text>
-    <rect x="465" y="466" width="270" height="66" rx="18" fill="#082F49" filter="url(#shadow)"/>
-    <text x="600" y="507" fill="#FFFFFF">Un solo sistema</text>
-  </g>
+  <path d="M220 434 C310 485 415 500 600 500 C785 500 890 485 985 434" fill="none" stroke="#94A3B8" stroke-width="3" stroke-linecap="round" opacity=".72"/>
+  <rect x="438" y="477" width="324" height="70" rx="20" fill="#082F49" filter="url(#shadow)"/>
+  <text x="600" y="520" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" text-anchor="middle" fill="#FFFFFF">Un mejor sistema de trabajo</text>
   <g font-family="Arial, Helvetica, sans-serif">
     <circle cx="68" cy="580" r="25" fill="#082F49"/>
     <path d="M57 580 L66 589 L81 570" fill="none" stroke="#38BDF8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>

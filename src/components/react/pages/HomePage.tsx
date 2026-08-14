@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   BarChart3,
   Bot,
@@ -7,6 +8,7 @@ import {
   ListChecks,
   Workflow,
 } from "lucide-react";
+import { localizedRoutes, siteConfig } from "../../../config/site";
 import { homeContent } from "../../../data/home";
 import type { Locale } from "../../../types/ui";
 import { Button } from "../ui/Button";
@@ -14,16 +16,14 @@ import { SectionHead } from "../ui/SectionHead";
 
 interface Props { locale: Locale }
 
+type MotionStyle = CSSProperties & Record<`--${string}`, string | number>;
+
 const problemIcons = [Workflow, ListChecks, BarChart3] as const;
 const solutionIcons = [Workflow, Bot, Code2] as const;
 
 export function HomePage({ locale }: Props) {
   const content = homeContent[locale];
-  const isEn = locale === "en";
-  const assessmentNow = isEn ? "/en/assessment/now" : "/evaluacion/ahora";
-  const assessmentSchedule = isEn ? "/en/assessment/schedule" : "/evaluacion/agendar";
-  const aboutPath = isEn ? "/en/about" : "/nosotros";
-  const resourcesPath = isEn ? "/en/recursos" : "/recursos";
+  const routes = localizedRoutes[locale];
 
   return (
     <>
@@ -35,7 +35,7 @@ export function HomePage({ locale }: Props) {
           <div className="dawn-grain" />
         </div>
         <div className="container">
-          <div className="hero-support" style={{ "--hero-delay": ".02s" } as React.CSSProperties}>
+          <div className="hero-support" style={{ "--hero-delay": ".02s" } as MotionStyle}>
             <span className="eyebrow">{content.hero.eyebrow}</span>
           </div>
           <h1 className="kinetic-heading" aria-label={content.hero.ariaLabel}>
@@ -48,18 +48,18 @@ export function HomePage({ locale }: Props) {
                     style={{
                       "--word-index": index,
                       "--word-direction": index % 2 === 0 ? -1 : 1,
-                    } as React.CSSProperties}
+                    } as MotionStyle}
                   >{word}</span>
                 </span>
               ))}
             </span>
           </h1>
-          <p className="hero-lede hero-support" style={{ "--hero-delay": ".6s" } as React.CSSProperties}>{content.hero.lede}</p>
-          <div className="hero-actions hero-support" style={{ "--hero-delay": ".72s" } as React.CSSProperties}>
-            <Button href={assessmentNow} size="lg">{content.hero.primaryCta}</Button>
-            <Button href={assessmentSchedule} variant="outline">{content.hero.secondaryCta}</Button>
+          <p className="hero-lede hero-support" style={{ "--hero-delay": ".6s" } as MotionStyle}>{content.hero.lede}</p>
+          <div className="hero-actions hero-support" style={{ "--hero-delay": ".72s" } as MotionStyle}>
+            <Button href={routes.assessmentNow} size="lg">{content.hero.primaryCta}</Button>
+            <Button href={routes.assessmentSchedule} variant="outline">{content.hero.secondaryCta}</Button>
           </div>
-          <div className="hero-notes hero-support" style={{ "--hero-delay": ".82s" } as React.CSSProperties}>
+          <div className="hero-notes hero-support" style={{ "--hero-delay": ".82s" } as MotionStyle}>
             {content.hero.notes.map((note) => <span className="hero-note" key={note}><Check className="check-icon" aria-hidden="true" />{note}</span>)}
           </div>
           <div className="system-flow" aria-hidden="true">
@@ -86,7 +86,7 @@ export function HomePage({ locale }: Props) {
           <SectionHead eyebrow={content.problem.eyebrow} title={content.problem.title} description={content.problem.description} />
           <div className="home-grid">
             {content.problem.cards.map((card, index) => {
-              const Icon = problemIcons[index];
+              const Icon = problemIcons[index] ?? Workflow;
               return <article className="interactive-card" key={card.title}><div className="card-icon"><Icon aria-hidden="true" /></div><h3>{card.title}</h3><p>{card.body}</p></article>;
             })}
           </div>
@@ -98,7 +98,7 @@ export function HomePage({ locale }: Props) {
           <SectionHead eyebrow={content.solutions.eyebrow} title={content.solutions.title} description={content.solutions.description} />
           <div className="home-grid">
             {content.solutions.cards.map((card, index) => {
-              const Icon = solutionIcons[index];
+              const Icon = solutionIcons[index] ?? Code2;
               return <a className="interactive-card" href={card.href} key={card.title}><div className="card-icon dark-icon"><Icon aria-hidden="true" /></div><h3>{card.title}</h3><p>{card.body}</p><span className="card-link">{content.solutions.linkLabel} →</span></a>;
             })}
           </div>
@@ -112,8 +112,8 @@ export function HomePage({ locale }: Props) {
             <h2>{content.assessment.title}</h2>
             <p>{content.assessment.description}</p>
             <div className="hero-actions">
-              <Button href={assessmentNow} size="lg">{content.hero.primaryCta}</Button>
-              <Button href={assessmentSchedule} variant="dark-outline">{content.hero.secondaryCta}</Button>
+              <Button href={routes.assessmentNow} size="lg">{content.hero.primaryCta}</Button>
+              <Button href={routes.assessmentSchedule} variant="dark-outline">{content.hero.secondaryCta}</Button>
             </div>
           </div>
           <div className="voice-card">
@@ -134,13 +134,13 @@ export function HomePage({ locale }: Props) {
 
       <section className="section section-alt">
         <div className="container founder">
-          <img src="/team/julio-marte.jpeg" alt="Julio Alberto Marte Balbuena" loading="lazy" />
+          <img src="/team/julio-marte.jpeg" alt={siteConfig.founder.name} loading="lazy" />
           <div className="section-head">
             <span className="eyebrow">{content.founder.eyebrow}</span>
             <h2>{content.founder.title}</h2>
             <p>{content.founder.description}</p>
-            <p className="founder-name"><strong>Julio Alberto Marte Balbuena</strong><br/>{content.founder.role}</p>
-            <div><Button href={aboutPath} variant="outline">{content.founder.cta}</Button></div>
+            <p className="founder-name"><strong>{siteConfig.founder.name}</strong><br/>{content.founder.role}</p>
+            <div><Button href={routes.about} variant="outline">{content.founder.cta}</Button></div>
           </div>
         </div>
       </section>
@@ -151,7 +151,7 @@ export function HomePage({ locale }: Props) {
             <span className="eyebrow">{content.resources.eyebrow}</span>
             <h2>{content.resources.title}</h2>
             <p>{content.resources.description}</p>
-            <div><Button href={resourcesPath} variant="outline">{content.resources.cta}</Button></div>
+            <div><Button href={routes.resources} variant="outline">{content.resources.cta}</Button></div>
           </div>
         </div>
       </section>
@@ -161,8 +161,8 @@ export function HomePage({ locale }: Props) {
           <h2>{content.finalCta.title}</h2>
           <p>{content.finalCta.description}</p>
           <div className="hero-actions">
-            <Button href={assessmentNow} size="lg">{content.hero.primaryCta}</Button>
-            <Button href={assessmentSchedule} variant="dark-outline">{content.hero.secondaryCta}</Button>
+            <Button href={routes.assessmentNow} size="lg">{content.hero.primaryCta}</Button>
+            <Button href={routes.assessmentSchedule} variant="dark-outline">{content.hero.secondaryCta}</Button>
           </div>
         </div>
       </section>

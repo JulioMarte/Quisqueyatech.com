@@ -1,4 +1,5 @@
 import type { ButtonProps } from "../../../types/ui";
+import { analyticsAttributes } from "../../../lib/analytics";
 
 const variantClass = {
   primary: "button-primary",
@@ -15,6 +16,7 @@ export function Button({
   target,
   rel,
   ariaLabel,
+  analytics,
 }: ButtonProps) {
   const classes = [
     "button",
@@ -30,6 +32,7 @@ export function Button({
       target={target}
       rel={rel}
       aria-label={ariaLabel}
+      {...analyticsAttributes(analytics)}
     >
       {children}
     </a>

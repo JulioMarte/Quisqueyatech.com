@@ -5,6 +5,7 @@
     .slice(0, 180);
 
   const pageLocale = () => document.documentElement.lang === "en" ? "en" : "es";
+  const downloadPattern = /\.(pdf|docx?|xlsx?|pptx?|zip|csv|txt|md|png|jpe?g|webp|svg)$/i;
 
   const inferLocation = (element) => {
     if (element.closest(".mega-menu")) return "mega_menu";
@@ -54,18 +55,20 @@
 
   const fallbackMeta = (element) => {
     const destination = inferDestination(element);
-    const external = element instanceof HTMLAnchorElement && element.origin !== location.origin && !element.href.startsWith("mailto:") && !element.href.startsWith("tel:");
-    const email = element instanceof HTMLAnchorElement && element.href.startsWith("mailto:");
-    const phone = element instanceof HTMLAnchorElement && element.href.startsWith("tel:");
+    const anchor = element instanceof HTMLAnchorElement ? element : null;
+    const email = Boolean(anchor?.href.startsWith("mailto:"));
+    const phone = Boolean(anchor?.href.startsWith("tel:"));
+    const download = Boolean(anchor && (anchor.hasAttribute("download") || downloadPattern.test(new URL(anchor.href, location.href).pathname)));
+    const external = Boolean(anchor && anchor.origin !== location.origin && !email && !phone);
 
     return {
-      event: external ? "outbound_click" : email ? "email_click" : phone ? "phone_click" : "ui_click",
+      event: download ? "file_download" : external ? "outbound_click" : email ? "email_click" : phone ? "phone_click" : "ui_click",
       properties: {
         location: inferLocation(element),
         label: inferLabel(element),
         destination,
         locale: pageLocale(),
-        channel: external ? "external" : email ? "email" : phone ? "phone" : undefined,
+        channel: download ? "download" : external ? "external" : email ? "email" : phone ? "phone" : undefined,
       },
     };
   };

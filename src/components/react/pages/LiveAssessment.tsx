@@ -8,6 +8,7 @@ interface Props {
 
 export function LiveAssessment({ locale, livekitUrl = "" }: Props) {
   const isEn = locale === "en";
+  const openLabel = isEn ? "Open assessment" : "Abrir evaluación";
   return (
     <section className="assessment-live">
       <div className="container">
@@ -40,7 +41,7 @@ export function LiveAssessment({ locale, livekitUrl = "" }: Props) {
               <div><Check size={16} aria-hidden="true" />{isEn ? "Summary when finished" : "Resumen al finalizar"}</div>
             </div>
             {livekitUrl ? (
-              <Button href={livekitUrl} size="lg" target="_blank" rel="noopener noreferrer">{isEn ? "Open assessment" : "Abrir evaluación"}</Button>
+              <Button href={livekitUrl} size="lg" target="_blank" rel="noopener noreferrer" analytics={{ event: "livekit_open", location: "assessment", label: openLabel, destination: livekitUrl, locale, action: "voice_assessment_handoff", channel: "livekit" }}>{openLabel}</Button>
             ) : <p className="external-note">PUBLIC_LIVEKIT_ASSESSMENT_URL</p>}
             <p className="external-note">{isEn ? "The voice backend remains outside this static website." : "El backend de voz permanece fuera de este sitio estático."}</p>
           </aside>

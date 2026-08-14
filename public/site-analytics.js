@@ -6,6 +6,8 @@
 
   const pageLocale = () => document.documentElement.lang === "en" ? "en" : "es";
   const downloadPattern = /\.(pdf|docx?|xlsx?|pptx?|zip|csv|txt|md|png|jpe?g|webp|svg)$/i;
+  const trackerDeadline = Date.now() + 15000;
+  const maxQueueSize = 50;
 
   const inferLocation = (element) => {
     if (element.closest(".mega-menu")) return "mega_menu";
@@ -110,6 +112,10 @@
   const flush = () => {
     flushTimer = null;
     if (!window.umami?.track) {
+      if (Date.now() >= trackerDeadline) {
+        queue.length = 0;
+        return;
+      }
       if (queue.length) flushTimer = window.setTimeout(flush, 250);
       return;
     }
@@ -121,6 +127,8 @@
 
   const send = (payload) => {
     if (deliver(payload)) return;
+    if (Date.now() >= trackerDeadline) return;
+    if (queue.length >= maxQueueSize) queue.shift();
     queue.push(payload);
     if (!flushTimer) flushTimer = window.setTimeout(flush, 100);
   };
@@ -149,9 +157,14 @@
     });
   }, { capture: true });
 
+  let contextAttempts = 0;
   const primeSessionContext = () => {
-    if (window.umami?.identify) ensureSessionContext();
-    else window.setTimeout(primeSessionContext, 250);
+    if (window.umami?.identify) {
+      ensureSessionContext();
+      return;
+    }
+    contextAttempts += 1;
+    if (contextAttempts < 40 && Date.now() < trackerDeadline) window.setTimeout(primeSessionContext, 250);
   };
   window.setTimeout(primeSessionContext, 250);
 

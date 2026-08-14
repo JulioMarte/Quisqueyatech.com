@@ -1,7 +1,7 @@
 ---
-import { localizedRoutes } from "../../config/site";
 import { solutionLinks } from "../../data/pages";
 import type { Locale } from "../../types/ui";
+import { analyticsAttributes } from "../../lib/analytics";
 import { BrandLockup } from "../react/brand/BrandLockup";
 import { Button } from "../react/ui/Button";
 
@@ -12,14 +12,16 @@ interface Props {
 }
 
 const { locale, currentPath, alternatePath } = Astro.props;
-const routes = localizedRoutes[locale];
 const nav = locale === "es"
   ? { solutions: "Soluciones", method: "Cómo trabajamos", resources: "Recursos", about: "Nosotros", assessment: "Quiero mi evaluación", all: "Ver todas las soluciones", lang: "Idioma" }
   : { solutions: "Solutions", method: "How we work", resources: "Resources", about: "About", assessment: "Get my assessment", all: "View all solutions", lang: "Language" };
+const root = locale === "es" ? "/" : "/en";
+const solutions = locale === "es" ? "/soluciones" : "/en/solutions";
+const assessment = locale === "es" ? "/evaluacion" : "/en/assessment";
 const links = [
-  [routes.method, nav.method],
-  [routes.resources, nav.resources],
-  [routes.about, nav.about],
+  [locale === "es" ? "/como-trabajamos" : "/en/how-we-work", nav.method],
+  [locale === "es" ? "/recursos" : "/en/recursos", nav.resources],
+  [locale === "es" ? "/nosotros" : "/en/about", nav.about],
 ] as const;
 const descriptions = locale === "es"
   ? ["Reduce trabajo manual y errores repetidos.", "Conversaciones y tareas con control humano.", "Conecta herramientas y datos aislados.", "Aplicaciones para recepción y seguimiento."]
@@ -28,47 +30,47 @@ const active = (href: string) => currentPath === href || currentPath.startsWith(
 ---
 <header class="site-header">
   <div class="container nav-shell">
-    <BrandLockup href={routes.root} />
+    <BrandLockup href={root} analytics={{ event: "nav_click", location: "navbar", label: "brand", destination: root, locale }} />
     <nav class="desktop-nav" aria-label={locale === "es" ? "Principal" : "Main"}>
-      <div class:list={["nav-drop", active(routes.solutions) && "is-active"]}>
-        <a class="nav-link solutions-trigger" href={routes.solutions}>
+      <div class:list={["nav-drop", active(solutions) && "is-active"]}>
+        <a class="nav-link solutions-trigger" href={solutions} {...analyticsAttributes({ event: "nav_click", location: "navbar", label: nav.solutions, destination: solutions, locale })}>
           {nav.solutions}
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
         <div class="mega-menu">
           <div class="mega-grid">
             {solutionLinks[locale].map(([href, label], index) => (
-              <a class:list={["mega-item", active(href) && "active"]} href={href}>
+              <a class:list={["mega-item", active(href) && "active"]} href={href} {...analyticsAttributes({ event: "solution_click", location: "mega_menu", label, destination: href, locale, solution: label })}>
                 <strong>{label}</strong><span>{descriptions[index]}</span>
               </a>
             ))}
           </div>
-          <a class="mega-all" href={routes.solutions}><span>{nav.all}</span><span>→</span></a>
+          <a class="mega-all" href={solutions} {...analyticsAttributes({ event: "solution_click", location: "mega_menu", label: nav.all, destination: solutions, locale })}><span>{nav.all}</span><span>→</span></a>
         </div>
       </div>
-      {links.map(([href, label]) => <a class:list={["nav-link", active(href) && "is-active"]} href={href}>{label}</a>)}
+      {links.map(([href, label]) => <a class:list={["nav-link", active(href) && "is-active"]} href={href} {...analyticsAttributes({ event: "nav_click", location: "navbar", label, destination: href, locale })}>{label}</a>)}
     </nav>
     <div class="desktop-actions">
       <div class="language-switch" aria-label={nav.lang}>
-        {locale === "es" ? <><span aria-current="true">ES</span><a href={alternatePath} hreflang="en">EN</a></> : <><a href={alternatePath} hreflang="es">ES</a><span aria-current="true">EN</span></>}
+        {locale === "es" ? <><span aria-current="true">ES</span><a href={alternatePath} hreflang="en" {...analyticsAttributes({ event: "language_change", location: "navbar", label: "EN", destination: alternatePath, locale, action: "es_to_en" })}>EN</a></> : <><a href={alternatePath} hreflang="es" {...analyticsAttributes({ event: "language_change", location: "navbar", label: "ES", destination: alternatePath, locale, action: "en_to_es" })}>ES</a><span aria-current="true">EN</span></>}
       </div>
-      <Button href={routes.assessment}>{nav.assessment}</Button>
+      <Button href={assessment} analytics={{ event: "cta_click", location: "navbar", label: nav.assessment, destination: assessment, locale, action: "assessment_landing" }}>{nav.assessment}</Button>
     </div>
-    <button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu"><span class="menu-open">☰</span><span class="menu-close">×</span></button>
+    <button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" {...analyticsAttributes({ event: "menu_toggle", location: "mobile_nav", label: "mobile_menu", locale })}><span class="menu-open">☰</span><span class="menu-close">×</span></button>
   </div>
   <div id="mobile-menu" class="mobile-menu">
     <div class="container mobile-menu-inner">
       <details>
-        <summary>{nav.solutions}<span>⌄</span></summary>
+        <summary {...analyticsAttributes({ event: "menu_toggle", location: "mobile_nav", label: nav.solutions, locale, action: "solutions_menu" })}>{nav.solutions}<span>⌄</span></summary>
         <div class="mobile-solutions">
-          {solutionLinks[locale].map(([href, label]) => <a href={href}>{label}</a>)}
-          <a class="mobile-all" href={routes.solutions}>{nav.all} →</a>
+          {solutionLinks[locale].map(([href, label]) => <a href={href} {...analyticsAttributes({ event: "solution_click", location: "mobile_nav", label, destination: href, locale, solution: label })}>{label}</a>)}
+          <a class="mobile-all" href={solutions} {...analyticsAttributes({ event: "solution_click", location: "mobile_nav", label: nav.all, destination: solutions, locale })}>{nav.all} →</a>
         </div>
       </details>
-      {links.map(([href, label]) => <a href={href}>{label}</a>)}
+      {links.map(([href, label]) => <a href={href} {...analyticsAttributes({ event: "nav_click", location: "mobile_nav", label, destination: href, locale })}>{label}</a>)}
       <div class="mobile-divider"></div>
-      <div class="mobile-language"><small>{nav.lang}</small><div class="language-switch">{locale === "es" ? <><span>ES</span><a href={alternatePath}>EN</a></> : <><a href={alternatePath}>ES</a><span>EN</span></>}</div></div>
-      <Button href={routes.assessment} className="mobile-cta">{nav.assessment}</Button>
+      <div class="mobile-language"><small>{nav.lang}</small><div class="language-switch">{locale === "es" ? <><span>ES</span><a href={alternatePath} {...analyticsAttributes({ event: "language_change", location: "mobile_nav", label: "EN", destination: alternatePath, locale, action: "es_to_en" })}>EN</a></> : <><a href={alternatePath} {...analyticsAttributes({ event: "language_change", location: "mobile_nav", label: "ES", destination: alternatePath, locale, action: "en_to_es" })}>ES</a><span>EN</span></>}</div></div>
+      <Button href={assessment} className="mobile-cta" analytics={{ event: "cta_click", location: "mobile_nav", label: nav.assessment, destination: assessment, locale, action: "assessment_landing" }}>{nav.assessment}</Button>
     </div>
   </div>
 </header>

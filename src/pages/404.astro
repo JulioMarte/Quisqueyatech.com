@@ -1,4 +1,12 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
-<BaseLayout title="Página no encontrada" description="La página solicitada no existe."><section class="section"><div class="container"><span class="eyebrow">404</span><h1>Página no encontrada</h1><p>La ruta que buscas no existe o fue movida.</p><a class="btn" href="/">Volver al inicio</a></div></section></BaseLayout>
+<BaseLayout title="Página no encontrada" description="La ruta que buscas no existe o fue movida." locale="es" path="404">
+<section style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:48px 24px;text-align:center">
+  <div>
+    <h1 style="margin:0;font-family:var(--font-display);font-size:30px;font-weight:700;color:var(--c-primary)">Página no encontrada</h1>
+    <p style="max-width:448px;margin:16px auto 0;color:var(--c-text-2)">La ruta que buscas no existe o fue movida.</p>
+    <a href="/" style="display:inline-flex;min-height:44px;align-items:center;margin-top:16px;border-radius:8px;background:var(--c-primary);padding:0 20px;color:white;font-size:14px;font-weight:600">Volver al inicio</a>
+  </div>
+</section>
+</BaseLayout>

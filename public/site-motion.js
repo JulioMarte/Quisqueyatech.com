@@ -1,4 +1,9 @@
 (() => {
+  const analyticsLoader = document.createElement('script');
+  analyticsLoader.src = '/umami-loader.js';
+  analyticsLoader.defer = true;
+  document.head.appendChild(analyticsLoader);
+
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const root = document.documentElement;
   if (!reduce) root.classList.add('motion-ready');

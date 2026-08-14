@@ -24,8 +24,8 @@ const schedulePath = isEn ? "/en/assessment/schedule" : "/evaluacion/agendar";
     <div class="marketing-cta motion-mask">
       <h2>{isEn ? "Start by understanding what is worth solving first." : "Empieza por entender qué conviene resolver primero."}</h2>
       <div class="hero-actions">
-        <Button href={nowPath}>{isEn ? "Start my assessment" : "Quiero mi evaluación ahora"}</Button>
-        <Button href={schedulePath} variant="dark-outline">{isEn ? "Schedule my assessment" : "Agendar mi evaluación"}</Button>
+        <Button href={nowPath} analytics={{ event: "assessment_start", location: "final_cta", label: isEn ? "Start my assessment" : "Quiero mi evaluación ahora", destination: nowPath, locale: page.locale, action: "start_now" }}>{isEn ? "Start my assessment" : "Quiero mi evaluación ahora"}</Button>
+        <Button href={schedulePath} variant="dark-outline" analytics={{ event: "assessment_schedule", location: "final_cta", label: isEn ? "Schedule my assessment" : "Agendar mi evaluación", destination: schedulePath, locale: page.locale, action: "schedule" }}>{isEn ? "Schedule my assessment" : "Agendar mi evaluación"}</Button>
       </div>
     </div>
   </div>

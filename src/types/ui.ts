@@ -23,6 +23,7 @@ export interface BrandLockupProps {
   showDescriptor?: boolean;
   className?: string;
   ariaLabel?: string;
+  analytics?: AnalyticsMeta;
 }
 
 export interface SectionHeadProps {

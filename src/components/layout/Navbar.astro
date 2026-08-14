@@ -1,4 +1,5 @@
 ---
+import { localizedRoutes } from "../../config/site";
 import { solutionLinks } from "../../data/pages";
 import type { Locale } from "../../types/ui";
 import { BrandLockup } from "../react/brand/BrandLockup";
@@ -11,16 +12,14 @@ interface Props {
 }
 
 const { locale, currentPath, alternatePath } = Astro.props;
+const routes = localizedRoutes[locale];
 const nav = locale === "es"
   ? { solutions: "Soluciones", method: "Cómo trabajamos", resources: "Recursos", about: "Nosotros", assessment: "Quiero mi evaluación", all: "Ver todas las soluciones", lang: "Idioma" }
   : { solutions: "Solutions", method: "How we work", resources: "Resources", about: "About", assessment: "Get my assessment", all: "View all solutions", lang: "Language" };
-const root = locale === "es" ? "/" : "/en";
-const solutions = locale === "es" ? "/soluciones" : "/en/solutions";
-const assessment = locale === "es" ? "/evaluacion" : "/en/assessment";
 const links = [
-  [locale === "es" ? "/como-trabajamos" : "/en/how-we-work", nav.method],
-  [locale === "es" ? "/recursos" : "/en/recursos", nav.resources],
-  [locale === "es" ? "/nosotros" : "/en/about", nav.about],
+  [routes.method, nav.method],
+  [routes.resources, nav.resources],
+  [routes.about, nav.about],
 ] as const;
 const descriptions = locale === "es"
   ? ["Reduce trabajo manual y errores repetidos.", "Conversaciones y tareas con control humano.", "Conecta herramientas y datos aislados.", "Aplicaciones para recepción y seguimiento."]
@@ -29,10 +28,10 @@ const active = (href: string) => currentPath === href || currentPath.startsWith(
 ---
 <header class="site-header">
   <div class="container nav-shell">
-    <BrandLockup href={root} />
+    <BrandLockup href={routes.root} />
     <nav class="desktop-nav" aria-label={locale === "es" ? "Principal" : "Main"}>
-      <div class:list={["nav-drop", active(solutions) && "is-active"]}>
-        <a class="nav-link solutions-trigger" href={solutions}>
+      <div class:list={["nav-drop", active(routes.solutions) && "is-active"]}>
+        <a class="nav-link solutions-trigger" href={routes.solutions}>
           {nav.solutions}
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
@@ -44,7 +43,7 @@ const active = (href: string) => currentPath === href || currentPath.startsWith(
               </a>
             ))}
           </div>
-          <a class="mega-all" href={solutions}><span>{nav.all}</span><span>→</span></a>
+          <a class="mega-all" href={routes.solutions}><span>{nav.all}</span><span>→</span></a>
         </div>
       </div>
       {links.map(([href, label]) => <a class:list={["nav-link", active(href) && "is-active"]} href={href}>{label}</a>)}
@@ -53,7 +52,7 @@ const active = (href: string) => currentPath === href || currentPath.startsWith(
       <div class="language-switch" aria-label={nav.lang}>
         {locale === "es" ? <><span aria-current="true">ES</span><a href={alternatePath} hreflang="en">EN</a></> : <><a href={alternatePath} hreflang="es">ES</a><span aria-current="true">EN</span></>}
       </div>
-      <Button href={assessment}>{nav.assessment}</Button>
+      <Button href={routes.assessment}>{nav.assessment}</Button>
     </div>
     <button class="mobile-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu"><span class="menu-open">☰</span><span class="menu-close">×</span></button>
   </div>
@@ -63,13 +62,13 @@ const active = (href: string) => currentPath === href || currentPath.startsWith(
         <summary>{nav.solutions}<span>⌄</span></summary>
         <div class="mobile-solutions">
           {solutionLinks[locale].map(([href, label]) => <a href={href}>{label}</a>)}
-          <a class="mobile-all" href={solutions}>{nav.all} →</a>
+          <a class="mobile-all" href={routes.solutions}>{nav.all} →</a>
         </div>
       </details>
       {links.map(([href, label]) => <a href={href}>{label}</a>)}
       <div class="mobile-divider"></div>
       <div class="mobile-language"><small>{nav.lang}</small><div class="language-switch">{locale === "es" ? <><span>ES</span><a href={alternatePath}>EN</a></> : <><a href={alternatePath}>ES</a><span>EN</span></>}</div></div>
-      <Button href={assessment} className="mobile-cta">{nav.assessment}</Button>
+      <Button href={routes.assessment} className="mobile-cta">{nav.assessment}</Button>
     </div>
   </div>
 </header>

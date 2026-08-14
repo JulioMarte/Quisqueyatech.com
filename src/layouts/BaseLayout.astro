@@ -81,4 +81,5 @@ const footerCompany=locale==="es"?[["/como-trabajamos","Cómo trabajamos"],["/no
 <script is:inline>
 const button=document.querySelector('.mobile-toggle');const menu=document.querySelector('#mobile-menu');button?.addEventListener('click',()=>{const open=menu?.classList.toggle('open');button.setAttribute('aria-expanded',String(Boolean(open)));document.body.classList.toggle('menu-opened',Boolean(open));});document.querySelectorAll('#mobile-menu a').forEach(a=>a.addEventListener('click',()=>{menu?.classList.remove('open');button?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-opened');}));
 </script>
+<script src="/site-motion.js" defer></script>
 </body></html>

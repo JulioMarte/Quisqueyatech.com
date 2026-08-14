@@ -1,46 +1,26 @@
 ---
 import "../styles/global.css";
 import { solutionLinks, type Locale } from "../data/pages";
-interface Props { title:string; description:string; locale?:Locale; path?:string; }
-const { title, description, locale="es", path="" } = Astro.props;
+interface Props { title:string; description:string; locale?:Locale; path?:string; image?:string; }
+const { title, description, locale="es", path="", image="/og/home-hero-v2.png" } = Astro.props;
 const site = import.meta.env.PUBLIC_SITE_URL || "https://www.quisqueyatech.com";
-const canonical = new URL(`/${path}`, site).toString();
-const other = locale === "es" ? (path ? `/en${path.startsWith("en/")?path.slice(2):""}` : "/en") : "/";
-const nav = locale === "es" ? {solutions:"Soluciones",method:"Cómo trabajamos",resources:"Recursos",about:"Nosotros",assessment:"Evaluación"} : {solutions:"Solutions",method:"How we work",resources:"Resources",about:"About",assessment:"Assessment"};
-const root = locale === "es" ? "/" : "/en";
+const publicEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "info@quisqueyatech.com";
+const cleanPath = path ? `/${path.replace(/^\//,"")}` : locale === "en" ? "/en" : "/";
+const routePairs:Record<string,string>={"/":"/en","/soluciones":"/en/solutions","/soluciones/automatizacion":"/en/solutions/automation","/soluciones/agentes-de-ia":"/en/solutions/ai-agents","/soluciones/software-e-integraciones":"/en/solutions/software-and-integrations","/soluciones/clinicas":"/en/solutions/clinics","/como-trabajamos":"/en/how-we-work","/evaluacion":"/en/assessment","/evaluacion/ahora":"/en/assessment/now","/evaluacion/agendar":"/en/assessment/schedule","/recursos":"/en/recursos","/nosotros":"/en/about","/privacidad":"/en/privacy"};
+const reverse=Object.fromEntries(Object.entries(routePairs).map(([es,en])=>[en,es]));
+const other=routePairs[cleanPath]||reverse[cleanPath]||(locale==="en"?(cleanPath.replace(/^\/en(?=\/|$)/,"")||"/"):`/en${cleanPath}`);
+const canonical=new URL(cleanPath,site).toString();
+const alternate=new URL(other,site).toString();
+const nav=locale==="es"?{solutions:"Soluciones",method:"Cómo trabajamos",resources:"Recursos",about:"Nosotros",assessment:"Quiero mi evaluación"}:{solutions:"Solutions",method:"How we work",resources:"Resources",about:"About",assessment:"Get my assessment"};
+const root=locale==="es"?"/":"/en";
+const solutions=locale==="es"?"/soluciones":"/en/solutions";
+const links=[[locale==="es"?"/como-trabajamos":"/en/how-we-work",nav.method],[locale==="es"?"/recursos":"/en/recursos",nav.resources],[locale==="es"?"/nosotros":"/en/about",nav.about]];
+const active=(href:string)=>cleanPath===href||cleanPath.startsWith(`${href}/`);
+const fullTitle=`${title} | QuisqueyaTech`;
 ---
-<!doctype html>
-<html lang={locale}>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width" />
-  <meta name="description" content={description} />
-  <meta name="theme-color" content="#082F49" />
-  <link rel="canonical" href={canonical} />
-  <link rel="icon" href="/icon.png" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <title>{title} | QuisqueyaTech</title>
-</head>
-<body>
-<header class="site-header">
-  <div class="container nav">
-    <a class="brand" href={root} aria-label="QuisqueyaTech">Quisqueya<b>Tech</b></a>
-    <nav class="nav-links" aria-label={locale === "es" ? "Principal" : "Main"}>
-      <details class="drop"><summary>{nav.solutions} ▾</summary><div class="drop-menu">{solutionLinks[locale].map(([href,label]) => <a href={href}>{label}</a>)}</div></details>
-      <a href={locale === "es" ? "/como-trabajamos" : "/en/how-we-work"}>{nav.method}</a>
-      <a href={locale === "es" ? "/recursos" : "/en/recursos"}>{nav.resources}</a>
-      <a href={locale === "es" ? "/nosotros" : "/en/about"}>{nav.about}</a>
-      <a class="lang" href={other}>{locale === "es" ? "EN" : "ES"}</a>
-      <a class="btn" href={locale === "es" ? "/evaluacion" : "/en/assessment"}>{nav.assessment}</a>
-    </nav>
-    <button class="mobile-toggle" aria-label="Menu" aria-expanded="false">☰</button>
-  </div>
-  <nav class="container mobile-nav"><a href={locale === "es" ? "/soluciones" : "/en/solutions"}>{nav.solutions}</a><a href={locale === "es" ? "/como-trabajamos" : "/en/how-we-work"}>{nav.method}</a><a href={locale === "es" ? "/recursos" : "/en/recursos"}>{nav.resources}</a><a href={locale === "es" ? "/nosotros" : "/en/about"}>{nav.about}</a><a href={locale === "es" ? "/en" : "/"}>{locale === "es" ? "English" : "Español"}</a></nav>
-</header>
-<main><slot /></main>
-<footer class="site-footer"><div class="container"><div class="footer-grid"><div><div class="brand" style="color:white">Quisqueya<span style="color:#f97316">Tech</span></div><p>{locale === "es" ? "Automatización, IA y software para empresas." : "Automation, AI, and software for modern companies."}</p><p>Puerto Plata, República Dominicana · Servicio internacional</p></div><div><strong>{nav.solutions}</strong>{solutionLinks[locale].map(([href,label]) => <p><a href={href}>{label}</a></p>)}</div><div><strong>{locale === "es" ? "Contacto" : "Contact"}</strong><p><a href="mailto:info@quisqueyatech.com">info@quisqueyatech.com</a></p><p><a href={locale === "es" ? "/privacidad" : "/en/privacy"}>{locale === "es" ? "Privacidad" : "Privacy"}</a></p></div></div><div class="copyright">© {new Date().getFullYear()} QuisqueyaTech.</div></div></footer>
-<script is:inline>
-  const b=document.querySelector('.mobile-toggle'); const n=document.querySelector('.mobile-nav'); b?.addEventListener('click',()=>{const o=n?.classList.toggle('open');b.setAttribute('aria-expanded',String(Boolean(o)));});
-  document.querySelectorAll('.drop a').forEach(a=>a.addEventListener('click',()=>a.closest('details')?.removeAttribute('open')));
-</script>
-</body></html>
+<!doctype html><html lang={locale}><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width"/><meta name="description" content={description}/><meta name="theme-color" content="#082F49"/>
+<title>{fullTitle}</title><link rel="canonical" href={canonical}/><link rel="alternate" hreflang={locale==="es"?"en":"es"} href={alternate}/><link rel="alternate" hreflang={locale} href={canonical}/><link rel="alternate" hreflang="x-default" href={new URL("/",site).toString()}/>
+<meta property="og:type" content="website"/><meta property="og:site_name" content="QuisqueyaTech"/><meta property="og:title" content={fullTitle}/><meta property="og:description" content={description}/><meta property="og:url" content={canonical}/><meta property="og:image" content={new URL(image,site).toString()}/><meta property="og:locale" content={locale==="es"?"es_DO":"en_US"}/><meta name="twitter:card" content="summary_large_image"/><meta name="twitter:title" content={fullTitle}/><meta name="twitter:description" content={description}/><meta name="twitter:image" content={new URL(image,site).toString()}/>
+<link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png"/><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png"/>
+</head><body><header class="site-header"><div class="container nav"><a class="brand brand-lockup" href={root} aria-label="QuisqueyaTech"><img src="/brand/logo-mark.png" width="40" height="40" alt=""/><span>QuisqueyaTech</span></a><nav class="nav-links" aria-label={locale==="es"?"Principal":"Main"}><details class:list={["drop",active(solutions)&&"active"]}><summary>{nav.solutions} ▾</summary><div class="drop-menu">{solutionLinks[locale].map(([href,label])=><a class:list={[active(href)&&"active"]} href={href}>{label}</a>)}<a href={solutions}>{locale==="es"?"Ver todas las soluciones":"View all solutions"} →</a></div></details>{links.map(([href,label])=><a class:list={[active(href)&&"active"]} href={href}>{label}</a>)}<a class="lang" href={other}>{locale==="es"?"EN":"ES"}</a><a class="btn" href={locale==="es"?"/evaluacion":"/en/assessment"}>{nav.assessment}</a></nav><button class="mobile-toggle" aria-label={locale==="es"?"Abrir menú":"Open menu"} aria-expanded="false">☰</button></div><nav class="container mobile-nav"><a href={solutions}>{nav.solutions}</a>{solutionLinks[locale].map(([href,label])=><a href={href}>{label}</a>)}{links.map(([href,label])=><a href={href}>{label}</a>)}<a href={other}>{locale==="es"?"English":"Español"}</a><a class="btn" href={locale==="es"?"/evaluacion":"/en/assessment"}>{nav.assessment}</a></nav></header><main><slot/></main><footer class="site-footer"><div class="container"><div class="footer-grid"><div><a class="brand brand-lockup light" href={root}><img src="/brand/logo-mark.png" width="40" height="40" alt=""/><span>QuisqueyaTech</span></a><p>{locale==="es"?"La tecnología correcta, trabajando como un solo sistema.":"The right technology, working as one system."}</p><p>República Dominicana · Servicio internacional</p></div><div><strong>{nav.solutions}</strong>{solutionLinks[locale].map(([href,label])=><p><a href={href}>{label}</a></p>)}</div><div><strong>{locale==="es"?"Empresa":"Company"}</strong>{links.map(([href,label])=><p><a href={href}>{label}</a></p>)}<p><a href={locale==="es"?"/privacidad":"/en/privacy"}>{locale==="es"?"Privacidad":"Privacy"}</a></p></div><div><strong>{locale==="es"?"Contacto":"Contact"}</strong><p><a href={`mailto:${publicEmail}`}>{publicEmail}</a></p><p>Puerto Plata, República Dominicana</p></div></div><div class="copyright">© {new Date().getFullYear()} QuisqueyaTech.</div></div></footer><script is:inline>const b=document.querySelector('.mobile-toggle');const n=document.querySelector('.mobile-nav');b?.addEventListener('click',()=>{const o=n?.classList.toggle('open');b.setAttribute('aria-expanded',String(Boolean(o)))});document.querySelectorAll('.drop a').forEach(a=>a.addEventListener('click',()=>a.closest('details')?.removeAttribute('open')));</script></body></html>

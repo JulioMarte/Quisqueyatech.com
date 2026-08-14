@@ -9,6 +9,21 @@
   const trackerDeadline = Date.now() + 15000;
   const maxQueueSize = 50;
 
+  const safeDestination = (value) => {
+    if (!value) return "";
+    try {
+      const url = new URL(String(value), location.href);
+      if (url.protocol === "mailto:") return "mailto:";
+      if (url.protocol === "tel:") return "tel:";
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        return url.origin === location.origin ? url.pathname : `${url.origin}${url.pathname}`;
+      }
+      return url.protocol;
+    } catch {
+      return "";
+    }
+  };
+
   const inferLocation = (element) => {
     if (element.closest(".mega-menu")) return "mega_menu";
     if (element.closest("header.site-header")) return element.closest("#mobile-menu") ? "mobile_nav" : "navbar";
@@ -32,7 +47,7 @@
   );
 
   const inferDestination = (element) => {
-    if (element instanceof HTMLAnchorElement) return element.href;
+    if (element instanceof HTMLAnchorElement) return safeDestination(element.href);
     return "";
   };
 
@@ -46,7 +61,7 @@
       properties: {
         location: data.analyticsLocation || inferLocation(element),
         label: data.analyticsLabel || inferLabel(element),
-        destination: data.analyticsDestination || inferDestination(element),
+        destination: safeDestination(data.analyticsDestination || inferDestination(element)),
         locale: data.analyticsLocale || pageLocale(),
         action: data.analyticsAction || undefined,
         solution: data.analyticsSolution || undefined,
@@ -56,7 +71,6 @@
   };
 
   const fallbackMeta = (element) => {
-    const destination = inferDestination(element);
     const anchor = element instanceof HTMLAnchorElement ? element : null;
     const email = Boolean(anchor?.href.startsWith("mailto:"));
     const phone = Boolean(anchor?.href.startsWith("tel:"));
@@ -68,7 +82,7 @@
       properties: {
         location: inferLocation(element),
         label: inferLabel(element),
-        destination,
+        destination: inferDestination(element),
         locale: pageLocale(),
         channel: download ? "download" : external ? "external" : email ? "email" : phone ? "phone" : undefined,
       },
@@ -152,7 +166,7 @@
         location: form.dataset.analyticsLocation || inferLocation(form),
         label: form.dataset.analyticsLabel || form.getAttribute("name") || form.id || "form",
         locale: form.dataset.analyticsLocale || pageLocale(),
-        action: form.getAttribute("action") || undefined,
+        action: safeDestination(form.getAttribute("action")) || undefined,
       },
     });
   }, { capture: true });
@@ -170,7 +184,9 @@
 
   window.QuisqueyaAnalytics = {
     track(event, properties = {}) {
-      send({ event, properties: { locale: pageLocale(), ...properties } });
+      const safeProperties = { locale: pageLocale(), ...properties };
+      if (safeProperties.destination) safeProperties.destination = safeDestination(safeProperties.destination);
+      send({ event, properties: safeProperties });
     },
   };
 })();

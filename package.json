@@ -10,5 +10,8 @@
     "preview": "astro preview",
     "clean": "node -e \"const fs=require('fs'); for (const p of ['dist','.astro']) fs.rmSync(p,{recursive:true,force:true})\""
   },
-  "dependencies": { "astro": "7.1.6" }
+  "dependencies": {
+    "@lucide/astro": "1.24.0",
+    "astro": "7.1.6"
+  }
 }

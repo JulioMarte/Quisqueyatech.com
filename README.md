@@ -31,6 +31,8 @@ npm install
 npm run dev
 ```
 
+El servidor local de Astro usa `http://localhost:4221` para coincidir con el sitio de pruebas configurado en Umami.
+
 Después de la primera instalación limpia, conserva el nuevo `package-lock.json` generado por npm.
 
 ## Build
@@ -55,18 +57,28 @@ Las credenciales privadas de LiveKit pertenecen al servicio externo que crea o a
 
 ## Umami analytics
 
-El sitio soporta una instancia Umami self-hosted sin añadir un backend al sitio. Configura los valores públicos durante el build:
+El modo de desarrollo incluye un tracker de prueba para `localhost:4221`:
+
+```text
+script: https://umami.quisqueyatech.com/script.js
+website id: 73646329-42c9-4e31-96a8-ae04366b62fb
+domain: localhost
+```
+
+Ese fallback solo se usa cuando `import.meta.env.DEV` es verdadero. No se usa como fallback durante un build de producción.
+
+Para producción crea un `.env` local o configura las mismas variables como build variables en Coolify:
 
 ```env
-PUBLIC_UMAMI_SCRIPT_URL=https://analytics.example.com/script.js
-PUBLIC_UMAMI_WEBSITE_ID=
+PUBLIC_UMAMI_SCRIPT_URL=https://umami.quisqueyatech.com/script.js
+PUBLIC_UMAMI_WEBSITE_ID=ID-DEL-SITIO-DE-PRODUCCION
 PUBLIC_UMAMI_DOMAINS=quisqueyatech.com,www.quisqueyatech.com
 PUBLIC_UMAMI_HOST_URL=
 ```
 
-`PUBLIC_UMAMI_SCRIPT_URL` y `PUBLIC_UMAMI_WEBSITE_ID` son obligatorios para activar analytics. Si falta cualquiera de los dos, el sitio no carga el tracker.
+Las variables `PUBLIC_UMAMI_*` siempre tienen prioridad sobre los valores de prueba. De esta forma puedes sustituir el Website ID de localhost por el Website ID real de producción sin modificar el código.
 
-`PUBLIC_UMAMI_DOMAINS` limita la recopilación a producción y evita contaminar las métricas con `localhost`. `PUBLIC_UMAMI_HOST_URL` es opcional y solo hace falta cuando el script y el endpoint de recolección viven en hosts distintos.
+`PUBLIC_UMAMI_HOST_URL` es opcional. Úsalo solamente cuando el script y el endpoint de recolección vivan en hosts diferentes.
 
 No guardes contraseñas, tokens administrativos ni credenciales de base de datos de Umami en este repositorio.
 

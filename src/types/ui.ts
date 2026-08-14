@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { AnalyticsMeta } from "./analytics";
 
 export type Locale = "es" | "en";
 
@@ -14,6 +15,7 @@ export interface ButtonProps {
   target?: "_self" | "_blank";
   rel?: string;
   ariaLabel?: string;
+  analytics?: AnalyticsMeta;
 }
 
 export interface BrandLockupProps {

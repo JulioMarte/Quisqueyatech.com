@@ -2,7 +2,7 @@ name: Astro static site
 
 on:
   push:
-    branches: [development, dev, main]
+    branches: [development]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -19,6 +19,8 @@ jobs:
           node-version: 22.20.0
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Type-check Astro and React
+        run: npm run check
       - name: Build static site
         env:
           PUBLIC_SITE_URL: https://www.quisqueyatech.com

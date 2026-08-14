@@ -1,46 +1,32 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import "../styles/marketing.css";
-import { Workflow, Bot, Code2, HeartPulse, Mic2, CalendarClock, Headphones, Check, CalendarCheck2, ArrowRight } from "@lucide/astro";
 import { pages, type StaticPage } from "../data/pages";
-export function getStaticPaths(){return pages.map(page=>({params:{slug:page.path},props:{page}}));}
-const {page}=Astro.props as {page:StaticPage};
-const isEn=page.locale==="en";
-const nowPath=isEn?"/en/assessment/now":"/evaluacion/ahora";
-const schedulePath=isEn?"/en/assessment/schedule":"/evaluacion/agendar";
-const livekit=import.meta.env.PUBLIC_LIVEKIT_ASSESSMENT_URL||"";
-const schedule=import.meta.env.PUBLIC_ASSESSMENT_SCHEDULE_URL||"";
-const icons=[Workflow,Bot,Code2,HeartPulse];
-const privacy=isEn?[
-["Data we collect","Assessment and booking flows may collect your name, company, role, country, email, mobile number, scheduling preferences, voice recording, transcript, and generated assessment."],
-["Voice and retention","Recording requires explicit consent. Audio is retained for up to 30 days, full transcripts for 90 days, and lead summaries for up to 12 months unless an active commercial relationship or deletion request applies."],
-["How we use data","We use this information to provide the assessment, manage appointments, contact you, improve service quality, and propose relevant work. We do not sell personal information."],
-["Service providers","We may use infrastructure, database, email, scheduling, telephony, anti-abuse, and voice AI providers solely to deliver the service."]
-]:[
-["Datos que recopilamos","La evaluación y la agenda pueden recopilar nombre, empresa, cargo, país, correo, celular, preferencias de horario, grabación de voz, transcripción y evaluación generada."],
-["Voz y retención","La grabación requiere consentimiento expreso. El audio se conserva hasta 30 días, la transcripción completa 90 días y el resumen del lead hasta 12 meses, salvo relación comercial activa o solicitud de eliminación."],
-["Uso de la información","Usamos estos datos para entregar la evaluación, gestionar citas, contactarte, mejorar el servicio y proponer trabajo relevante. No vendemos información personal."],
-["Proveedores","Podemos utilizar proveedores de infraestructura, base de datos, correo, agenda, telefonía, protección contra abuso e IA de voz únicamente para prestar el servicio."]
-];
-const pageImage=page.path.includes("clinics")||page.path.includes("clinicas")?"/og/clinicas.png":"/og/home.png";
+import StandardMarketingPage from "../components/pages/StandardMarketingPage.astro";
+import AssessmentLanding from "../components/pages/AssessmentLanding.astro";
+import { LiveAssessment } from "../components/react/pages/LiveAssessment";
+import { ScheduleAssessment } from "../components/react/pages/ScheduleAssessment";
+import { AboutSection } from "../components/react/pages/AboutSection";
+import { PrivacyPolicy } from "../components/react/pages/PrivacyPolicy";
+import { ResourcesLanding } from "../components/react/pages/ResourcesLanding";
+
+export function getStaticPaths() {
+  return pages.map((page) => ({ params: { slug: page.path }, props: { page } }));
+}
+
+interface Props { page: StaticPage }
+const { page } = Astro.props;
+const isSchedule = page.kind === "livekit" && (page.path.endsWith("agendar") || page.path.endsWith("schedule"));
+const pageImage = page.path.includes("clinics") || page.path.includes("clinicas") ? "/og/clinicas.png" : "/og/home.png";
+const livekitUrl = import.meta.env.PUBLIC_LIVEKIT_ASSESSMENT_URL || "";
+const scheduleUrl = import.meta.env.PUBLIC_ASSESSMENT_SCHEDULE_URL || "";
 ---
 <BaseLayout title={page.title} description={page.lede} locale={page.locale} path={page.path} image={pageImage}>
-{page.kind==="standard"||page.kind==="assessment"?<>
-<section class="marketing-hero"><div class="container"><div class="motion-reveal"><span class="eyebrow">{page.eyebrow}</span><h1>{page.title}</h1><p class="marketing-lede">{page.lede}</p></div></div></section>
-<section class="section marketing-body"><div class="container">
-{page.kind==="assessment"?<div class="choice-grid-main motion-stagger">
-<article class="choice-card motion-item"><span class="choice-icon"><Mic2 /></span><h2>{isEn?"Start now":"Hacerla ahora"}</h2><p>{isEn?"Speak with the agent in your browser and receive the summary when finished.":"Habla con el agente desde tu navegador y recibe el resumen al terminar."}</p><a class="button button-primary" href={nowPath}>{isEn?"Start assessment":"Comenzar evaluación"}<ArrowRight size={16}/></a></article>
-<article class="choice-card motion-item"><span class="choice-icon"><CalendarClock /></span><h2>{isEn?"Reserve a time":"Reservar un horario"}</h2><p>{isEn?"Choose browser or phone and complete the same assessment when convenient.":"Elige navegador o llamada y realiza la misma evaluación cuando te convenga."}</p><a class="button button-primary" href={schedulePath}>{isEn?"View availability":"Ver disponibilidad"}<ArrowRight size={16}/></a></article>
-</div>:<><div class:list={["marketing-grid","motion-stagger",page.points?.length===4&&"four"]}>{page.points?.map(([title,body],i)=>{const Icon=icons[i%icons.length];return <article class="marketing-card motion-item"><span class="marketing-icon"><Icon /></span><h2>{title}</h2><p>{body}</p></article>})}</div><div class="marketing-cta motion-mask"><h2>{isEn?"Start by understanding what is worth solving first.":"Empieza por entender qué conviene resolver primero."}</h2><div class="hero-actions"><a class="button button-primary" href={nowPath}>{isEn?"Start my assessment":"Quiero mi evaluación ahora"}</a><a class="button button-dark-outline" href={schedulePath}>{isEn?"Schedule my assessment":"Agendar mi evaluación"}</a></div></div></>}
-</div></section></>:null}
-
-{page.kind==="livekit"&&!(page.path.endsWith("agendar")||page.path.endsWith("schedule"))?<section class="assessment-live"><div class="container"><div class="assessment-live-head"><div><p class="assessment-live-kicker">{isEn?"Voice assessment":"Evaluación por voz"}</p><h1>{isEn?"Conference with your AI agent":"Conferencia con tu agente de IA"}</h1></div><div class="assessment-status">{isEn?"Private room ready":"Sala privada lista"}</div></div><div class="assessment-live-grid"><div class="assessment-stage"><div class="assessment-stage-bar"><strong>{isEn?"Initial discovery":"Diagnóstico inicial"}</strong><span>LiveKit · Gemini Live</span></div><div class="assessment-stage-main"><div class="assessment-orb"><Headphones /></div><h2>{isEn?"QuisqueyaTech assessment agent":"Agente de evaluación QuisqueyaTech"}</h2><p>{isEn?"When you join, say “hello” to begin. The agent guides a natural conversation to understand which process is worth improving first.":"Cuando entres, di “hola” para iniciar. El agente guiará una conversación natural para entender qué proceso conviene mejorar primero."}</p><div class="assessment-wave" aria-hidden="true">{[12,20,28,18,32,24,14].map(h=><span style={`height:${h}px`}></span>)}</div></div><div class="assessment-stage-foot">{isEn?"Your browser will request microphone access when you join":"El navegador solicitará acceso al micrófono al entrar"}</div></div><aside class="assessment-aside"><h2>{isEn?"Before you join":"Antes de entrar"}</h2><p>{isEn?"Find a quiet place and use headphones if available.":"Busca un lugar tranquilo y utiliza audífonos si los tienes."}</p><div class="assessment-checks"><div><Mic2 size={16}/>{isEn?"Microphone enabled":"Micrófono habilitado"}</div><div><CalendarClock size={16}/>{isEn?"Duration: 12–15 minutes":"Duración: 12–15 minutos"}</div><div><Check size={16}/>{isEn?"Summary when finished":"Resumen al finalizar"}</div></div>{livekit?<a class="button button-primary button-lg" href={livekit} target="_blank" rel="noopener noreferrer">{isEn?"Open assessment":"Abrir evaluación"}</a>:<p class="external-note">PUBLIC_LIVEKIT_ASSESSMENT_URL</p>}<p class="external-note">{isEn?"The voice backend remains outside this static website.":"El backend de voz permanece fuera de este sitio estático."}</p></aside></div></div></section>:null}
-
-{page.kind==="livekit"&&(page.path.endsWith("agendar")||page.path.endsWith("schedule"))?<section class="section schedule-main"><div class="container schedule-grid"><div class="motion-reveal"><span class="eyebrow">{isEn?"Schedule your assessment":"Agenda tu evaluación"}</span><h1>{isEn?"Choose a time. We will handle the rest.":"Elige un horario. Nosotros cuidamos el resto."}</h1><p class="lede">{isEn?"Check live availability, share your details, and receive your appointment confirmation.":"Consulta la disponibilidad real, comparte tus datos y recibe la confirmación de tu cita."}</p>{schedule?<a class="button button-primary button-lg" href={schedule} target="_blank" rel="noopener noreferrer"><CalendarCheck2 size={16}/>{isEn?"Open scheduler":"Abrir agenda"}</a>:<p class="config-note">PUBLIC_ASSESSMENT_SCHEDULE_URL</p>}</div><div class="schedule-panel motion-reveal"><h2>{isEn?"One consistent experience, start to finish":"Una sola experiencia, de principio a fin"}</h2><div class="schedule-list">{(isEn?["Timezone detected automatically","Live verified availability","Clear confirmation before booking"]:["Zona horaria detectada automáticamente","Horarios verificados en vivo","Confirmación clara antes de reservar"]).map(item=><p><span class="schedule-check"><Check /></span>{item}</p>)}</div></div></div></section>:null}
-
-{page.kind==="about"?<section class="section"><div class="container about-main"><img class="motion-reveal" src="/team/julio-marte.jpeg" alt="Julio Alberto Marte Balbuena"/><div class="motion-reveal"><span class="eyebrow">{isEn?"About":"Nosotros"}</span><h1>Julio Alberto Marte Balbuena</h1><p class="about-role">{isEn?"Founder and automation & AI consultant":"Fundador y consultor de automatización e IA"}</p><p class="body-lg">{isEn?"Julio leads QuisqueyaTech and works directly on assessment, solution design, and every company relationship. The firm operates from Puerto Plata, Dominican Republic, with an international outlook and a simple principle: understand the operation before recommending technology.":"Julio dirige QuisqueyaTech y participa directamente en la evaluación, el diseño de soluciones y la relación con cada empresa. La firma trabaja desde Puerto Plata, República Dominicana, con una visión internacional y un principio sencillo: entender la operación antes de recomendar tecnología."}</p><p class="body">{isEn?"This biography is intentionally brief while public professional information is being updated. We do not present experience, customers, or credentials that cannot yet be verified.":"Esta biografía es deliberadamente breve mientras se actualiza la información profesional pública. No presentamos experiencia, clientes ni credenciales que todavía no puedan verificarse."}</p><a class="about-link" href="https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072" target="_blank" rel="noopener noreferrer">LinkedIn <ArrowRight size={16}/></a></div></div></section>:null}
-
-{page.kind==="privacy"?<section class="section"><div class="container privacy-main motion-reveal"><h1>{isEn?"Privacy policy":"Política de privacidad"}</h1><p class="privacy-updated">{isEn?"Last updated: July 2026.":"Última actualización: julio de 2026."}</p><div class="privacy-sections">{privacy.map(([title,body])=><section><h2>{title}</h2><p>{body}</p></section>)}<section><h2>{isEn?"Contact and deletion":"Contacto y eliminación"}</h2><p>{isEn?"To request access or deletion, email":"Para solicitar acceso o eliminación, escribe a"} <a href="mailto:info@quisqueyatech.com">info@quisqueyatech.com</a>.</p></section></div></div></section>:null}
-
-{page.kind==="resources"?<section class="section resources-main"><div class="container"><div class="section-head motion-reveal"><span class="eyebrow">{isEn?"Resources":"Recursos"}</span><h2>{isEn?"Practical ideas to improve how your company operates.":"Ideas prácticas para mejorar cómo opera tu empresa."}</h2><p>{isEn?"Verifiable guides about automation, AI agents, and integrations, written for better decisions.":"Guías verificables sobre automatización, agentes de IA e integraciones, escritas para tomar mejores decisiones."}</p></div><div class="resources-empty">{isEn?"Published articles stored only in the previous database runtime are pending export to Astro static content.":"Los artículos publicados que solo existen en el runtime anterior de base de datos están pendientes de exportarse a contenido estático de Astro."}</div></div></section>:null}
+  {page.kind === "standard" && <StandardMarketingPage page={page} />}
+  {page.kind === "assessment" && <AssessmentLanding page={page} />}
+  {page.kind === "livekit" && !isSchedule && <LiveAssessment locale={page.locale} livekitUrl={livekitUrl} />}
+  {isSchedule && <ScheduleAssessment locale={page.locale} scheduleUrl={scheduleUrl} />}
+  {page.kind === "about" && <AboutSection locale={page.locale} />}
+  {page.kind === "privacy" && <PrivacyPolicy locale={page.locale} />}
+  {page.kind === "resources" && <ResourcesLanding locale={page.locale} />}
 </BaseLayout>

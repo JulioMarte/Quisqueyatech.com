@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import "../styles/footer.css";
 import { solutionLinks, type Locale } from "../data/pages";
 interface Props { title:string; description:string; locale?:Locale; path?:string; image?:string; }
 const { title, description, locale="es", path="", image="/og/home-hero-v2.png" } = Astro.props;
@@ -11,7 +12,7 @@ const reverse=Object.fromEntries(Object.entries(routePairs).map(([es,en])=>[en,e
 const other=routePairs[cleanPath]||reverse[cleanPath]||(locale==="en"?(cleanPath.replace(/^\/en(?=\/|$)/,"")||"/"):`/en${cleanPath}`);
 const canonical=new URL(cleanPath,site).toString();
 const alternate=new URL(other,site).toString();
-const nav=locale==="es"?{solutions:"Soluciones",method:"Cómo trabajamos",resources:"Recursos",about:"Nosotros",assessment:"Quiero mi evaluación",all:"Ver todas las soluciones",company:"Empresa",contact:"Contacto",privacy:"Privacidad",lang:"Idioma"}:{solutions:"Solutions",method:"How we work",resources:"Resources",about:"About",assessment:"Get my assessment",all:"View all solutions",company:"Company",contact:"Contact",privacy:"Privacy",lang:"Language"};
+const nav=locale==="es"?{solutions:"Soluciones",method:"Cómo trabajamos",resources:"Recursos",about:"Nosotros",assessment:"Quiero mi evaluación",all:"Ver todas las soluciones",company:"Compañía",contact:"Contacto",privacy:"Privacidad",lang:"Idioma",follow:"Síguenos"}:{solutions:"Solutions",method:"How we work",resources:"Resources",about:"About",assessment:"Get my assessment",all:"View all solutions",company:"Company",contact:"Contact",privacy:"Privacy",lang:"Language",follow:"Follow us"};
 const root=locale==="es"?"/":"/en";
 const solutions=locale==="es"?"/soluciones":"/en/solutions";
 const assessment=locale==="es"?"/evaluacion":"/en/assessment";
@@ -19,6 +20,8 @@ const links=[[locale==="es"?"/como-trabajamos":"/en/how-we-work",nav.method],[lo
 const active=(href:string)=>cleanPath===href||cleanPath.startsWith(`${href}/`);
 const fullTitle=`${title} | QuisqueyaTech`;
 const descriptions=locale==="es"?["Reduce trabajo manual y errores repetidos.","Conversaciones y tareas con control humano.","Conecta herramientas y datos aislados.","Aplicaciones para recepción y seguimiento."]:["Reduce manual work and recurring errors.","Conversations and tasks with human oversight.","Connect isolated tools and data.","Applications for intake and follow-up."];
+const footerSolutions=locale==="es"?[["/soluciones/automatizacion","Automatización"],["/soluciones/agentes-de-ia","Agentes de IA"],["/soluciones/software-e-integraciones","Software e integraciones"]]:[["/en/solutions/automation","Automation"],["/en/solutions/ai-agents","AI agents"],["/en/solutions/software-and-integrations","Software and integrations"]];
+const footerCompany=locale==="es"?[["/como-trabajamos","Cómo trabajamos"],["/nosotros","Nosotros"],["/recursos","Recursos"]]:[["/en/how-we-work","How we work"],["/en/about","About"],["/en/recursos","Resources"]];
 ---
 <!doctype html>
 <html lang={locale}>
@@ -47,7 +50,34 @@ const descriptions=locale==="es"?["Reduce trabajo manual y errores repetidos.","
   <div id="mobile-menu" class="mobile-menu"><div class="container mobile-menu-inner"><details><summary>{nav.solutions}<span>⌄</span></summary><div class="mobile-solutions">{solutionLinks[locale].map(([href,label])=><a href={href}>{label}</a>)}<a class="mobile-all" href={solutions}>{nav.all} →</a></div></details>{links.map(([href,label])=><a href={href}>{label}</a>)}<div class="mobile-divider"></div><div class="mobile-language"><small>{nav.lang}</small><div class="language-switch">{locale==="es"?<><span>ES</span><a href={other}>EN</a></>:<><a href={other}>ES</a><span>EN</span></>}</div></div><a class="button button-primary mobile-cta" href={assessment}>{nav.assessment}</a></div></div>
 </header>
 <main id="content"><slot/></main>
-<footer class="site-footer"><div class="container"><div class="footer-grid"><div><a class="brand-lockup footer-brand" href={root}><img src="/brand/logo-mark.png" width="40" height="40" alt=""/><span><strong>QuisqueyaTech</strong><small>Automatización, IA y software para empresas</small></span></a><p>{locale==="es"?"La tecnología correcta, trabajando como un solo sistema.":"The right technology, working as one system."}</p><p>República Dominicana · Servicio internacional</p></div><div><strong>{nav.solutions}</strong>{solutionLinks[locale].map(([href,label])=><p><a href={href}>{label}</a></p>)}</div><div><strong>{nav.company}</strong>{links.map(([href,label])=><p><a href={href}>{label}</a></p>)}<p><a href={locale==="es"?"/privacidad":"/en/privacy"}>{nav.privacy}</a></p></div><div><strong>{nav.contact}</strong><p><a href={`mailto:${publicEmail}`}>{publicEmail}</a></p><p>Puerto Plata, República Dominicana</p></div></div><div class="copyright">© {new Date().getFullYear()} QuisqueyaTech.</div></div></footer>
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a class="footer-brand" href={root}><img src="/brand/logo-mark.png" width="40" height="40" alt=""/><span><strong>QuisqueyaTech</strong><small>Automatización, IA y software para empresas</small></span></a>
+        <p class="footer-intro">{locale==="es"?"Automatización, agentes de IA y software para empresas que quieren operar con más claridad.":"Automation, AI agents, and software for companies that want clearer operations."}</p>
+      </div>
+      <div><h2 class="footer-group-title">{nav.solutions}</h2>{footerSolutions.map(([href,label])=><a class="footer-link" href={href}>{label}</a>)}</div>
+      <div><h2 class="footer-group-title">{nav.company}</h2>{footerCompany.map(([href,label])=><a class="footer-link" href={href}>{label}</a>)}</div>
+      <div>
+        <h2 class="footer-group-title">{nav.contact}</h2>
+        <a class="footer-link" href={`mailto:${publicEmail}`}>{publicEmail}</a>
+        <span class="footer-location">Puerto Plata, República Dominicana</span>
+        <p class="footer-contact-note">{locale==="es"?"Atención directa desde República Dominicana para proyectos locales e internacionales.":"Direct support from the Dominican Republic for local and international projects."}</p>
+      </div>
+      <div>
+        <h2 class="footer-group-title">{nav.follow}</h2>
+        <div class="social-grid">
+          <a class="social-link" href="https://instagram.com/quisqueyait" target="_blank" rel="noopener noreferrer" aria-label="Instagram de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg><span>Instagram</span></a>
+          <a class="social-link" href="https://facebook.com/quisqueyait" target="_blank" rel="noopener noreferrer" aria-label="Facebook de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8h3V4h-3c-3 0-5 2-5 5v2H6v4h3v5h4v-5h3l1-4h-4V9c0-.7.3-1 1-1Z" fill="currentColor"/></svg><span>Facebook</span></a>
+          <a class="social-link" href="https://x.com/quisqueyait" target="_blank" rel="noopener noreferrer" aria-label="X de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4l14 16M19 4 5 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>X</span></a>
+          <a class="social-link" href="https://www.linkedin.com/in/julio-alberto-marte-balbuena-5454a072" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de QuisqueyaTech"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="9" width="3" height="11" fill="currentColor"/><circle cx="5.5" cy="5.5" r="1.8" fill="currentColor"/><path d="M10 9h3v1.6c1-1.3 2.2-2 4-2 3 0 4 2 4 5.2V20h-3v-5.5c0-1.8-.6-2.8-2.1-2.8-1.7 0-2.9 1.2-2.9 3.4V20h-3Z" fill="currentColor"/></svg><span>LinkedIn</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom"><span>© {new Date().getFullYear()} QuisqueyaTech · Puerto Plata, República Dominicana</span><a href={locale==="es"?"/privacidad":"/en/privacy"}>{nav.privacy}</a></div>
+  </div>
+</footer>
 <script is:inline>
 const button=document.querySelector('.mobile-toggle');const menu=document.querySelector('#mobile-menu');button?.addEventListener('click',()=>{const open=menu?.classList.toggle('open');button.setAttribute('aria-expanded',String(Boolean(open)));document.body.classList.toggle('menu-opened',Boolean(open));});document.querySelectorAll('#mobile-menu a').forEach(a=>a.addEventListener('click',()=>{menu?.classList.remove('open');button?.setAttribute('aria-expanded','false');document.body.classList.remove('menu-opened');}));
 </script>

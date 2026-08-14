@@ -38,6 +38,7 @@ Después de la primera instalación limpia, conserva el nuevo `package-lock.json
 ## Build
 
 ```bash
+npm run check
 npm run build
 npm run preview
 ```
@@ -143,6 +144,35 @@ PUBLIC_UMAMI_HOST_URL=
 
 Las variables `PUBLIC_UMAMI_*` siempre tienen prioridad sobre los valores de prueba de desarrollo.
 
+### Cobertura de eventos
+
+El sitio no se limita a pageviews. La capa `site-analytics.js` registra las interacciones relevantes y usa una taxonomía tipada definida en `src/types/analytics.ts`.
+
+Se instrumentan explícitamente:
+
+- CTA de evaluación;
+- intención de iniciar evaluación;
+- apertura real de LiveKit;
+- intención de agendar;
+- apertura real del scheduler;
+- navegación desktop y móvil;
+- mega-menu de soluciones;
+- cambio ES/EN;
+- cards de soluciones;
+- Recursos;
+- Nosotros/fundador;
+- email;
+- redes sociales;
+- privacidad.
+
+Además existe cobertura automática para cualquier enlace, botón, `summary`, elemento `role="button"`, submit de formulario, enlace externo, `mailto:`, `tel:` y descarga que no tenga metadata semántica propia.
+
+La referencia completa de eventos, propiedades, Goals y Funnels recomendados está en:
+
+```text
+docs/analytics.md
+```
+
 ### Verificación después del deployment
 
 Después del redeploy:
@@ -166,10 +196,13 @@ Debe devolver:
 object
 ```
 
-Para una prueba manual puedes ejecutar:
+Para probar la capa del sitio:
 
 ```js
-umami.track("production-diagnostic")
+QuisqueyaAnalytics.track("ui_click", {
+  location: "page",
+  label: "diagnostic"
+})
 ```
 
 Luego verifica ese evento en Umami.
@@ -187,6 +220,8 @@ No guardes en este repositorio:
 - `DATABASE_URL` de la instancia Umami;
 - secretos del servidor;
 - tokens privados.
+
+No envíes PII como propiedades de eventos o sesión.
 
 ## Contenido
 

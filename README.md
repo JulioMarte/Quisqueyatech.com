@@ -57,30 +57,136 @@ Las credenciales privadas de LiveKit pertenecen al servicio externo que crea o a
 
 ## Umami analytics
 
-El modo de desarrollo incluye un tracker de prueba para `localhost:4221`:
+### Desarrollo local
+
+El modo de desarrollo incluye un tracker de prueba para localhost:
 
 ```text
 script: https://umami.quisqueyatech.com/script.js
 website id: 73646329-42c9-4e31-96a8-ae04366b62fb
-domain: localhost
+domains: localhost,127.0.0.1
 ```
 
 Ese fallback solo se usa cuando `import.meta.env.DEV` es verdadero. No se usa como fallback durante un build de producción.
 
-Para producción crea un `.env` local o configura las mismas variables como build variables en Coolify:
+Para probarlo:
+
+```bash
+npm run dev
+```
+
+Abre `http://localhost:4221`. Si Astro usa otro puerto, el tracking local sigue funcionando porque Umami filtra por hostname, no por puerto.
+
+En DevTools puedes verificar:
+
+```js
+typeof window.umami
+```
+
+Debe devolver `"object"` después de cargar el tracker.
+
+### Producción con Coolify
+
+Umami se configura en este proyecto durante el **build estático de Astro**. Por eso las variables deben estar disponibles durante el build de Docker. No basta con añadirlas solamente como variables runtime después de que `npm run build` ya terminó.
+
+Antes del deployment, crea un Website nuevo en tu instancia de Umami para el dominio de producción. Usa el Website ID de ese sitio, no el ID de localhost.
+
+En Coolify abre la aplicación de QuisqueyaTech y añade estas variables de entorno/build:
 
 ```env
+PUBLIC_SITE_URL=https://www.quisqueyatech.com
 PUBLIC_UMAMI_SCRIPT_URL=https://umami.quisqueyatech.com/script.js
-PUBLIC_UMAMI_WEBSITE_ID=ID-DEL-SITIO-DE-PRODUCCION
+PUBLIC_UMAMI_WEBSITE_ID=ID-REAL-DE-QUISQUEYATECH
 PUBLIC_UMAMI_DOMAINS=quisqueyatech.com,www.quisqueyatech.com
 PUBLIC_UMAMI_HOST_URL=
 ```
 
-Las variables `PUBLIC_UMAMI_*` siempre tienen prioridad sobre los valores de prueba. De esta forma puedes sustituir el Website ID de localhost por el Website ID real de producción sin modificar el código.
+También configura las demás variables públicas necesarias para el sitio:
 
-`PUBLIC_UMAMI_HOST_URL` es opcional. Úsalo solamente cuando el script y el endpoint de recolección vivan en hosts diferentes.
+```env
+PUBLIC_CONTACT_EMAIL=info@quisqueyatech.com
+PUBLIC_LIVEKIT_ASSESSMENT_URL=
+PUBLIC_ASSESSMENT_SCHEDULE_URL=
+```
 
-No guardes contraseñas, tokens administrativos ni credenciales de base de datos de Umami en este repositorio.
+#### Configuración recomendada en Coolify
+
+1. Selecciona la aplicación de QuisqueyaTech.
+2. Abre la sección de variables de entorno.
+3. Añade cada variable `PUBLIC_*` con su valor de producción.
+4. Asegúrate de que Coolify exponga esas variables durante el Docker build.
+5. Guarda los cambios.
+6. Ejecuta un redeploy completo para reconstruir la imagen.
+
+Un cambio de `PUBLIC_UMAMI_WEBSITE_ID`, dominio o script requiere un rebuild. Astro inserta esa configuración en los archivos estáticos durante `npm run build`.
+
+El `Dockerfile` ya declara estas variables como `ARG` y `ENV` antes de ejecutar el build, por lo que no hace falta modificar el Dockerfile para un deployment normal en Coolify.
+
+### Valores de producción
+
+La configuración típica debe quedar así:
+
+```env
+PUBLIC_UMAMI_SCRIPT_URL=https://umami.quisqueyatech.com/script.js
+PUBLIC_UMAMI_WEBSITE_ID=<website-id-creado-en-umami-para-quisqueyatech.com>
+PUBLIC_UMAMI_DOMAINS=quisqueyatech.com,www.quisqueyatech.com
+PUBLIC_UMAMI_HOST_URL=
+```
+
+`PUBLIC_UMAMI_SCRIPT_URL` apunta al tracker público de la instancia self-hosted.
+
+`PUBLIC_UMAMI_WEBSITE_ID` identifica el Website de producción dentro de Umami.
+
+`PUBLIC_UMAMI_DOMAINS` evita enviar telemetría desde dominios no autorizados. Incluye tanto el dominio raíz como `www` si ambos pueden servir el sitio.
+
+`PUBLIC_UMAMI_HOST_URL` es opcional. Déjalo vacío cuando `script.js` y el endpoint de recopilación pertenecen a la misma instancia de Umami.
+
+Las variables `PUBLIC_UMAMI_*` siempre tienen prioridad sobre los valores de prueba de desarrollo.
+
+### Verificación después del deployment
+
+Después del redeploy:
+
+1. Abre `https://www.quisqueyatech.com`.
+2. Abre DevTools y entra en `Network`.
+3. Busca `script.js`.
+4. Confirma que carga desde `https://umami.quisqueyatech.com/script.js` con estado 200.
+5. Busca la solicitud de recopilación de Umami.
+6. Revisa el dashboard de Umami y confirma una visita nueva.
+
+También puedes comprobar desde la consola:
+
+```js
+typeof window.umami
+```
+
+Debe devolver:
+
+```text
+object
+```
+
+Para una prueba manual puedes ejecutar:
+
+```js
+umami.track("production-diagnostic")
+```
+
+Luego verifica ese evento en Umami.
+
+Si `script.js` aparece bloqueado por el navegador, revisa extensiones de privacidad, ad blockers y protección antirrastreo antes de asumir un problema del sitio.
+
+### Seguridad
+
+El Website ID y la URL de `script.js` son valores públicos que el navegador necesita para enviar telemetría.
+
+No guardes en este repositorio:
+
+- contraseñas de Umami;
+- credenciales administrativas;
+- `DATABASE_URL` de la instancia Umami;
+- secretos del servidor;
+- tokens privados.
 
 ## Contenido
 

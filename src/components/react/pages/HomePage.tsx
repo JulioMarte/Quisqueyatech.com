@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { localizedRoutes, siteConfig } from "../../../config/site";
 import { homeContent } from "../../../data/home";
+import { analyticsAttributes } from "../../../lib/analytics";
 import type { Locale } from "../../../types/ui";
 import { Button } from "../ui/Button";
 import { SectionHead } from "../ui/SectionHead";
@@ -24,6 +25,22 @@ const solutionIcons = [Workflow, Bot, Code2] as const;
 export function HomePage({ locale }: Props) {
   const content = homeContent[locale];
   const routes = localizedRoutes[locale];
+  const assessmentNowAnalytics = (location: "hero" | "assessment" | "final_cta") => ({
+    event: "assessment_start" as const,
+    location,
+    label: content.hero.primaryCta,
+    destination: routes.assessmentNow,
+    locale,
+    action: "start_now",
+  });
+  const assessmentScheduleAnalytics = (location: "hero" | "assessment" | "final_cta") => ({
+    event: "assessment_schedule" as const,
+    location,
+    label: content.hero.secondaryCta,
+    destination: routes.assessmentSchedule,
+    locale,
+    action: "schedule",
+  });
 
   return (
     <>
@@ -56,8 +73,8 @@ export function HomePage({ locale }: Props) {
           </h1>
           <p className="hero-lede hero-support" style={{ "--hero-delay": ".6s" } as MotionStyle}>{content.hero.lede}</p>
           <div className="hero-actions hero-support" style={{ "--hero-delay": ".72s" } as MotionStyle}>
-            <Button href={routes.assessmentNow} size="lg">{content.hero.primaryCta}</Button>
-            <Button href={routes.assessmentSchedule} variant="outline">{content.hero.secondaryCta}</Button>
+            <Button href={routes.assessmentNow} size="lg" analytics={assessmentNowAnalytics("hero")}>{content.hero.primaryCta}</Button>
+            <Button href={routes.assessmentSchedule} variant="outline" analytics={assessmentScheduleAnalytics("hero")}>{content.hero.secondaryCta}</Button>
           </div>
           <div className="hero-notes hero-support" style={{ "--hero-delay": ".82s" } as MotionStyle}>
             {content.hero.notes.map((note) => <span className="hero-note" key={note}><Check className="check-icon" aria-hidden="true" />{note}</span>)}
@@ -99,7 +116,7 @@ export function HomePage({ locale }: Props) {
           <div className="home-grid">
             {content.solutions.cards.map((card, index) => {
               const Icon = solutionIcons[index] ?? Code2;
-              return <a className="interactive-card" href={card.href} key={card.title}><div className="card-icon dark-icon"><Icon aria-hidden="true" /></div><h3>{card.title}</h3><p>{card.body}</p><span className="card-link">{content.solutions.linkLabel} →</span></a>;
+              return <a className="interactive-card" href={card.href} key={card.title} {...analyticsAttributes({ event: "solution_click", location: "solutions", label: card.title, destination: card.href, locale, solution: card.title })}><div className="card-icon dark-icon"><Icon aria-hidden="true" /></div><h3>{card.title}</h3><p>{card.body}</p><span className="card-link">{content.solutions.linkLabel} →</span></a>;
             })}
           </div>
         </div>
@@ -112,8 +129,8 @@ export function HomePage({ locale }: Props) {
             <h2>{content.assessment.title}</h2>
             <p>{content.assessment.description}</p>
             <div className="hero-actions">
-              <Button href={routes.assessmentNow} size="lg">{content.hero.primaryCta}</Button>
-              <Button href={routes.assessmentSchedule} variant="dark-outline">{content.hero.secondaryCta}</Button>
+              <Button href={routes.assessmentNow} size="lg" analytics={assessmentNowAnalytics("assessment")}>{content.hero.primaryCta}</Button>
+              <Button href={routes.assessmentSchedule} variant="dark-outline" analytics={assessmentScheduleAnalytics("assessment")}>{content.hero.secondaryCta}</Button>
             </div>
           </div>
           <div className="voice-card">
@@ -140,7 +157,7 @@ export function HomePage({ locale }: Props) {
             <h2>{content.founder.title}</h2>
             <p>{content.founder.description}</p>
             <p className="founder-name"><strong>{siteConfig.founder.name}</strong><br/>{content.founder.role}</p>
-            <div><Button href={routes.about} variant="outline">{content.founder.cta}</Button></div>
+            <div><Button href={routes.about} variant="outline" analytics={{ event: "about_click", location: "founder", label: content.founder.cta, destination: routes.about, locale }}>{content.founder.cta}</Button></div>
           </div>
         </div>
       </section>
@@ -151,7 +168,7 @@ export function HomePage({ locale }: Props) {
             <span className="eyebrow">{content.resources.eyebrow}</span>
             <h2>{content.resources.title}</h2>
             <p>{content.resources.description}</p>
-            <div><Button href={routes.resources} variant="outline">{content.resources.cta}</Button></div>
+            <div><Button href={routes.resources} variant="outline" analytics={{ event: "resource_click", location: "resources", label: content.resources.cta, destination: routes.resources, locale }}>{content.resources.cta}</Button></div>
           </div>
         </div>
       </section>
@@ -161,8 +178,8 @@ export function HomePage({ locale }: Props) {
           <h2>{content.finalCta.title}</h2>
           <p>{content.finalCta.description}</p>
           <div className="hero-actions">
-            <Button href={routes.assessmentNow} size="lg">{content.hero.primaryCta}</Button>
-            <Button href={routes.assessmentSchedule} variant="dark-outline">{content.hero.secondaryCta}</Button>
+            <Button href={routes.assessmentNow} size="lg" analytics={assessmentNowAnalytics("final_cta")}>{content.hero.primaryCta}</Button>
+            <Button href={routes.assessmentSchedule} variant="dark-outline" analytics={assessmentScheduleAnalytics("final_cta")}>{content.hero.secondaryCta}</Button>
           </div>
         </div>
       </section>

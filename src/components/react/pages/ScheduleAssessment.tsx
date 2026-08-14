@@ -21,7 +21,7 @@ export function ScheduleAssessment({ locale, scheduleUrl = "" }: Props) {
           <h1>{isEn ? "Choose a time. We will handle the rest." : "Elige un horario. Nosotros cuidamos el resto."}</h1>
           <p className="lede">{isEn ? "Check live availability, share your details, and receive your appointment confirmation." : "Consulta la disponibilidad real, comparte tus datos y recibe la confirmación de tu cita."}</p>
           {scheduleUrl ? (
-            <Button href={scheduleUrl} size="lg" target="_blank" rel="noopener noreferrer" analytics={{ event: "assessment_schedule", location: "assessment", label, destination: scheduleUrl, locale, action: "scheduler_handoff", channel: "scheduler" }}><CalendarCheck2 size={16} aria-hidden="true" />{label}</Button>
+            <Button href={scheduleUrl} size="lg" target="_blank" rel="noopener noreferrer" analytics={{ event: "scheduler_open", location: "assessment", label, destination: scheduleUrl, locale, action: "scheduler_handoff", channel: "scheduler" }}><CalendarCheck2 size={16} aria-hidden="true" />{label}</Button>
           ) : <p className="config-note">PUBLIC_ASSESSMENT_SCHEDULE_URL</p>}
         </div>
         <div className="schedule-panel motion-reveal">

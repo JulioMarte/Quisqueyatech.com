@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --no-audit --no-fund
 COPY . .
+
 ARG PUBLIC_SITE_URL=https://www.quisqueyatech.com
 ARG PUBLIC_CONTACT_EMAIL=info@quisqueyatech.com
 ARG PUBLIC_LIVEKIT_ASSESSMENT_URL
@@ -11,6 +12,7 @@ ARG PUBLIC_UMAMI_SCRIPT_URL
 ARG PUBLIC_UMAMI_WEBSITE_ID
 ARG PUBLIC_UMAMI_DOMAINS=quisqueyatech.com,www.quisqueyatech.com
 ARG PUBLIC_UMAMI_HOST_URL
+
 ENV PUBLIC_SITE_URL=$PUBLIC_SITE_URL \
     PUBLIC_CONTACT_EMAIL=$PUBLIC_CONTACT_EMAIL \
     PUBLIC_LIVEKIT_ASSESSMENT_URL=$PUBLIC_LIVEKIT_ASSESSMENT_URL \
@@ -19,10 +21,17 @@ ENV PUBLIC_SITE_URL=$PUBLIC_SITE_URL \
     PUBLIC_UMAMI_WEBSITE_ID=$PUBLIC_UMAMI_WEBSITE_ID \
     PUBLIC_UMAMI_DOMAINS=$PUBLIC_UMAMI_DOMAINS \
     PUBLIC_UMAMI_HOST_URL=$PUBLIC_UMAMI_HOST_URL
+
 RUN npm run build
 
 FROM nginx:1.29-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD wget -q -O /dev/null http://127.0.0.1/ || exit 1
+
+# Coolify resources migrated from the previous Next.js deployment may still
+# route to port 3000. Nginx listens on both 80 and 3000 so either configuration
+# works while the canonical Coolify Port Exposes value is migrated to 80.
+EXPOSE 80 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1/healthz || exit 1

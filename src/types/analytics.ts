@@ -1,5 +1,3 @@
-import type { Locale } from "./ui";
-
 export type AnalyticsEventName =
   | "cta_click"
   | "nav_click"
@@ -38,10 +36,10 @@ export interface AnalyticsMeta {
   location: AnalyticsLocation;
   label?: string;
   destination?: string;
-  locale?: Locale;
+  locale?: "es" | "en";
   action?: string;
   solution?: string;
   channel?: string;
 }
 
-export type UmamiDataAttributes = Record<`data-umami-event${string}`, string>;
+export type AnalyticsDataAttributes = Record<`data-analytics-${string}`, string>;

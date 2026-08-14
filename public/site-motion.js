@@ -24,6 +24,17 @@
     if (head) head.dataset.reveal = section.classList.contains('signature-cta') ? 'mask' : 'slide';
   });
 
+  document.querySelectorAll('.motion-reveal').forEach((el) => { el.dataset.reveal = 'slide'; });
+  document.querySelectorAll('.motion-mask').forEach((el) => { el.dataset.reveal = 'mask'; });
+  document.querySelectorAll('.motion-stagger').forEach((group) => {
+    [...group.querySelectorAll(':scope > .motion-item')].forEach((child, index) => {
+      child.dataset.staggerItem = '';
+      child.style.setProperty('--stagger-x', index % 2 === 0 ? '-18px' : '18px');
+      child.style.setProperty('--stagger-r', index % 2 === 0 ? '-1.5deg' : '1.5deg');
+      child.style.setProperty('--stagger-delay', `${index * .11}s`);
+    });
+  });
+
   const staggerGroups = [...document.querySelectorAll('.home-grid')];
   staggerGroups.forEach((group) => {
     [...group.children].forEach((child, index) => {

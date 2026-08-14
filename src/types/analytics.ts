@@ -5,6 +5,7 @@ export type AnalyticsEventName =
   | "assessment_start"
   | "assessment_schedule"
   | "livekit_open"
+  | "scheduler_open"
   | "language_change"
   | "resource_click"
   | "about_click"

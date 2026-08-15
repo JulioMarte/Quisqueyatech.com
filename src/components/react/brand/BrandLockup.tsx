@@ -17,7 +17,9 @@ export function BrandLockup({
     >
       <img src="/brand/logo-mark.png" width={40} height={40} alt="" />
       <span>
-        <span className="brand-name">QuisqueyaTech</span>
+        <span className="brand-name">
+          <span>Quisqueya</span><span className="brand-name-tech">Tech</span>
+        </span>
         {showDescriptor ? (
           <small className="brand-descriptor">Automatización, IA y software para empresas</small>
         ) : null}

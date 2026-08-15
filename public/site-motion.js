@@ -68,19 +68,38 @@
   const cards = [...document.querySelectorAll('[data-motion-card]')];
   if (!reduce && window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
     cards.forEach((card) => {
-      card.addEventListener('pointermove', (event) => {
-        const rect = card.getBoundingClientRect();
-        const x = (event.clientX - rect.left) / rect.width;
-        const y = (event.clientY - rect.top) / rect.height;
+      let rect = null;
+      let pendingPoint = null;
+      let pointerFrame = 0;
+
+      const measure = () => {
+        rect = card.getBoundingClientRect();
+      };
+
+      const paintPointer = () => {
+        pointerFrame = 0;
+        if (!rect || !pendingPoint) return;
+        const x = Math.max(0, Math.min(1, (pendingPoint.x - rect.left) / rect.width));
+        const y = Math.max(0, Math.min(1, (pendingPoint.y - rect.top) / rect.height));
         card.style.setProperty('--tilt-x', `${(0.5 - y) * 3}deg`);
         card.style.setProperty('--tilt-y', `${(x - 0.5) * 3}deg`);
         card.style.setProperty('--spot-x', `${x * 100}%`);
         card.style.setProperty('--spot-y', `${y * 100}%`);
-      });
+      };
+
+      card.addEventListener('pointerenter', measure, { passive: true });
+      card.addEventListener('pointermove', (event) => {
+        pendingPoint = { x: event.clientX, y: event.clientY };
+        if (!pointerFrame) pointerFrame = requestAnimationFrame(paintPointer);
+      }, { passive: true });
       card.addEventListener('pointerleave', () => {
+        rect = null;
+        pendingPoint = null;
+        if (pointerFrame) cancelAnimationFrame(pointerFrame);
+        pointerFrame = 0;
         card.style.setProperty('--tilt-x','0deg');
         card.style.setProperty('--tilt-y','0deg');
-      });
+      }, { passive: true });
     });
   }
 
@@ -113,28 +132,61 @@
       stepEls.forEach((el, i) => { el.style.transitionDelay = `${i * .04}s`; stepObserver.observe(el); });
     }
 
-    if (reduce) flow.style.setProperty('--process-progress','0');
-    else {
-      let ticking = false;
-      const update = () => {
-        ticking = false;
+    if (reduce) {
+      flow.style.setProperty('--process-progress','0');
+    } else {
+      const paths = [...flow.querySelectorAll('.process-path-active')];
+      let flowTop = 0;
+      let flowHeight = 1;
+      let viewportHeight = window.innerHeight;
+      let scrollFrame = 0;
+      let measureFrame = 0;
+
+      const measureFlow = () => {
+        measureFrame = 0;
         const rect = flow.getBoundingClientRect();
-        const vh = window.innerHeight;
-        const start = vh * .80;
-        const end = vh * .38;
-        const span = rect.height + start - end;
-        const raw = (start - rect.top) / span;
-        const p = Math.max(0, Math.min(1, raw));
-        flow.style.setProperty('--process-progress', String(p));
-        const secondary = p < .14 ? 0 : (p - .14) / .86;
-        flow.style.setProperty('--process-secondary', String(Math.max(0, Math.min(1, secondary))));
-        const paths = flow.querySelectorAll('.process-path-active');
-        paths.forEach((path, i) => { path.style.strokeDashoffset = String(1 - (i % 2 ? secondary : p)); });
+        flowTop = rect.top + window.scrollY;
+        flowHeight = Math.max(1, rect.height);
+        viewportHeight = window.innerHeight;
       };
-      const requestUpdate = () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } };
-      addEventListener('scroll', requestUpdate, { passive:true });
-      addEventListener('resize', requestUpdate, { passive:true });
-      update();
+
+      const paintScroll = () => {
+        scrollFrame = 0;
+        const start = viewportHeight * .80;
+        const end = viewportHeight * .38;
+        const span = flowHeight + start - end;
+        const relativeTop = flowTop - window.scrollY;
+        const raw = (start - relativeTop) / span;
+        const progress = Math.max(0, Math.min(1, raw));
+        const secondary = progress < .14 ? 0 : Math.max(0, Math.min(1, (progress - .14) / .86));
+
+        flow.style.setProperty('--process-progress', String(progress));
+        flow.style.setProperty('--process-secondary', String(secondary));
+        paths.forEach((path, index) => {
+          path.style.strokeDashoffset = String(1 - (index % 2 ? secondary : progress));
+        });
+      };
+
+      const requestPaint = () => {
+        if (!scrollFrame) scrollFrame = requestAnimationFrame(paintScroll);
+      };
+
+      const requestMeasure = () => {
+        if (measureFrame) return;
+        measureFrame = requestAnimationFrame(() => {
+          measureFlow();
+          requestPaint();
+        });
+      };
+
+      addEventListener('scroll', requestPaint, { passive: true });
+      addEventListener('resize', requestMeasure, { passive: true });
+      if ('ResizeObserver' in window) {
+        const resizeObserver = new ResizeObserver(requestMeasure);
+        resizeObserver.observe(flow);
+      }
+
+      requestMeasure();
     }
   }
 })();

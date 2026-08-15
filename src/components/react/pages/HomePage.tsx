@@ -84,9 +84,18 @@ export function HomePage({ locale }: Props) {
               <path d="M110 28 C160 95 360 84 500 124" />
               <path d="M500 28 C500 68 500 88 500 124" />
               <path d="M890 28 C840 95 640 84 500 124" />
-              <circle className="flow-signal flow-signal-amber" r="5"><animateMotion dur="5.8s" begin="1.25s" repeatCount="indefinite" path="M110 28 C160 95 360 84 500 124" /></circle>
-              <circle className="flow-signal flow-signal-blue" r="5"><animateMotion dur="5.8s" begin="2.7s" repeatCount="indefinite" path="M500 28 C500 68 500 88 500 124" /></circle>
-              <circle className="flow-signal flow-signal-amber" r="5"><animateMotion dur="5.8s" begin="4.1s" repeatCount="indefinite" path="M890 28 C840 95 640 84 500 124" /></circle>
+              <circle className="flow-signal flow-signal-amber" r="5" visibility="hidden">
+                <set attributeName="visibility" to="visible" begin="1.25s" />
+                <animateMotion dur="5.8s" begin="1.25s" repeatCount="indefinite" path="M110 28 C160 95 360 84 500 124" />
+              </circle>
+              <circle className="flow-signal flow-signal-blue" r="5" visibility="hidden">
+                <set attributeName="visibility" to="visible" begin="2.7s" />
+                <animateMotion dur="5.8s" begin="2.7s" repeatCount="indefinite" path="M500 28 C500 68 500 88 500 124" />
+              </circle>
+              <circle className="flow-signal flow-signal-amber" r="5" visibility="hidden">
+                <set attributeName="visibility" to="visible" begin="4.1s" />
+                <animateMotion dur="5.8s" begin="4.1s" repeatCount="indefinite" path="M890 28 C840 95 640 84 500 124" />
+              </circle>
             </svg>
             <div className="system-flow-sources">
               <span className="system-node system-node-source"><Workflow aria-hidden="true" />{content.hero.sources[0]}</span>

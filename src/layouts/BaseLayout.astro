@@ -31,6 +31,12 @@ const canonical = new URL(cleanPath, site).toString();
 const alternate = new URL(alternatePath, site).toString();
 const fullTitle = `${title} | ${siteConfig.name}`;
 const socialImage = new URL(image, site).toString();
+const isDev = import.meta.env.DEV;
+const umamiScriptUrl = import.meta.env.PUBLIC_UMAMI_SCRIPT_URL || (isDev ? "https://umami.quisqueyatech.com/script.js" : "");
+const umamiWebsiteId = import.meta.env.PUBLIC_UMAMI_WEBSITE_ID || (isDev ? "73646329-42c9-4e31-96a8-ae04366b62fb" : "");
+const umamiDomains = import.meta.env.PUBLIC_UMAMI_DOMAINS || (isDev ? "localhost,127.0.0.1" : new URL(site).hostname);
+const umamiHostUrl = import.meta.env.PUBLIC_UMAMI_HOST_URL || "";
+const umamiEnabled = Boolean(umamiScriptUrl && umamiWebsiteId);
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "ProfessionalService",
@@ -105,7 +111,17 @@ const organizationJsonLd = {
   <Navbar locale={locale} currentPath={cleanPath} alternatePath={alternatePath} />
   <main id="content"><slot /></main>
   <Footer locale={locale} publicEmail={publicEmail} />
-  <script src="/umami-loader.js" defer fetchpriority="low"></script>
+  {umamiEnabled && (
+    <script
+      is:inline
+      async
+      fetchpriority="low"
+      src={umamiScriptUrl}
+      data-website-id={umamiWebsiteId}
+      data-domains={umamiDomains}
+      data-host-url={umamiHostUrl || undefined}
+    ></script>
+  )}
   <script src="/site-analytics.js" defer fetchpriority="low"></script>
   <script src="/site-motion.js" defer fetchpriority="low"></script>
 </body>

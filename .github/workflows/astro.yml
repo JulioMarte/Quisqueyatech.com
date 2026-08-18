@@ -4,7 +4,7 @@ on:
   push:
     branches: [development]
   pull_request:
-    branches: [main]
+    branches: [development, main]
   workflow_dispatch:
 
 jobs:
@@ -19,6 +19,12 @@ jobs:
           node-version: 22.20.0
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Test SQLite schema and search
+        run: npm run test:sqlite
+      - name: Smoke test file-backed SQLite migrations
+        env:
+          SQLITE_DATABASE_PATH: /tmp/quisqueyatech-ci.sqlite
+        run: npm run db:migrate
       - name: Type-check Astro and React
         run: npm run check
       - name: Build static site

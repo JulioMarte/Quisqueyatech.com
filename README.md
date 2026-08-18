@@ -58,9 +58,15 @@ Las credenciales privadas de LiveKit pertenecen al servicio externo que crea o a
 
 ## Umami analytics
 
+La instancia self-hosted oficial es:
+
+```text
+https://umami.quisqueyatech.com
+```
+
 ### Desarrollo local
 
-El modo de desarrollo incluye un tracker de prueba para localhost:
+El modo de desarrollo incluye un Website ID separado para localhost:
 
 ```text
 script: https://umami.quisqueyatech.com/script.js
@@ -68,7 +74,7 @@ website id: 73646329-42c9-4e31-96a8-ae04366b62fb
 domains: localhost,127.0.0.1
 ```
 
-Ese fallback solo se usa cuando `import.meta.env.DEV` es verdadero. No se usa como fallback durante un build de producción.
+Ese ID nunca se usa como fallback de producción.
 
 Para probarlo:
 
@@ -86,63 +92,72 @@ typeof window.umami
 
 Debe devolver `"object"` después de cargar el tracker.
 
-### Producción con Coolify
+### Producción
 
-Umami se configura en este proyecto durante el **build estático de Astro**. Por eso las variables deben estar disponibles durante el build de Docker. No basta con añadirlas solamente como variables runtime después de que `npm run build` ya terminó.
+El Website ID oficial de QuisqueyaTech es:
 
-Antes del deployment, crea un Website nuevo en tu instancia de Umami para el dominio de producción. Usa el Website ID de ese sitio, no el ID de localhost.
+```text
+925defd4-10b8-4cc9-99ea-e7a271967e56
+```
 
-En Coolify abre la aplicación de QuisqueyaTech y añade estas variables de entorno/build:
+`BaseLayout.astro` contiene defaults seguros para los dos hosts canónicos:
+
+```text
+quisqueyatech.com
+www.quisqueyatech.com
+```
+
+Cuando `PUBLIC_SITE_URL` apunta a uno de esos hosts y no existen overrides `PUBLIC_UMAMI_*`, Astro genera automáticamente el tracker equivalente a:
+
+```html
+<script
+  async
+  src="https://umami.quisqueyatech.com/script.js"
+  data-website-id="925defd4-10b8-4cc9-99ea-e7a271967e56"
+  data-domains="quisqueyatech.com,www.quisqueyatech.com"
+></script>
+```
+
+El tracker se carga con prioridad baja para no competir con LCP.
+
+### Preview y staging
+
+Los builds cuyo `PUBLIC_SITE_URL` no sea `quisqueyatech.com` ni `www.quisqueyatech.com` **no reciben automáticamente el Website ID de producción**. Esto evita contaminar analytics de producción con tráfico de preview.
+
+Para instrumentar `preview.quisqueyatech.com`, crea preferiblemente otro Website en Umami y proporciona sus valores durante el build:
+
+```env
+PUBLIC_SITE_URL=https://preview.quisqueyatech.com
+PUBLIC_UMAMI_SCRIPT_URL=https://umami.quisqueyatech.com/script.js
+PUBLIC_UMAMI_WEBSITE_ID=<website-id-separado-de-preview>
+PUBLIC_UMAMI_DOMAINS=preview.quisqueyatech.com
+PUBLIC_UMAMI_HOST_URL=
+```
+
+### Coolify
+
+Umami forma parte del build estático de Astro. Las variables `PUBLIC_*` deben estar disponibles durante el Docker build; cambiar una variable requiere rebuild/redeploy.
+
+Para producción basta con:
+
+```env
+PUBLIC_SITE_URL=https://www.quisqueyatech.com
+PUBLIC_CONTACT_EMAIL=info@quisqueyatech.com
+```
+
+porque el script, Website ID y dominios oficiales ya tienen defaults seguros en el código.
+
+Si prefieres configuración explícita en Coolify, usa:
 
 ```env
 PUBLIC_SITE_URL=https://www.quisqueyatech.com
 PUBLIC_UMAMI_SCRIPT_URL=https://umami.quisqueyatech.com/script.js
-PUBLIC_UMAMI_WEBSITE_ID=ID-REAL-DE-QUISQUEYATECH
+PUBLIC_UMAMI_WEBSITE_ID=925defd4-10b8-4cc9-99ea-e7a271967e56
 PUBLIC_UMAMI_DOMAINS=quisqueyatech.com,www.quisqueyatech.com
 PUBLIC_UMAMI_HOST_URL=
 ```
 
-También configura las demás variables públicas necesarias para el sitio:
-
-```env
-PUBLIC_CONTACT_EMAIL=info@quisqueyatech.com
-PUBLIC_LIVEKIT_ASSESSMENT_URL=
-PUBLIC_ASSESSMENT_SCHEDULE_URL=
-```
-
-#### Configuración recomendada en Coolify
-
-1. Selecciona la aplicación de QuisqueyaTech.
-2. Abre la sección de variables de entorno.
-3. Añade cada variable `PUBLIC_*` con su valor de producción.
-4. Asegúrate de que Coolify exponga esas variables durante el Docker build.
-5. Guarda los cambios.
-6. Ejecuta un redeploy completo para reconstruir la imagen.
-
-Un cambio de `PUBLIC_UMAMI_WEBSITE_ID`, dominio o script requiere un rebuild. Astro inserta esa configuración en los archivos estáticos durante `npm run build`.
-
-El `Dockerfile` ya declara estas variables como `ARG` y `ENV` antes de ejecutar el build, por lo que no hace falta modificar el Dockerfile para un deployment normal en Coolify.
-
-### Valores de producción
-
-La configuración típica debe quedar así:
-
-```env
-PUBLIC_UMAMI_SCRIPT_URL=https://umami.quisqueyatech.com/script.js
-PUBLIC_UMAMI_WEBSITE_ID=<website-id-creado-en-umami-para-quisqueyatech.com>
-PUBLIC_UMAMI_DOMAINS=quisqueyatech.com,www.quisqueyatech.com
-PUBLIC_UMAMI_HOST_URL=
-```
-
-`PUBLIC_UMAMI_SCRIPT_URL` apunta al tracker público de la instancia self-hosted.
-
-`PUBLIC_UMAMI_WEBSITE_ID` identifica el Website de producción dentro de Umami.
-
-`PUBLIC_UMAMI_DOMAINS` evita enviar telemetría desde dominios no autorizados. Incluye tanto el dominio raíz como `www` si ambos pueden servir el sitio.
-
-`PUBLIC_UMAMI_HOST_URL` es opcional. Déjalo vacío cuando `script.js` y el endpoint de recopilación pertenecen a la misma instancia de Umami.
-
-Las variables `PUBLIC_UMAMI_*` siempre tienen prioridad sobre los valores de prueba de desarrollo.
+Las variables `PUBLIC_UMAMI_*` siempre tienen prioridad sobre los defaults del código. El `Dockerfile` ya las declara como `ARG` y `ENV` antes de `npm run build`.
 
 ### Cobertura de eventos
 
@@ -181,10 +196,10 @@ Después del redeploy:
 2. Abre DevTools y entra en `Network`.
 3. Busca `script.js`.
 4. Confirma que carga desde `https://umami.quisqueyatech.com/script.js` con estado 200.
-5. Busca la solicitud de recopilación de Umami.
-6. Revisa el dashboard de Umami y confirma una visita nueva.
+5. Confirma una solicitud de recopilación de Umami.
+6. Revisa el dashboard de Umami y confirma la visita y los eventos.
 
-También puedes comprobar desde la consola:
+Desde la consola:
 
 ```js
 typeof window.umami
@@ -196,7 +211,7 @@ Debe devolver:
 object
 ```
 
-Para probar la capa del sitio:
+Para probar la capa semántica del sitio:
 
 ```js
 QuisqueyaAnalytics.track("ui_click", {
@@ -204,8 +219,6 @@ QuisqueyaAnalytics.track("ui_click", {
   label: "diagnostic"
 })
 ```
-
-Luego verifica ese evento en Umami.
 
 Si `script.js` aparece bloqueado por el navegador, revisa extensiones de privacidad, ad blockers y protección antirrastreo antes de asumir un problema del sitio.
 

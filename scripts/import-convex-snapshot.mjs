@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -14,9 +14,11 @@ if (snapshotRoot.endsWith('.zip')) {
 if (!existsSync(snapshotRoot)) throw new Error(`Snapshot directory does not exist: ${snapshotRoot}`);
 
 const dbPath = resolve(process.env.SQLITE_DATABASE_PATH || 'data/quisqueyatech.sqlite');
+const publicUploads = resolve(process.env.SQLITE_MEDIA_OUTPUT_PATH || 'public/uploads');
 if (!existsSync(dbPath)) {
   throw new Error(`SQLite database does not exist at ${dbPath}. Run npm run db:migrate first.`);
 }
+mkdirSync(publicUploads, { recursive: true });
 
 const db = new DatabaseSync(dbPath, { enableForeignKeyConstraints: false, timeout: 5000 });
 db.exec('PRAGMA busy_timeout = 5000');
@@ -35,6 +37,16 @@ const normalizeValue = (value) => {
   if (value !== null && typeof value === 'object') return JSON.stringify(value);
   return value;
 };
+
+const extensionFor = (contentType) => ({
+  'image/avif': 'avif',
+  'image/gif': 'gif',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/svg+xml': 'svg',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+}[String(contentType || '').toLowerCase()] || 'bin');
 
 const tableDirectories = readdirSync(snapshotRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
 let total = 0;
@@ -68,7 +80,12 @@ try {
       delete mapped._creationTime;
 
       if (convexTable === '_storage') {
-        mapped.path = resolve(snapshotRoot, '_storage', String(mapped.id));
+        const source = resolve(snapshotRoot, '_storage', String(mapped.id));
+        const extension = extensionFor(mapped.contentType);
+        const fileName = `${mapped.id}.${extension}`;
+        const destination = resolve(publicUploads, fileName);
+        if (existsSync(source)) copyFileSync(source, destination);
+        mapped.path = `/uploads/${fileName}`;
         mapped.metadata = document;
       }
 
@@ -97,7 +114,6 @@ if (violations.length) {
   throw new Error(`Imported data has ${violations.length} foreign-key violation(s)`);
 }
 
-// FTS external-content indexes need rebuilding after a bulk import performed with triggers already present.
 for (const ftsTable of ['bookingsSearch', 'postsSearch']) {
   const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(ftsTable);
   if (exists) db.exec(`INSERT INTO ${quote(ftsTable)}(${quote(ftsTable)}) VALUES ('rebuild')`);

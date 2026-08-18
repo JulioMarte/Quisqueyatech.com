@@ -24,6 +24,7 @@ const {
 } = Astro.props;
 
 const site = import.meta.env.PUBLIC_SITE_URL || siteConfig.defaultUrl;
+const siteHostname = new URL(site).hostname;
 const publicEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || siteConfig.defaultEmail;
 const cleanPath = path ? `/${path.replace(/^\//, "")}` : locale === "en" ? "/en" : "/";
 const alternatePath = getAlternatePath(cleanPath, locale);
@@ -31,12 +32,33 @@ const canonical = new URL(cleanPath, site).toString();
 const alternate = new URL(alternatePath, site).toString();
 const fullTitle = `${title} | ${siteConfig.name}`;
 const socialImage = new URL(image, site).toString();
+
 const isDev = import.meta.env.DEV;
-const umamiScriptUrl = import.meta.env.PUBLIC_UMAMI_SCRIPT_URL || (isDev ? "https://umami.quisqueyatech.com/script.js" : "");
-const umamiWebsiteId = import.meta.env.PUBLIC_UMAMI_WEBSITE_ID || (isDev ? "73646329-42c9-4e31-96a8-ae04366b62fb" : "");
-const umamiDomains = import.meta.env.PUBLIC_UMAMI_DOMAINS || (isDev ? "localhost,127.0.0.1" : new URL(site).hostname);
+const productionHosts = new Set(["quisqueyatech.com", "www.quisqueyatech.com"]);
+const isProductionSite = productionHosts.has(siteHostname);
+const defaultUmamiScriptUrl = "https://umami.quisqueyatech.com/script.js";
+const localUmamiWebsiteId = "73646329-42c9-4e31-96a8-ae04366b62fb";
+const productionUmamiWebsiteId = "925defd4-10b8-4cc9-99ea-e7a271967e56";
+
+// PUBLIC_UMAMI_* always wins. Without overrides, localhost uses its own test
+// Website ID and only the canonical production hosts use the production ID.
+// Preview/staging builds therefore stay untracked unless explicitly configured.
+const umamiScriptUrl =
+  import.meta.env.PUBLIC_UMAMI_SCRIPT_URL ||
+  (isDev || isProductionSite ? defaultUmamiScriptUrl : "");
+const umamiWebsiteId =
+  import.meta.env.PUBLIC_UMAMI_WEBSITE_ID ||
+  (isDev ? localUmamiWebsiteId : isProductionSite ? productionUmamiWebsiteId : "");
+const umamiDomains =
+  import.meta.env.PUBLIC_UMAMI_DOMAINS ||
+  (isDev
+    ? "localhost,127.0.0.1"
+    : isProductionSite
+      ? "quisqueyatech.com,www.quisqueyatech.com"
+      : siteHostname);
 const umamiHostUrl = import.meta.env.PUBLIC_UMAMI_HOST_URL || "";
 const umamiEnabled = Boolean(umamiScriptUrl && umamiWebsiteId);
+
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "ProfessionalService",

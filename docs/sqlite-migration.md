@@ -4,61 +4,92 @@ Branch: `feature/convex-to-sqlite`
 
 ## Objective
 
-Replace Convex as the persistence layer without coupling Astro components directly to SQL.
+Replace Convex as the persistence/runtime data layer without coupling Astro components directly to SQL.
 
-The migration preserves the historical Convex field names (`assessmentId`, `createdAt`, etc.) and stores Convex document `_id` values as `id TEXT PRIMARY KEY`. This minimizes domain-level code churn and keeps references stable while importing a Convex backup.
+The migration preserves historical Convex field names (`assessmentId`, `createdAt`, etc.) and stores Convex document `_id` values as `id TEXT PRIMARY KEY`. This minimizes domain churn and keeps references stable while importing backups.
 
 ## Architecture
 
 ```text
-Astro / application code
-        ↓
-TypeScript repositories
-        ↓
-SQLiteDatabase
-        ↓
+Static public site
+Astro → HTML/CSS/JS → Nginx
+
+Stateful runtime
+Browser/provider
+      ↓
+API / worker
+      ↓
+TypeScript domain services
+      ↓
+repositories / SQLiteDatabase
+      ↓
 node:sqlite
-        ↓
-SQLite file
+      ↓
+quisqueyatech.sqlite
 ```
 
-SQL must not be embedded in visual components.
-
-## Runtime boundary
-
-The current `development` architecture produces a static Astro site served by Nginx. A static Nginx container cannot mutate SQLite in response to browser requests.
-
-Therefore this branch deliberately separates two use cases:
-
-1. **Build-time/public content** — posts and categories can be read from SQLite while Astro builds static pages.
-2. **Operational writes** — leads, assessments, bookings, webhooks, admin mutations and other stateful flows require a server process/API if they are re-enabled.
-
-The SQLite schema includes the operational tables so historical Convex data can be preserved and the future API can use the same database, but this branch does not pretend that Nginx itself replaces the old Convex function runtime.
+Visual components must never contain SQL. Public Astro can read SQLite at build time; operational writes require the future API/worker process.
 
 ## Why `node:sqlite`
 
-The project already requires Node.js 22.20.0+. `node:sqlite` is included in Node and does not require a native npm dependency. `DatabaseSync` is acceptable here because static builds and the intended lightweight administrative/API workload do not need a high-concurrency database driver abstraction at this stage.
-
-Database access is centralized in `src/server/db/sqlite.ts`, so moving to another SQLite driver later does not require rewriting UI code.
+The project requires Node.js 22.20.0+. `node:sqlite` ships with Node and avoids another native database dependency. Database access is centralized in `src/server/db/sqlite.ts`, so changing drivers later does not require changing the domain or UI.
 
 ## Schema translation
 
-Convex tables are translated in:
+Versioned migrations:
 
 ```text
 db/migrations/001_operational.sql
 db/migrations/002_content_admin.sql
 db/migrations/003_search.sql
+db/migrations/004_booking_lead_retention.sql
 ```
 
-Important translations:
+Translations:
 
-- `v.id(...)` → `TEXT` plus foreign keys where the target is an application table.
-- `v.any()`, arrays and objects → JSON encoded as `TEXT` with `json_valid(...)` checks.
-- booleans → `INTEGER` constrained to `0/1`.
-- Convex indexes → SQLite indexes.
-- Convex `searchIndex` for bookings/posts → SQLite FTS5 virtual tables + synchronization triggers.
-- `_storage` metadata → `storageObjects`; exported files are copied into `public/uploads` for static publication.
+- `v.id(...)` → `TEXT` plus foreign keys for application-owned relations;
+- `v.any()`, arrays and objects → JSON `TEXT` with `json_valid(...)` constraints;
+- booleans → constrained integer `0/1`;
+- Convex indexes → SQLite indexes;
+- Convex `searchIndex` → FTS5 + synchronization triggers;
+- `_storage` → `storageObjects` plus exported files;
+- booking→lead now uses `ON DELETE CASCADE`, preventing the orphaned reference state that Convex retention could create.
+
+The migration runner owns transaction boundaries. SQL migration files must not contain their own `BEGIN`/`COMMIT`.
+
+## Behavioral parity matrix
+
+`PORTED` means the historical behavior has a SQLite service/repository and dedicated tests. `ADAPTER` means the capability belongs to a third-party/runtime adapter rather than custom SQL. `PENDING` is not merge-complete.
+
+| Historical Convex surface | SQLite replacement | State |
+| --- | --- | --- |
+| `schema.ts` | versioned `db/migrations/*` | PORTED |
+| public `posts.published*` | `db/repositories/posts.ts` | PORTED |
+| content admin/agent/revisions/media/AI/idempotency | `services/content.ts` | PORTED |
+| `agenda.ts` / booking persistence | `repositories/bookings.ts` + `services/agenda.ts` | PORTED |
+| assessment interview model | `domain/assessment/*` | PORTED |
+| assessment persistence/lifecycle/telemetry/recovery | `repositories/assessments.ts` + `services/assessments.ts` | PORTED |
+| `webhookDelivery.ts` | repository + lease/retry service | PORTED |
+| `webhookHttp.ts` | `services/webhook-http.ts` | PORTED |
+| webhook scheduled consumer | `workers/webhook-delivery.ts` | PORTED |
+| `settings.ts` | `services/settings.ts` | PORTED |
+| `funnel.ts` | `services/funnel.ts` | PORTED |
+| `retention.ts` | `services/retention.ts` | PORTED |
+| admin install/recovery/content agents/security rate limits | `services/admin-security.ts` | PORTED |
+| Better Auth user/session/account/verification storage | Better Auth native SQLite adapter | ADAPTER |
+| Better Auth HTTP routes | future API server | PENDING |
+| `/machine/runtime` | future API server using `SettingsService.internalRuntime()` | PENDING |
+| scheduled cron execution | future worker process/scheduler | PENDING |
+
+Do not call the migration complete while any required runtime row above remains `PENDING`.
+
+## Runtime security boundaries
+
+- Admin settings never return ciphertexts. Only server-internal runtime code can read encrypted secret values.
+- Webhook delivery preserves SSRF/DNS-rebinding protection, HMAC signing, pinned DNS resolution, timeout handling and sanitized errors.
+- Admin bootstrap and recovery claims use transactional leases.
+- Content agents use two-phase activation/rotation and independent rate-limit buckets.
+- Better Auth is not reimplemented. Its user/password/session tables should be managed by Better Auth's supported SQLite adapter in the API server.
 
 ## Create the database
 
@@ -66,112 +97,64 @@ Important translations:
 npm run db:migrate
 ```
 
-Default location:
+Default:
 
 ```text
 data/quisqueyatech.sqlite
 ```
 
-Override it with:
+Override:
 
 ```env
 SQLITE_DATABASE_PATH=/absolute/path/quisqueyatech.sqlite
 ```
 
-The local SQLite database, WAL and SHM files are gitignored.
+SQLite, WAL and SHM files are gitignored.
 
-## Export Convex
+## Export and import Convex
 
-From the old Convex project/deployment, create a snapshot. For production data:
+Keep the original Convex export immutable:
 
 ```bash
 npx convex export --prod --include-file-storage --path snapshot.zip
 ```
 
-Keep the original ZIP as an immutable backup before importing anything.
-
-Extract the ZIP. Convex snapshots contain one directory per table and `documents.jsonl` inside each table directory.
-
-## Import the snapshot
-
-First create/migrate SQLite:
+Extract it, then:
 
 ```bash
+npm install
 npm run db:migrate
-```
-
-Then import the extracted directory:
-
-```bash
 npm run db:import:convex -- /path/to/extracted-snapshot
 ```
 
 The importer:
 
-- preserves `_id` as `id`;
-- preserves `_creationTime` as `creationTime`;
-- serializes nested Convex JSON values;
-- converts booleans to SQLite `0/1`;
-- copies `_storage` files into `public/uploads`;
+- preserves `_id` → `id`;
+- preserves `_creationTime` → `creationTime`;
+- serializes nested values explicitly;
+- converts booleans to `0/1`;
+- materializes `_storage` data;
 - rebuilds FTS indexes;
-- runs `PRAGMA foreign_key_check` after import and fails on broken references.
+- runs `PRAGMA foreign_key_check` and fails on broken references.
 
-The importer intentionally does not silently accept an unextracted ZIP.
-
-## Public post repository
-
-The old public Convex queries:
-
-```text
-posts.published
-posts.publishedBySlug
-```
-
-are represented by:
-
-```text
-src/server/db/repositories/posts.ts
-```
-
-with:
-
-```ts
-getPublishedPosts(locale)
-getPublishedPost(locale, slug)
-searchPosts(...)
-```
-
-Only published posts whose `publishedAt <= Date.now()` are returned, preserving the old publication semantics.
-
-## Tests
-
-Run:
+## Validation
 
 ```bash
 npm run test:sqlite
+npm run check
+npm run build
 ```
 
-Tests verify:
+CI additionally creates a real file-backed database, builds the deployment image and smoke-tests Nginx.
 
-- expected Convex tables exist in SQLite;
-- locale and foreign-key constraints reject invalid data;
-- FTS5 search works for posts and bookings.
+SQLite tests now cover schema/FTS plus domain behavior for agenda, assessments, content, retention, settings, webhook delivery/worker, funnel events and admin security. A green schema test alone is not sufficient; behavioral tests are the migration gate.
 
-CI additionally runs a file-backed migration smoke test.
+## Remaining work before merge
 
-## Remaining application migration
+1. Wire Better Auth to SQLite using its supported adapter and generated/migrated auth schema.
+2. Replace Convex HTTP routing with a small API server exposing only the required public/admin/machine contracts.
+3. Add a long-running/scheduled worker entrypoint for webhook delivery and retention/publish cleanup.
+4. Run a real Convex production snapshot through the importer and reconcile every table/file/count before cutover.
+5. Perform dual-read/acceptance comparison where practical before disabling the old Convex deployment.
 
-The schema/data migration is not equivalent to porting every historical Convex function. The old code also supplied transaction boundaries, authentication context, scheduled jobs, storage APIs and server-side function execution.
-
-Before re-enabling those capabilities, port each domain behind a repository/service boundary:
-
-```text
-posts/content      → SQLite repositories (started)
-bookings/agenda    → booking service + SQLite repository
-assessments        → assessment service + SQLite repository
-webhooks/outbox    → worker/service + SQLite repository
-auth/admin         → server auth layer; never browser-to-SQLite
-scheduled cleanup  → cron/worker process
-```
-
-Do not expose the SQLite file directly over HTTP and do not move database credentials/paths into `PUBLIC_*` variables.
+Never expose the SQLite file directly over HTTP and never place database paths, auth secrets or encryption keys in `PUBLIC_*` variables.

@@ -11,7 +11,7 @@
     "preview": "astro preview",
     "db:migrate": "node scripts/sqlite-migrate.mjs",
     "db:import:convex": "node scripts/import-convex-snapshot.mjs",
-    "test:sqlite": "node --test tests/sqlite/*.test.mjs",
+    "test:sqlite": "node --test tests/sqlite/*.test.mjs && tsx --test tests/sqlite/*.test.ts",
     "clean": "node -e \"const fs=require('fs'); for (const p of ['dist','.astro']) fs.rmSync(p,{recursive:true,force:true})\""
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   }
 }

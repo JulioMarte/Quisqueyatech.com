@@ -11,6 +11,7 @@ import { SettingsService } from "../../src/server/services/settings";
 const AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";
 const ADMIN_SECRET = "test-admin-api-secret-0123456789abcdef";
 const SETUP_CODE = "test-admin-setup-code-0123456789abcdef";
+const TRUSTED_ORIGIN = "https://preview.quisqueyatech.com";
 const RECOVERY = Array.from({ length: 8 }, (_, index) => String(index + 1).repeat(64));
 
 async function fixture(options: { setupCode?: string } = {}) {
@@ -20,7 +21,7 @@ async function fixture(options: { setupCode?: string } = {}) {
     databasePath,
     authSecret: AUTH_SECRET,
     authBaseURL: "http://127.0.0.1",
-    trustedOrigins: ["https://preview.quisqueyatech.com"],
+    trustedOrigins: [TRUSTED_ORIGIN],
     adminSetupCode: options.setupCode ?? "",
     adminApiSecret: ADMIN_SECRET,
   });
@@ -91,7 +92,11 @@ test("Better Auth signup is gated by setup code and finalizes first admin with r
     });
     const denied = await fetch(`${f.origin}/api/auth/sign-up/email`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-admin-recovery-hashes": JSON.stringify(RECOVERY) },
+      headers: {
+        "content-type": "application/json",
+        origin: TRUSTED_ORIGIN,
+        "x-admin-recovery-hashes": JSON.stringify(RECOVERY),
+      },
       body,
     });
     assert.ok(denied.status >= 400);
@@ -101,6 +106,7 @@ test("Better Auth signup is gated by setup code and finalizes first admin with r
       method: "POST",
       headers: {
         "content-type": "application/json",
+        origin: TRUSTED_ORIGIN,
         "x-admin-setup-code": SETUP_CODE,
         "x-admin-recovery-hashes": JSON.stringify(RECOVERY),
       },
@@ -117,6 +123,7 @@ test("Better Auth signup is gated by setup code and finalizes first admin with r
       method: "POST",
       headers: {
         "content-type": "application/json",
+        origin: TRUSTED_ORIGIN,
         "x-admin-setup-code": SETUP_CODE,
         "x-admin-recovery-hashes": JSON.stringify(RECOVERY),
       },
@@ -130,8 +137,8 @@ test("Better Auth signup is gated by setup code and finalizes first admin with r
 test("auth CORS only grants credentials to configured trusted origins", async () => {
   const f = await fixture();
   try {
-    const allowed = await fetch(`${f.origin}/api/auth/ok`, { headers: { origin: "https://preview.quisqueyatech.com" } });
-    assert.equal(allowed.headers.get("access-control-allow-origin"), "https://preview.quisqueyatech.com");
+    const allowed = await fetch(`${f.origin}/api/auth/ok`, { headers: { origin: TRUSTED_ORIGIN } });
+    assert.equal(allowed.headers.get("access-control-allow-origin"), TRUSTED_ORIGIN);
     assert.equal(allowed.headers.get("access-control-allow-credentials"), "true");
 
     const blockedPreflight = await fetch(`${f.origin}/api/auth/sign-in/email`, {

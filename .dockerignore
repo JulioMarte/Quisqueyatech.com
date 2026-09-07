@@ -14,6 +14,12 @@ services
 tests
 .opencode
 
+# Runtime state must be mounted, never baked into either image.
+data
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
 *.md
 !README.md
 

@@ -4,6 +4,7 @@ import { toNodeHandler } from "better-auth/node";
 import { createAuthRuntime } from "./auth";
 import { SQLiteDatabase, databasePath as defaultDatabasePath } from "./db/sqlite";
 import { AdminSecurityService } from "./services/admin-security";
+import { AuthRecoveryService } from "./services/auth-recovery";
 import { SettingsService } from "./services/settings";
 
 export interface ApiRuntimeOptions {
@@ -40,12 +41,33 @@ function normalizedOrigin(value: string) {
   try { return new URL(value).origin; } catch { return ""; }
 }
 
+async function readJson(request: IncomingMessage, limit = 16_384) {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += value.length;
+    if (size > limit) throw new Error("BODY_TOO_LARGE");
+    chunks.push(value);
+  }
+  if (!chunks.length) return {} as Record<string, unknown>;
+  try {
+    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("INVALID_JSON");
+    return value as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof Error && error.message === "BODY_TOO_LARGE") throw error;
+    throw new Error("INVALID_JSON");
+  }
+}
+
 export function createApiRuntime(options: ApiRuntimeOptions) {
   if (options.adminApiSecret.trim().length < 24) throw new Error("ADMIN_API_SECRET must be at least 24 characters");
   const path = options.databasePath ?? defaultDatabasePath();
   const database = new SQLiteDatabase({ path });
   const settings = new SettingsService(database);
   const security = new AdminSecurityService(database);
+  const recovery = new AuthRecoveryService(database);
   const trustedOrigins = [...new Set((options.trustedOrigins ?? []).map(normalizedOrigin).filter(Boolean))];
   const authRuntime = createAuthRuntime({
     databasePath: path,
@@ -69,6 +91,25 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
 
     if (url.pathname === "/admin/setup/status" && request.method === "GET") {
       json(response, 200, security.setupStatus(Date.now(), options.adminSetupCode ?? ""));
+      return;
+    }
+
+    if (url.pathname === "/admin/recover" && request.method === "POST") {
+      if (!safeEqual(bearer(request), options.adminApiSecret)) {
+        json(response, 401, { error: "Unauthorized" });
+        return;
+      }
+      try {
+        const body = await readJson(request);
+        await recovery.recover({
+          codeHash: typeof body.codeHash === "string" ? body.codeHash : "",
+          newPassword: typeof body.newPassword === "string" ? body.newPassword : "",
+        });
+        json(response, 200, { ok: true });
+      } catch {
+        // Do not distinguish unknown codes, expired claims, missing accounts or malformed passwords.
+        json(response, 400, { error: "Invalid recovery request" });
+      }
       return;
     }
 

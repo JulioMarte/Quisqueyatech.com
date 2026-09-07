@@ -10,6 +10,7 @@
     "build": "astro check && astro build",
     "preview": "astro preview",
     "api:start": "tsx scripts/api-server.ts",
+    "worker:start": "tsx scripts/runtime-worker.ts",
     "db:migrate": "node scripts/sqlite-migrate.mjs",
     "db:migrate:auth": "tsx scripts/auth-migrate.ts",
     "db:import:convex": "node scripts/import-convex-snapshot.mjs",

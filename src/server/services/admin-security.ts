@@ -134,7 +134,8 @@ export class AdminSecurityService {
   }
 
   listAgents(now = Date.now()) {
-    return (this.database.prepare("SELECT * FROM contentAgents ORDER BY createdAt DESC LIMIT 200").all() as AgentRow[]).map((agent) => ({
+    const rows = this.database.prepare("SELECT * FROM contentAgents ORDER BY createdAt DESC LIMIT 200").all() as unknown as AgentRow[];
+    return rows.map((agent) => ({
       id: agent.id,
       keyId: agent.keyId,
       name: agent.name,
@@ -244,7 +245,7 @@ export class AdminSecurityService {
     this.database.transaction(() => {
       this.database.prepare("DELETE FROM contentAgentRateLimits WHERE resetAt <= ?").run(now - 3_600_000);
       this.database.prepare("DELETE FROM authSecurityRateLimits WHERE resetAt <= ?").run(now - 3_600_000);
-      const expired = this.database.prepare("SELECT * FROM contentAgents WHERE pendingExpiresAt IS NOT NULL AND pendingExpiresAt <= ? LIMIT 100").all(now) as AgentRow[];
+      const expired = this.database.prepare("SELECT * FROM contentAgents WHERE pendingExpiresAt IS NOT NULL AND pendingExpiresAt <= ? LIMIT 100").all(now) as unknown as AgentRow[];
       for (const agent of expired) {
         if (agent.status === "pending") this.database.prepare(`UPDATE contentAgents SET status='revoked',revokedAt=?,${clearPendingSql()} WHERE id=?`).run(now, agent.id);
         else this.database.prepare(`UPDATE contentAgents SET ${clearPendingSql()} WHERE id=?`).run(agent.id);

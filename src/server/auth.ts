@@ -94,11 +94,6 @@ export function createAuthRuntime(options: AuthRuntimeOptions) {
         },
       },
     },
-    advanced: {
-      database: {
-        joins: true,
-      },
-    },
   });
 
   return {

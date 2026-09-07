@@ -1,16 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { SQLiteDatabase } from "../db/sqlite";
 
-const ALLOWED_SECRET_KEYS = new Set([
-  "ultravoxApiKey",
-  "ultravoxWebhookSecret",
-  "livekitApiKey",
-  "livekitApiSecret",
-  "geminiApiKey",
-  "webhookSecret",
-]);
-
-const ALLOWED_CONFIG_KEYS = new Set([
+const CONFIG_KEYS = [
   "defaultProvider",
   "ultravoxApiUrl",
   "ultravoxModel",
@@ -20,20 +11,20 @@ const ALLOWED_CONFIG_KEYS = new Set([
   "geminiLiveVoice",
   "webhookEnabled",
   "webhookUrl",
+] as const;
+
+type RuntimeConfigKey = (typeof CONFIG_KEYS)[number];
+const ALLOWED_CONFIG_KEYS = new Set<string>(CONFIG_KEYS);
+const ALLOWED_SECRET_KEYS = new Set([
+  "ultravoxApiKey",
+  "ultravoxWebhookSecret",
+  "livekitApiKey",
+  "livekitApiSecret",
+  "geminiApiKey",
+  "webhookSecret",
 ]);
 
-export type RuntimeConfig = Partial<Record<
-  | "defaultProvider"
-  | "ultravoxApiUrl"
-  | "ultravoxModel"
-  | "ultravoxVoice"
-  | "livekitUrl"
-  | "geminiLiveModel"
-  | "geminiLiveVoice"
-  | "webhookEnabled"
-  | "webhookUrl",
-  string | boolean | number
->>;
+export type RuntimeConfig = Partial<Record<RuntimeConfigKey, string | boolean | number>>;
 
 export interface SecretInput {
   key: string;
@@ -70,7 +61,9 @@ function validateConfig(input: unknown): RuntimeConfig {
       throw new Error("VALIDATION_ERROR: unsupported configuration field");
     }
   }
-  return config as RuntimeConfig;
+  return Object.fromEntries(
+    Object.entries(config).filter(([key]) => ALLOWED_CONFIG_KEYS.has(key)),
+  ) as RuntimeConfig;
 }
 
 function validateSecret(secret: SecretInput) {
@@ -87,7 +80,7 @@ export class SettingsService {
 
   adminGet() {
     const configRow = this.database.prepare("SELECT * FROM systemSettings WHERE key='runtime.config' LIMIT 1").get() as SystemSettingRow | undefined;
-    const secrets = this.database.prepare("SELECT key,lastFour,updatedAt FROM secretSettings ORDER BY key").all() as Array<Pick<SecretRow, "key" | "lastFour" | "updatedAt">>;
+    const secrets = this.database.prepare("SELECT key,lastFour,updatedAt FROM secretSettings ORDER BY key").all() as unknown as Array<Pick<SecretRow, "key" | "lastFour" | "updatedAt">>;
     return {
       config: configRow ? JSON.parse(configRow.value) as RuntimeConfig : {},
       secrets: Object.fromEntries(secrets.map((item) => [item.key, {
@@ -100,7 +93,7 @@ export class SettingsService {
 
   internalRuntime() {
     const configRow = this.database.prepare("SELECT * FROM systemSettings WHERE key='runtime.config' LIMIT 1").get() as SystemSettingRow | undefined;
-    const secrets = this.database.prepare("SELECT key,ciphertext FROM secretSettings ORDER BY key").all() as Array<Pick<SecretRow, "key" | "ciphertext">>;
+    const secrets = this.database.prepare("SELECT key,ciphertext FROM secretSettings ORDER BY key").all() as unknown as Array<Pick<SecretRow, "key" | "ciphertext">>;
     return {
       config: configRow ? JSON.parse(configRow.value) as RuntimeConfig : {},
       secrets: Object.fromEntries(secrets.map((item) => [item.key, item.ciphertext])),
@@ -116,8 +109,8 @@ export class SettingsService {
 
     return this.database.transaction(() => {
       const current = this.database.prepare("SELECT * FROM systemSettings WHERE key='runtime.config' LIMIT 1").get() as SystemSettingRow | undefined;
-      const previous = current ? JSON.parse(current.value) as Record<string, unknown> : {};
-      const changedFields = [...new Set([...Object.keys(previous), ...Object.keys(config)])]
+      const previous = current ? JSON.parse(current.value) as RuntimeConfig : {};
+      const changedFields = CONFIG_KEYS
         .filter((key) => JSON.stringify(previous[key]) !== JSON.stringify(config[key]))
         .sort();
 

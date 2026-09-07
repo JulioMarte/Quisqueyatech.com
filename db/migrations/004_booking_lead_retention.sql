@@ -1,6 +1,3 @@
-PRAGMA foreign_keys = OFF;
-BEGIN IMMEDIATE;
-
 DROP TRIGGER IF EXISTS bookings_search_insert;
 DROP TRIGGER IF EXISTS bookings_search_delete;
 DROP TRIGGER IF EXISTS bookings_search_update;
@@ -74,6 +71,3 @@ CREATE TRIGGER bookings_search_update AFTER UPDATE ON bookings BEGIN
   VALUES (new.rowid,coalesce(new.searchText,''),new.status,new.channel);
 END;
 INSERT INTO bookingsSearch(bookingsSearch) VALUES ('rebuild');
-
-COMMIT;
-PRAGMA foreign_keys = ON;

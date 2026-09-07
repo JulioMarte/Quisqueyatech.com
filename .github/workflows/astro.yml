@@ -25,6 +25,23 @@ jobs:
         env:
           SQLITE_DATABASE_PATH: /tmp/quisqueyatech-ci.sqlite
         run: npm run db:migrate
+      - name: Migrate Better Auth on shared SQLite database
+        env:
+          SQLITE_DATABASE_PATH: /tmp/quisqueyatech-ci.sqlite
+          BETTER_AUTH_SECRET: ci-only-better-auth-secret-0123456789abcdef
+          BETTER_AUTH_URL: http://127.0.0.1:8787
+          AUTH_TRUSTED_ORIGINS: http://127.0.0.1:8787
+        run: |
+          npm run db:migrate:auth
+          node - <<'NODE'
+          const { DatabaseSync } = require('node:sqlite');
+          const db = new DatabaseSync('/tmp/quisqueyatech-ci.sqlite');
+          const names = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((row) => String(row.name)));
+          for (const table of ['user', 'session', 'account', 'verification']) {
+            if (!names.has(table)) throw new Error(`Missing Better Auth table: ${table}`);
+          }
+          db.close();
+          NODE
       - name: Type-check Astro and React
         run: npm run check
       - name: Build static site

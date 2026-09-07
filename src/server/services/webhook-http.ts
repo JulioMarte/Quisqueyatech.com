@@ -45,9 +45,14 @@ function forbiddenIpv4(address: string) {
   );
 }
 
+function normalizedHostname(value: string) {
+  const host = value.toLowerCase().replace(/\.$/, "");
+  return host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+}
+
 export function forbiddenIp(address: string) {
-  if (isIP(address) === 4) return forbiddenIpv4(address);
-  const value = address.toLowerCase().split("%")[0];
+  const value = normalizedHostname(address).split("%")[0];
+  if (isIP(value) === 4) return forbiddenIpv4(value);
   const mapped = value.match(/::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return forbiddenIpv4(mapped[1]);
   return value === "::" || value === "::1" || /^f[cd]/.test(value) || /^fe[89ab]/.test(value) || /^ff/.test(value) || /^2001:db8[:]/.test(value);
@@ -58,7 +63,7 @@ export function normalizedDestination(raw: string) {
   try { url = new URL(raw); } catch { throw new Error("INVALID_DESTINATION"); }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.hostname) throw new Error("INVALID_DESTINATION");
   if (process.env.NODE_ENV === "production" && url.protocol !== "https:") throw new Error("INVALID_DESTINATION");
-  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  const host = normalizedHostname(url.hostname);
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal") || host === "metadata.google.internal") {
     throw new Error("DESTINATION_BLOCKED");
   }
@@ -76,9 +81,10 @@ export async function deliverWebhook(input: {
   const startedAt = Date.now();
   try {
     const url = normalizedDestination(input.url);
-    const addresses = isIP(url.hostname)
-      ? [{ address: url.hostname, family: isIP(url.hostname) }]
-      : await lookup(url.hostname, { all: true, verbatim: true });
+    const hostname = normalizedHostname(url.hostname);
+    const addresses = isIP(hostname)
+      ? [{ address: hostname, family: isIP(hostname) }]
+      : await lookup(hostname, { all: true, verbatim: true });
     if (!addresses.length || addresses.some((item) => forbiddenIp(item.address))) throw new Error("DESTINATION_BLOCKED");
     const preferred = addresses.find((item) => item.family === 4) ?? addresses[0];
     const pinnedLookup = ((

@@ -115,8 +115,15 @@ test("booking endpoint verifies human, is idempotent and rejects a second bookin
       headers,
       body: JSON.stringify(bookingBody(slot, bookingAttemptId)),
     });
-    assert.equal(first.status, 200, await first.text());
-    const firstPayload = await first.json() as { ok: boolean; bookingId: string; confirmed: boolean; status: string };
+    const firstText = await first.text();
+    assert.equal(first.status, 200, firstText);
+    const firstPayload = JSON.parse(firstText) as {
+      ok: boolean;
+      bookingId: string;
+      configured: boolean;
+      confirmed: boolean;
+      status: string;
+    };
     assert.deepEqual(firstPayload, {
       ok: true,
       bookingId: bookingAttemptId,

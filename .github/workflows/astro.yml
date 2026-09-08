@@ -117,6 +117,7 @@ jobs:
             -e BETTER_AUTH_URL=http://127.0.0.1:18787 \
             -e AUTH_TRUSTED_ORIGINS=http://127.0.0.1:18787 \
             -e ADMIN_API_SECRET=ci-only-admin-api-secret-0123456789abcdef \
+            -e ASSESSMENT_WORKER_SECRET=ci-only-assessment-worker-secret-0123456789abcdef \
             quisqueyatech-runtime:test
 
           for i in $(seq 1 30); do
@@ -128,3 +129,7 @@ jobs:
 
           curl --fail --show-error --silent http://127.0.0.1:18787/healthz | grep -q '"database":"sqlite"'
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18787/machine/runtime)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18787/api/assessment/worker-config)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -H 'Authorization: Bearer ci-only-assessment-worker-secret-0123456789abcdef' \
+            http://127.0.0.1:18787/api/assessment/worker-config)" = "503"

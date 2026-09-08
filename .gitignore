@@ -16,6 +16,11 @@ dist/
 build/
 out/
 
+# SQLite local state
+/data/*.sqlite
+/data/*.sqlite-shm
+/data/*.sqlite-wal
+
 # Testing and coverage
 coverage/
 playwright-report/

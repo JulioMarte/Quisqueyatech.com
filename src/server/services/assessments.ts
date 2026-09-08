@@ -155,6 +155,11 @@ export class AssessmentService {
     });
   }
 
+  getSession(assessmentId: string, sessionKey: string) {
+    const session = this.repo.getSessionByKey(sessionKey);
+    return session?.assessmentId === assessmentId ? session : null;
+  }
+
   getByProviderSession(providerSessionId: string) {
     const session = this.repo.getSessionByProviderSession(providerSessionId);
     if (!session) return null;

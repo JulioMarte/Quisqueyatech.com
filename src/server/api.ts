@@ -3,8 +3,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { toNodeHandler } from "better-auth/node";
 import { createAuthRuntime } from "./auth";
 import { SQLiteDatabase, databasePath as defaultDatabasePath } from "./db/sqlite";
+import { createAssessmentWorkerRoutes } from "./routes/assessment-worker";
 import { AdminSecurityService } from "./services/admin-security";
 import { AgendaService, type BookingCreateInput } from "./services/agenda";
+import { AssessmentService } from "./services/assessments";
 import { AuthRecoveryService } from "./services/auth-recovery";
 import { FunnelService } from "./services/funnel";
 import { SettingsService } from "./services/settings";
@@ -17,6 +19,7 @@ export interface ApiRuntimeOptions {
   trustedOrigins?: string[];
   adminSetupCode?: string;
   adminApiSecret: string;
+  assessmentWorkerSecret?: string;
   clientIpHeaders?: string[];
   verifyTurnstile?: (token: string | undefined, ip: string | undefined, action: TurnstileAction) => Promise<TurnstileResult>;
 }
@@ -162,10 +165,16 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
   const security = new AdminSecurityService(database);
   const recovery = new AuthRecoveryService(database);
   const agenda = new AgendaService(database);
+  const assessments = new AssessmentService(database);
   const funnel = new FunnelService(database);
   const verifyTurnstile = options.verifyTurnstile ?? turnstileVerifierFromEnv();
   const clientIpHeaders = options.clientIpHeaders ?? [];
   const trustedOrigins = [...new Set((options.trustedOrigins ?? []).map(normalizedOrigin).filter(Boolean))];
+  const assessmentWorkerRoutes = createAssessmentWorkerRoutes({
+    workerSecret: options.assessmentWorkerSecret?.trim() ?? "",
+    assessments,
+    settings,
+  });
   const authRuntime = createAuthRuntime({
     databasePath: path,
     secret: options.authSecret,
@@ -322,6 +331,8 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
       return;
     }
 
+    if (await assessmentWorkerRoutes(request, response, url)) return;
+
     if (url.pathname.startsWith("/api/auth/")) {
       const origin = applyCors(request, response, trustedOrigins);
       if (origin) response.setHeader("Access-Control-Allow-Credentials", "true");
@@ -364,6 +375,7 @@ export function apiRuntimeFromEnv() {
       .filter(Boolean),
     adminSetupCode: process.env.ADMIN_SETUP_CODE?.trim() ?? "",
     adminApiSecret: process.env.ADMIN_API_SECRET?.trim() ?? "",
+    assessmentWorkerSecret: process.env.ASSESSMENT_WORKER_SECRET?.trim() ?? "",
     clientIpHeaders: (process.env.TRUSTED_CLIENT_IP_HEADERS || "")
       .split(",")
       .map((value) => value.trim())

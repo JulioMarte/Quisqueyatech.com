@@ -1,5 +1,6 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { createAssessmentSnapshot } from "../domain/assessment/engine";
 import type { AssessmentEvidence, AssessmentFieldKey, ProgressInput, ProgressReason } from "../domain/assessment/types";
 import type { AdminSecurityService } from "../services/admin-security";
 import {
@@ -35,6 +36,8 @@ const TELEMETRY_EVENTS = new Set([
   "agent_initializing", "agent_ready", "finalization_started", "finalization_completed",
 ]);
 const PLAYBACK_STATES = new Set(["unknown", "blocked", "ready", "playing", "failed"]);
+
+type AssessmentLocale = "es" | "en";
 
 export interface AssessmentPublicRouteOptions {
   workerSecret: string;
@@ -167,7 +170,12 @@ function progressAuthority(request: IncomingMessage, options: AssessmentPublicRo
   return { worker: false, token: verified, matches: verified.assessmentId === assessmentId };
 }
 
-function parseConferenceStart(body: Record<string, unknown>) {
+function parseConferenceStart(body: Record<string, unknown>): {
+  locale: AssessmentLocale;
+  visitorId?: string;
+  turnstileToken?: string;
+  resumeToken?: string;
+} {
   if (body.mode !== "conference") throw new Error("INVALID:mode");
   if (body.locale !== "es" && body.locale !== "en") throw new Error("INVALID:locale");
   if (body.processingConsent !== true || body.recordingConsent !== true) throw new Error("INVALID:consent");
@@ -272,7 +280,7 @@ export function createAssessmentPublicRoutes(options: AssessmentPublicRouteOptio
         }
 
         let previous: ReturnType<AssessmentService["getState"]> = null;
-        let assessmentId = randomUUID();
+        let assessmentId: string = randomUUID();
         if (parsed.resumeToken) {
           const verified = options.tokens.verify(parsed.resumeToken, "resume");
           if (!verified) {
@@ -288,7 +296,7 @@ export function createAssessmentPublicRoutes(options: AssessmentPublicRouteOptio
         }
 
         const now = Date.now();
-        const locale = previous?.lead?.locale === "en" ? "en" : parsed.locale;
+        const locale: AssessmentLocale = previous?.lead?.locale === "en" ? "en" : parsed.locale;
         const temporaryId = randomUUID();
         options.assessments.create({
           assessmentId,
@@ -305,7 +313,7 @@ export function createAssessmentPublicRoutes(options: AssessmentPublicRouteOptio
           mode: "now",
           provider: "livekit",
           frameworkVersion: INTERVIEW_FRAMEWORK_VERSION,
-          snapshot: previous?.snapshot ?? undefined,
+          snapshot: previous?.snapshot ?? createAssessmentSnapshot(locale, now),
           createdAt: now,
           audioExpiresAt: now + 30 * 86_400_000,
           transcriptExpiresAt: now + 90 * 86_400_000,
@@ -493,7 +501,7 @@ export function createAssessmentPublicRoutes(options: AssessmentPublicRouteOptio
           return true;
         }
         const transcript = redactSensitiveText(body.transcript).text;
-        const locale = stored.lead?.locale === "en" ? "en" : body.locale;
+        const locale: AssessmentLocale = stored.lead?.locale === "en" ? "en" : body.locale;
         const result = await buildAssessmentReport(options.settings, stored.snapshot ?? undefined, locale);
         options.assessments.complete({
           assessmentId,
@@ -560,7 +568,7 @@ export function createAssessmentPublicRoutes(options: AssessmentPublicRouteOptio
         }
         nextSessionKey = claim.replacementSessionKey || replacement;
         const stored = options.assessments.getState(verified.assessmentId);
-        const locale = stored?.lead?.locale === "en" ? "en" : "es";
+        const locale: AssessmentLocale = stored?.lead?.locale === "en" ? "en" : "es";
         const name = stored?.lead?.firstName || (locale === "es" ? "Visitante" : "Guest");
         const existing = options.assessments.getSession(verified.assessmentId, nextSessionKey);
         if (existing?.providerSessionId) {

@@ -6,7 +6,7 @@ import { decryptSetting } from "./webhook-http";
 export const INTERVIEW_FRAMEWORK_VERSION = "2026-07-v1";
 export const DEFAULT_GEMINI_LIVE_MODEL = "gemini-3.1-flash-live-preview";
 export const DEFAULT_GEMINI_LIVE_VOICE = "Aoede";
-export const TELEMETRY_RETENTION_MS = 14 * 24 * 60 * 60_000;
+export const TELEMETRY_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
 const SENSITIVE_PATTERNS = [
   { pattern: /\b(?:\d[ -]*?){13,19}\b/g, label: "payment-card-like number" },

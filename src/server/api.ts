@@ -3,14 +3,19 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { toNodeHandler } from "better-auth/node";
 import { createAuthRuntime } from "./auth";
 import { SQLiteDatabase, databasePath as defaultDatabasePath } from "./db/sqlite";
+import { createAssessmentPublicRoutes } from "./routes/assessment-public";
 import { createAssessmentWorkerRoutes } from "./routes/assessment-worker";
 import { AdminSecurityService } from "./services/admin-security";
 import { AgendaService, type BookingCreateInput } from "./services/agenda";
+import { AssessmentTokenService } from "./services/assessment-tokens";
+import { assessmentVoiceFromSettings, type AssessmentVoiceRuntime } from "./services/assessment-voice";
 import { AssessmentService } from "./services/assessments";
 import { AuthRecoveryService } from "./services/auth-recovery";
 import { FunnelService } from "./services/funnel";
 import { SettingsService } from "./services/settings";
 import { turnstileVerifierFromEnv, type TurnstileAction, type TurnstileResult } from "./services/turnstile";
+
+const DEV_ASSESSMENT_TOKEN_SECRET = "local-development-assessment-token-secret-change-me";
 
 export interface ApiRuntimeOptions {
   databasePath?: string;
@@ -20,6 +25,8 @@ export interface ApiRuntimeOptions {
   adminSetupCode?: string;
   adminApiSecret: string;
   assessmentWorkerSecret?: string;
+  assessmentTokenSecret?: string;
+  assessmentVoice?: AssessmentVoiceRuntime;
   clientIpHeaders?: string[];
   verifyTurnstile?: (token: string | undefined, ip: string | undefined, action: TurnstileAction) => Promise<TurnstileResult>;
 }
@@ -170,11 +177,22 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
   const verifyTurnstile = options.verifyTurnstile ?? turnstileVerifierFromEnv();
   const clientIpHeaders = options.clientIpHeaders ?? [];
   const trustedOrigins = [...new Set((options.trustedOrigins ?? []).map(normalizedOrigin).filter(Boolean))];
-  const assessmentWorkerRoutes = createAssessmentWorkerRoutes({
-    workerSecret: options.assessmentWorkerSecret?.trim() ?? "",
+  const workerSecret = options.assessmentWorkerSecret?.trim() ?? "";
+  const tokenSecret = options.assessmentTokenSecret?.trim() || DEV_ASSESSMENT_TOKEN_SECRET;
+  const tokens = new AssessmentTokenService(tokenSecret);
+  const voice = options.assessmentVoice ?? assessmentVoiceFromSettings(settings);
+  const assessmentPublicRoutes = createAssessmentPublicRoutes({
+    workerSecret,
+    tokens,
     assessments,
     settings,
+    security,
+    funnel,
+    voice,
+    requestIp: (request) => requestIp(request, clientIpHeaders),
+    verifyTurnstile,
   });
+  const assessmentWorkerRoutes = createAssessmentWorkerRoutes({ workerSecret, assessments, settings });
   const authRuntime = createAuthRuntime({
     databasePath: path,
     secret: options.authSecret,
@@ -297,23 +315,11 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
         void _turnstileToken;
         const result = agenda.create(input);
         try {
-          funnel.track({
-            sessionId: bookingId,
-            locale: input.locale,
-            name: "assessment_booked",
-            bookingId,
-            createdAt: Date.now(),
-          });
+          funnel.track({ sessionId: bookingId, locale: input.locale, name: "assessment_booked", bookingId, createdAt: Date.now() });
         } catch {
           // Funnel telemetry must never turn a committed booking into an HTTP failure.
         }
-        json(response, 200, {
-          ok: true,
-          bookingId,
-          configured: true,
-          confirmed: result.confirmed,
-          status: result.status,
-        });
+        json(response, 200, { ok: true, bookingId, configured: true, confirmed: result.confirmed, status: result.status });
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
         if (message.includes("SLOT_UNAVAILABLE")) {
@@ -331,7 +337,22 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
       return;
     }
 
-    if (await assessmentWorkerRoutes(request, response, url)) return;
+    if (url.pathname.startsWith("/api/assessment/")) {
+      const origin = applyCors(request, response, trustedOrigins);
+      if (request.method === "OPTIONS") {
+        if (!origin) {
+          json(response, 403, { error: "Origin not allowed" });
+          return;
+        }
+        response.statusCode = 204;
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        response.end();
+        return;
+      }
+      if (await assessmentPublicRoutes(request, response, url)) return;
+      if (await assessmentWorkerRoutes(request, response, url)) return;
+    }
 
     if (url.pathname.startsWith("/api/auth/")) {
       const origin = applyCors(request, response, trustedOrigins);
@@ -366,6 +387,10 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
 }
 
 export function apiRuntimeFromEnv() {
+  const assessmentTokenSecret = process.env.ASSESSMENT_TOKEN_SECRET?.trim() ?? "";
+  if (process.env.NODE_ENV === "production" && assessmentTokenSecret.length < 32) {
+    throw new Error("ASSESSMENT_TOKEN_SECRET must be at least 32 characters in production");
+  }
   return createApiRuntime({
     authSecret: process.env.BETTER_AUTH_SECRET?.trim() ?? "",
     authBaseURL: process.env.BETTER_AUTH_URL?.trim() || "http://127.0.0.1:8787",
@@ -376,6 +401,7 @@ export function apiRuntimeFromEnv() {
     adminSetupCode: process.env.ADMIN_SETUP_CODE?.trim() ?? "",
     adminApiSecret: process.env.ADMIN_API_SECRET?.trim() ?? "",
     assessmentWorkerSecret: process.env.ASSESSMENT_WORKER_SECRET?.trim() ?? "",
+    assessmentTokenSecret: assessmentTokenSecret || DEV_ASSESSMENT_TOKEN_SECRET,
     clientIpHeaders: (process.env.TRUSTED_CLIENT_IP_HEADERS || "")
       .split(",")
       .map((value) => value.trim())

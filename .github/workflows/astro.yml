@@ -118,6 +118,7 @@ jobs:
             -e AUTH_TRUSTED_ORIGINS=http://127.0.0.1:18787 \
             -e ADMIN_API_SECRET=ci-only-admin-api-secret-0123456789abcdef \
             -e ASSESSMENT_WORKER_SECRET=ci-only-assessment-worker-secret-0123456789abcdef \
+            -e ASSESSMENT_TOKEN_SECRET=ci-only-assessment-token-secret-0123456789abcdef \
             quisqueyatech-runtime:test
 
           for i in $(seq 1 30); do
@@ -133,3 +134,9 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
             -H 'Authorization: Bearer ci-only-assessment-worker-secret-0123456789abcdef' \
             http://127.0.0.1:18787/api/assessment/worker-config)" = "503"
+          start_status="$(curl --silent --output /tmp/assessment-start.json --write-out '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -d '{"mode":"conference","locale":"es","processingConsent":true,"recordingConsent":true}' \
+            http://127.0.0.1:18787/api/assessment/start)"
+          test "$start_status" = "503"
+          grep -q '"code":"LIVEKIT_NOT_CONFIGURED"' /tmp/assessment-start.json

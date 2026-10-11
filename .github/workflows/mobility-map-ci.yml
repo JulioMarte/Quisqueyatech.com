@@ -1,0 +1,26 @@
+name: Mobility Map CI
+on:
+  pull_request:
+    paths:
+      - "public/mobility-puerto-plata/**"
+      - ".github/workflows/mobility-map-ci.yml"
+  push:
+    branches: [main, "feat/puerto-plata-mobility-map"]
+    paths:
+      - "public/mobility-puerto-plata/**"
+      - ".github/workflows/mobility-map-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate offline HTML and integrity
+        run: python3 public/mobility-puerto-plata/tests/validate_mobility.py
+      - name: Upload browser-ready page
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobility-puerto-plata
+          path: public/mobility-puerto-plata/index.html

@@ -19,6 +19,24 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate offline HTML and integrity
         run: python3 public/mobility-puerto-plata/tests/validate_mobility.py
+      - name: Check inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Extract(HTMLParser):
+              capture=False
+              parts=[]
+              def handle_starttag(self,tag,attrs):
+                  if tag=="script" and not dict(attrs).get("src"): self.capture=True
+              def handle_endtag(self,tag):
+                  if tag=="script": self.capture=False
+              def handle_data(self,data):
+                  if self.capture: self.parts.append(data)
+          p=Extract();p.feed(Path("public/mobility-puerto-plata/index.html").read_text())
+          Path("/tmp/mobility-map.js").write_text("\\n".join(p.parts))
+          PY
+          node --check /tmp/mobility-map.js
       - name: Upload browser-ready page
         uses: actions/upload-artifact@v4
         with:

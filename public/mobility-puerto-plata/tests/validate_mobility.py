@@ -26,6 +26,10 @@ class MobilityTests(unittest.TestCase):
         for phrase in ("No se dibuja un heatmap inventado","NO geometría GIS","NO miden tiempo a pie","FeatureCollection"):
             self.assertIn(phrase,text)
         self.assertIn("poblacion",text)
+    def test_radius_readded_after_clear(self):
+        text=HTML.read_text(encoding="utf-8")
+        self.assertIn('clearKind(kind);layers[kind]=lyr;collections.addLayer(lyr);if(kind==="stops"',text)
+        self.assertIn('id="fit"',text)
     def test_safe_data_handling(self):
         text=HTML.read_text(encoding="utf-8")
         self.assertIn("file.text()",text)
